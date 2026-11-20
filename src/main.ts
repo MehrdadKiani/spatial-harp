@@ -8,7 +8,12 @@ import { DynamicStringView } from './render/dynamic-string-view';
 import { AnchoredStringsView } from './render/anchored-strings-view';
 import { PinchDetector } from './gestures/pinch-detector';
 import { SpatialStringManager } from './instruments/spatial-string-manager';
+import { StringCollisionDetector } from './gestures/string-collision-detector';
+import { ScaleMapper } from './audio/scale-mapper';
+import { AudioEngine } from './audio/audio-engine';
 import { HUD } from './ui/hud';
+import { PluckEvent } from './types/audio';
+import { globalBus } from './core/event-bus';
 
 class App {
   private container: HTMLElement;
@@ -17,6 +22,9 @@ class App {
   private handTracker: HandTracker;
   private pinchDetector: PinchDetector;
   private spatialStringManager: SpatialStringManager;
+  private collisionDetector: StringCollisionDetector;
+  private scaleMapper: ScaleMapper;
+  private audioEngine: AudioEngine;
   private sceneManager: SceneManager;
   private skeletonView: SkeletonView;
   private dynamicStringView: DynamicStringView;
@@ -38,7 +46,17 @@ class App {
     this.dynamicStringView = new DynamicStringView(this.sceneManager);
     this.anchoredStringsView = new AnchoredStringsView(this.sceneManager, 12);
 
-    // 3. Instruments subsystem: Mid-air Spatial String Manager
+    // 3. Audio & Musical Harmony Subsystems
+    this.scaleMapper = new ScaleMapper();
+    this.audioEngine = new AudioEngine({
+      volume: -4,
+      reverbWet: 0.3,
+      delayWet: 0.12,
+      polyphony: 8,
+    });
+    this.collisionDetector = new StringCollisionDetector(this.scaleMapper);
+
+    // 4. Instruments Subsystem: Mid-air Spatial String Manager
     this.spatialStringManager = new SpatialStringManager(this.sceneManager, {
       maxStrings: 12,
       minAnchorDistance: 0.10,
@@ -48,10 +66,19 @@ class App {
       grabProximityThreshold: 0.055,
     });
 
-    // 4. UI HUD & clear callback
-    this.hud = new HUD(this.container, () => this.spatialStringManager.clearAll());
+    // 5. UI HUD & callbacks
+    this.hud = new HUD(
+      this.container,
+      () => this.spatialStringManager.clearAll(),
+      () => this.unlockAudio()
+    );
 
-    // 5. Hand tracker, gesture detector & loop ticker
+    // 6. Pluck feedback listener for HUD
+    globalBus.on<PluckEvent>('string:plucked', (event) => {
+      this.hud.setLastPluck(event.note, event.velocity);
+    });
+
+    // 7. Hand tracker, gesture detector & loop ticker
     this.handTracker = new HandTracker();
     this.pinchDetector = new PinchDetector({
       pinchThreshold: 0.055,
@@ -59,12 +86,23 @@ class App {
     });
     this.loop = new EngineLoop();
 
-    // 6. Keyboard shortcuts (C or Space to clear strings)
+    // 8. User interaction audio unlock & keyboard shortcuts
+    const handleFirstInteraction = () => this.unlockAudio();
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyC' || e.code === 'Space') {
         this.spatialStringManager.clearAll();
       }
     });
+  }
+
+  private async unlockAudio(): Promise<void> {
+    const success = await this.audioEngine.unlock();
+    if (success) {
+      this.hud.setAudioActive(true);
+    }
   }
 
   public async start(): Promise<void> {
@@ -86,7 +124,7 @@ class App {
       this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
 
       // Start main tick loop
-      this.loop.add((_delta, elapsed) => this.tick(elapsed));
+      this.loop.add((delta, elapsed) => this.tick(elapsed, delta));
       this.loop.start();
     } catch (err) {
       console.error('Initialization failed:', err);
@@ -94,7 +132,7 @@ class App {
     }
   }
 
-  private tick(elapsed: number): void {
+  private tick(elapsed: number, delta: number): void {
     if (!this.isVisionReady || !this.cameraManager.isReady) {
       this.sceneManager.render();
       return;
@@ -118,17 +156,22 @@ class App {
     const anchoredStrings = this.spatialStringManager.getStrings();
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
 
-    // 5. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
+    // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
+    const ignoreHandIds = new Set<number>();
+    activeGrabs.forEach((grab) => ignoreHandIds.add(grab.handId));
+    this.collisionDetector.update(hands, anchoredStrings, delta, nowMs, ignoreHandIds);
+
+    // 6. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
     if (!this.spatialStringManager.isAnyEndpointGrabbed) {
       this.dynamicStringView.update(gestureStates, dualPinch, videoAspect, elapsed);
     } else {
       this.dynamicStringView.setVisible(false);
     }
 
-    // 6. Update anchored spatial strings (fret marks, persistent laser lines, end nodes & grab highlights)
+    // 7. Update anchored spatial strings (fret marks, persistent laser lines, end nodes & grab highlights)
     this.anchoredStringsView.update(anchoredStrings, activeGrabs, videoAspect, elapsed);
 
-    // 7. Update HUD diagnostics
+    // 8. Update HUD diagnostics
     const handDetails = hands.map((h) => `${h.handedness}`);
     const singlePinch = gestureStates.find((g) => g.pinch.isPinching);
     const singlePinchHand = singlePinch ? singlePinch.handedness : null;
@@ -144,7 +187,7 @@ class App {
       this.spatialStringManager.isAnyEndpointGrabbed
     );
 
-    // 8. Render Three.js WebGL scene
+    // 9. Render Three.js WebGL scene
     this.sceneManager.render();
   }
 }

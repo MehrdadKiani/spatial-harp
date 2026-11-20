@@ -2,7 +2,7 @@
 
 A real-time, browser-based **Augmented Reality Laser Harp & Audio-Visual Instrument** powered by webcam hand tracking, Three.js WebGL rendering, and Web Audio/Tone.js synthesis. Built with **TypeScript** using a strictly modular, decoupled architecture.
 
-Reference video: [docs/4DD67AC2-B165-4EB3-AA5F-2C8DEF1971B9.mp4](./docs/4DD67AC2-B165-4EB3-AA5F-2C8DEF1971B9.mp4).
+Reference video: [files/sample.mp4](./files/sample.mp4).
 
 ---
 

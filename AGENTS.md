@@ -2,7 +2,7 @@
 
 This repository is a high-performance, real-time **Augmented Reality Spatial Laser Harp & Audio-Visual Instrument** built with **TypeScript**, **Three.js WebGL**, **MediaPipe HandLandmarker**, and **Tone.js**.
 
-Reference video: [`docs/4DD67AC2-B165-4EB3-AA5F-2C8DEF1971B9.mp4`](./docs/4DD67AC2-B165-4EB3-AA5F-2C8DEF1971B9.mp4).  
+Reference video: [`files/sample.mp4`](./files/sample.mp4).  
 Master documentation: [`docs/documentation.md`](./docs/documentation.md).
 
 When working in this repository, Antigravity and any contributing AI agent **MUST adhere strictly to the following architectural rules, conventions, and delivery protocols**.
@@ -67,8 +67,8 @@ Development proceeds strictly in progressive milestones from basic to advanced:
 | **Step 1** | **Core Foundation & Skeleton Tracking** | ✅ Completed | Mirrored camera feed, local MediaPipe WASM/model, 21-joint skeleton (red joints, green bones), HUD. |
 | **Step 2** | **Pinch Detection & Dynamic Elastic String** | ✅ Completed | Hysteresis pinch detection, dual-hand elastic string, ruler/fret tick marks, animated anchor reticles. |
 | **Step 3** | **Mid-Air Spatial String Anchoring** | ✅ Completed | Releasing pinch locks 3D strings with fret/ruler tick marks in space; build multi-string harp. |
-| **Step 4** | **Real-Time Audio Synthesis & Plucking Engine** | ⏳ Next Up | Finger-string collision solver, velocity-sensitive plucking, Karplus-Strong string synthesis. |
-| **Step 5** | **Visual Physics, Wave Oscillation & Sparks** | ⚪ Upcoming | Damped harmonic wave equations on plucked strings, GPU spark particle burst, UnrealBloom glow. |
+| **Step 4** | **Real-Time Audio Synthesis & Plucking Engine** | ✅ Completed | Finger-string collision solver, velocity-sensitive plucking, Karplus-Strong string synthesis. |
+| **Step 5** | **Visual Physics, Wave Oscillation & Sparks** | ⏳ Next Up | Damped harmonic wave equations on plucked strings, GPU spark particle burst, UnrealBloom glow. |
 | **Step 6** | **Modular Sound Presets & Instrument Settings** | ⚪ Upcoming | Runtime sound preset selector (Plucked Harp, Laser Synth, Ambient Chime) and musical scales. |
 
 ### Milestone Protocol:

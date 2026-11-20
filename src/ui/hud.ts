@@ -4,10 +4,13 @@ export class HUD {
   private handsDisplay: HTMLSpanElement;
   private gestureDisplay: HTMLSpanElement;
   private stringsDisplay: HTMLSpanElement;
+  private audioStatusDisplay: HTMLSpanElement;
+  private lastPluckDisplay: HTMLSpanElement;
   private statusDisplay: HTMLDivElement;
+  private audioBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
 
-  constructor(container: HTMLElement, onClear?: () => void) {
+  constructor(container: HTMLElement, onClear?: () => void, onAudioUnlock?: () => void) {
     this.element = document.createElement('div');
     this.element.id = 'hud-overlay';
 
@@ -24,10 +27,13 @@ export class HUD {
     });
 
     this.element.innerHTML = `
-      <div style="background: rgba(10, 15, 25, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 12px 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); min-width: 270px;">
+      <div style="background: rgba(10, 15, 25, 0.88); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 12px 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); min-width: 280px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <span style="font-weight: 700; font-size: 14px; letter-spacing: 0.5px; color: #00ffaa; text-transform: uppercase;">Spatial Laser Harp</span>
-          <span style="background: rgba(0, 255, 170, 0.15); color: #00ffaa; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;">STEP 3</span>
+          <div style="display: flex; gap: 6px;">
+            <button id="hud-audio-btn" style="background: rgba(255, 170, 0, 0.2); border: 1px solid rgba(255, 170, 0, 0.4); color: #ffbb33; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; cursor: pointer; pointer-events: auto; transition: background 0.2s;">🔇 Audio: Click to Enable</button>
+            <span style="background: rgba(0, 255, 170, 0.15); color: #00ffaa; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;">STEP 4</span>
+          </div>
         </div>
         <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; color: #b0c4de;">
           <span>FPS:</span>
@@ -38,6 +44,10 @@ export class HUD {
           <span id="hud-gesture" style="font-weight: 600; color: #ffffff;">None</span>
           <span>Strings:</span>
           <span id="hud-strings" style="font-weight: 600; color: #00f0ff;">0 / 12</span>
+          <span>Audio:</span>
+          <span id="hud-audio-status" style="font-weight: 600; color: #ffaa00;">Muted (Click anywhere)</span>
+          <span>Last Pluck:</span>
+          <span id="hud-last-pluck" style="font-weight: 600; color: #00ffff;">--</span>
         </div>
         <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px;">
           <div id="hud-status" style="font-size: 12px; color: #9ab; flex: 1; padding-right: 8px;">
@@ -56,7 +66,10 @@ export class HUD {
     this.handsDisplay = this.element.querySelector('#hud-hands')!;
     this.gestureDisplay = this.element.querySelector('#hud-gesture')!;
     this.stringsDisplay = this.element.querySelector('#hud-strings')!;
+    this.audioStatusDisplay = this.element.querySelector('#hud-audio-status')!;
+    this.lastPluckDisplay = this.element.querySelector('#hud-last-pluck')!;
     this.statusDisplay = this.element.querySelector('#hud-status')!;
+    this.audioBtn = this.element.querySelector('#hud-audio-btn')!;
     this.clearBtn = this.element.querySelector('#hud-clear-btn')!;
 
     if (onClear) {
@@ -66,12 +79,50 @@ export class HUD {
       });
     }
 
+    if (onAudioUnlock) {
+      this.audioBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAudioUnlock();
+      });
+    }
+
     this.clearBtn.addEventListener('mouseenter', () => {
       this.clearBtn.style.background = 'rgba(255, 68, 68, 0.35)';
     });
     this.clearBtn.addEventListener('mouseleave', () => {
       this.clearBtn.style.background = 'rgba(255, 68, 68, 0.18)';
     });
+  }
+
+  public setAudioActive(active: boolean): void {
+    if (active) {
+      this.audioBtn.textContent = '🔊 Audio: Active';
+      this.audioBtn.style.background = 'rgba(0, 255, 170, 0.2)';
+      this.audioBtn.style.borderColor = 'rgba(0, 255, 170, 0.4)';
+      this.audioBtn.style.color = '#00ffaa';
+      this.audioStatusDisplay.textContent = 'Ready (Karplus-Strong)';
+      this.audioStatusDisplay.style.color = '#00ffaa';
+    } else {
+      this.audioBtn.textContent = '🔇 Audio: Click to Enable';
+      this.audioBtn.style.background = 'rgba(255, 170, 0, 0.2)';
+      this.audioBtn.style.borderColor = 'rgba(255, 170, 0, 0.4)';
+      this.audioBtn.style.color = '#ffbb33';
+      this.audioStatusDisplay.textContent = 'Muted (Click anywhere)';
+      this.audioStatusDisplay.style.color = '#ffaa00';
+    }
+  }
+
+  public setLastPluck(note: string, velocity: number): void {
+    const pct = Math.round(velocity * 100);
+    this.lastPluckDisplay.textContent = `${note} (${pct}%)`;
+    this.lastPluckDisplay.style.color = '#ffffff';
+
+    // Flash cyan on pluck
+    setTimeout(() => {
+      if (this.lastPluckDisplay) {
+        this.lastPluckDisplay.style.color = '#00f0ff';
+      }
+    }, 150);
   }
 
   public update(
@@ -95,7 +146,7 @@ export class HUD {
       this.handsDisplay.style.color = '#ff6666';
       this.gestureDisplay.textContent = 'None';
       this.statusDisplay.textContent = stringsCount > 0
-        ? `${stringsCount} string(s) anchored in space. Raise hands to stretch or adjust.`
+        ? `${stringsCount} string(s) ready to pluck! Raise hands to play or stretch more.`
         : 'Raise your hands in front of the camera';
       return;
     }
@@ -118,10 +169,10 @@ export class HUD {
         ? 'Pinch near any string tip to grab & move it, or pinch other hand to add a string'
         : 'Pinch with other hand to connect the laser string';
     } else {
-      this.gestureDisplay.textContent = 'Open Hand';
-      this.gestureDisplay.style.color = '#b0c4de';
+      this.gestureDisplay.textContent = 'Open Hand (Plucking)';
+      this.gestureDisplay.style.color = '#00ffaa';
       this.statusDisplay.textContent = stringsCount > 0
-        ? `Harp active (${stringsCount} strings). Pinch a tip to reposition, or both hands to add another.`
+        ? `🎶 Swipe fingertips across the strings to play! (${stringsCount} strings active)`
         : 'Pinch thumb & index finger on both hands to stretch a string';
     }
   }
