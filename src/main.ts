@@ -63,6 +63,7 @@ class App {
       reverbWet: 0.3,
       delayWet: 0.12,
       polyphony: 8,
+      preset: 'harp',
     });
     this.collisionDetector = new StringCollisionDetector(this.scaleMapper);
 
@@ -80,7 +81,9 @@ class App {
     this.hud = new HUD(
       this.container,
       () => this.spatialStringManager.clearAll(),
-      () => this.unlockAudio()
+      () => this.unlockAudio(),
+      (preset) => this.audioEngine.setPreset(preset),
+      (scale) => this.scaleMapper.setScaleById(scale)
     );
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics & Spark VFX

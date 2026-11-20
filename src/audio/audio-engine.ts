@@ -1,12 +1,43 @@
 import * as Tone from 'tone';
-import { AudioEngineConfig, PluckEvent } from '../types/audio';
+import { AudioEngineConfig, PluckEvent, SoundPresetId, SoundPresetInfo } from '../types/audio';
 import { globalBus } from '../core/event-bus';
+
+export const PRESETS: Record<SoundPresetId, SoundPresetInfo> = {
+  harp: {
+    id: 'harp',
+    label: 'Plucked Harp (Acoustic)',
+    description: 'Physical Karplus-Strong string modeling with natural acoustic dampening',
+  },
+  laser: {
+    id: 'laser',
+    label: 'Laser Synth (Sci-Fi)',
+    description: 'Futuristic saw wave synth with resonant space delay sweeps',
+  },
+  chime: {
+    id: 'chime',
+    label: 'Ambient Chime (FM Bell)',
+    description: 'Inharmonic metallic bells suspended in lush ethereal reverb',
+  },
+  retro8bit: {
+    id: 'retro8bit',
+    label: 'Retro 8-Bit (Arcade)',
+    description: 'Crisp square wave chiptune synth with punchy arcade transients',
+  },
+};
 
 export class AudioEngine {
   private isAudioStarted = false;
-  private voicePool: Tone.PluckSynth[] = [];
+  private currentPresetId: SoundPresetId = 'harp';
   private poolSize: number;
-  private nextVoice = 0;
+
+  // 1. Karplus-Strong Physical PluckSynth Voice Pool
+  private harpVoicePool: Tone.PluckSynth[] = [];
+  private nextHarpVoice = 0;
+
+  // 2. Synthesizer engines for other presets
+  private laserSynth: Tone.PolySynth;
+  private chimeSynth: Tone.PolySynth;
+  private retro8bitSynth: Tone.PolySynth;
 
   // Audio FX Chain
   private mainVolume: Tone.Volume;
@@ -16,6 +47,7 @@ export class AudioEngine {
 
   constructor(config: AudioEngineConfig = {}) {
     this.poolSize = config.polyphony ?? 8;
+    this.currentPresetId = config.preset ?? 'harp';
     const volumeDb = config.volume ?? -4;
     const reverbWet = config.reverbWet ?? 0.3;
     const delayWet = config.delayWet ?? 0.12;
@@ -45,10 +77,58 @@ export class AudioEngine {
         resonance: 0.96,
       });
       synth.connect(this.mainVolume);
-      this.voicePool.push(synth);
+      this.harpVoicePool.push(synth);
     }
 
-    // 3. Subscribe to decoupled pluck events via EventBus
+    // 3. Laser Synth: Polyphonic Sawtooth Synth with fast punchy decay
+    this.laserSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'sawtooth' },
+      envelope: {
+        attack: 0.005,
+        decay: 0.32,
+        sustain: 0.0,
+        release: 0.25,
+      },
+    });
+    this.laserSynth.connect(this.mainVolume);
+
+    // 4. Ambient Chime: Polyphonic FM Synth with inharmonic bell ratios
+    this.chimeSynth = new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 3.01,
+      modulationIndex: 12,
+      oscillator: { type: 'sine' },
+      envelope: {
+        attack: 0.003,
+        decay: 2.4,
+        sustain: 0.04,
+        release: 2.8,
+      },
+      modulation: { type: 'sine' },
+      modulationEnvelope: {
+        attack: 0.005,
+        decay: 0.8,
+        sustain: 0.0,
+        release: 1.2,
+      },
+    });
+    this.chimeSynth.connect(this.mainVolume);
+
+    // 5. Retro 8-Bit: Polyphonic Square Wave Chiptune Synth
+    this.retro8bitSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'square' },
+      envelope: {
+        attack: 0.001,
+        decay: 0.16,
+        sustain: 0.0,
+        release: 0.1,
+      },
+    });
+    this.retro8bitSynth.connect(this.mainVolume);
+
+    // Apply initial preset FX profile
+    this.applyPresetFx(this.currentPresetId);
+
+    // Subscribe to decoupled pluck events via EventBus
     globalBus.on<PluckEvent>('string:plucked', (event) => {
       this.triggerPluck(event);
     });
@@ -75,29 +155,98 @@ export class AudioEngine {
   }
 
   /**
-   * Synthesizes physical Karplus-Strong string pluck
+   * Switches the active instrument preset and adjusts FX parameters
+   */
+  public setPreset(presetId: SoundPresetId): void {
+    if (!PRESETS[presetId]) return;
+    this.currentPresetId = presetId;
+    this.applyPresetFx(presetId);
+  }
+
+  private applyPresetFx(presetId: SoundPresetId): void {
+    switch (presetId) {
+      case 'harp':
+        this.delay.wet.value = 0.12;
+        this.delay.delayTime.value = '8n.';
+        this.delay.feedback.value = 0.22;
+        this.reverb.wet.value = 0.3;
+        this.reverb.decay = 2.6;
+        break;
+
+      case 'laser':
+        this.delay.wet.value = 0.32;
+        this.delay.delayTime.value = '16n.';
+        this.delay.feedback.value = 0.40;
+        this.reverb.wet.value = 0.24;
+        this.reverb.decay = 1.8;
+        break;
+
+      case 'chime':
+        this.delay.wet.value = 0.22;
+        this.delay.delayTime.value = '8n';
+        this.delay.feedback.value = 0.28;
+        this.reverb.wet.value = 0.50;
+        this.reverb.decay = 4.2;
+        break;
+
+      case 'retro8bit':
+        this.delay.wet.value = 0.08;
+        this.delay.delayTime.value = '16n';
+        this.delay.feedback.value = 0.15;
+        this.reverb.wet.value = 0.10;
+        this.reverb.decay = 1.0;
+        break;
+    }
+  }
+
+  /**
+   * Synthesizes audio using the selected preset engine
    */
   public triggerPluck(event: PluckEvent): void {
     if (!this.isAudioStarted) return;
 
-    const voice = this.voicePool[this.nextVoice];
-    this.nextVoice = (this.nextVoice + 1) % this.poolSize;
-
     // Clamp velocity to audible range [0.25 .. 1.0]
     const vel = Math.max(0.25, Math.min(1.0, event.velocity));
 
-    // Dynamic Karplus-Strong velocity mapping:
-    // Scale volume with gainToDb for natural acoustic dynamics
-    voice.volume.value = Tone.gainToDb(vel);
-    voice.attackNoise = 0.5 + vel * 2.0;
-    voice.resonance = Math.min(0.98, 0.92 + vel * 0.05);
+    switch (this.currentPresetId) {
+      case 'harp': {
+        const voice = this.harpVoicePool[this.nextHarpVoice];
+        this.nextHarpVoice = (this.nextHarpVoice + 1) % this.poolSize;
 
-    // Trigger physical acoustic plucked string
-    voice.triggerAttack(event.frequency);
+        voice.volume.value = Tone.gainToDb(vel);
+        voice.attackNoise = 0.5 + vel * 2.0;
+        voice.resonance = Math.min(0.98, 0.92 + vel * 0.05);
+        voice.triggerAttack(event.frequency);
+        break;
+      }
+
+      case 'laser': {
+        this.laserSynth.triggerAttackRelease(event.note, '16n', undefined, vel);
+        break;
+      }
+
+      case 'chime': {
+        this.chimeSynth.triggerAttackRelease(event.note, '2n', undefined, vel * 0.85);
+        break;
+      }
+
+      case 'retro8bit': {
+        this.retro8bitSynth.triggerAttackRelease(event.note, '16n', undefined, vel * 0.9);
+        break;
+      }
+    }
   }
 
   public get isReady(): boolean {
     return this.isAudioStarted && Tone.context.state === 'running';
+  }
+
+  public get currentPreset(): SoundPresetId {
+    return this.currentPresetId;
+  }
+
+  public getPresets(): SoundPresetInfo[] {
+    return Object.values(PRESETS);
   }
 
   public setVolume(volumeDb: number): void {

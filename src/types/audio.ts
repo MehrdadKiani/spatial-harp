@@ -10,9 +10,27 @@ export interface PluckEvent {
   timestamp: number;
 }
 
+export type SoundPresetId = 'harp' | 'laser' | 'chime' | 'retro8bit';
+
+export interface SoundPresetInfo {
+  id: SoundPresetId;
+  label: string;
+  description: string;
+}
+
+export type MusicalScaleId = 'pentatonic' | 'minor' | 'hirajoshi' | 'major' | 'blues';
+
+export interface MusicalScaleInfo {
+  id: MusicalScaleId;
+  label: string;
+  notes: string[];
+  description: string;
+}
+
 export interface AudioEngineConfig {
   volume?: number;       // Master volume in dB (default: -4 dB)
   reverbWet?: number;    // Reverb mix 0..1 (default: 0.3)
   delayWet?: number;     // Delay mix 0..1 (default: 0.12)
   polyphony?: number;    // Simultaneous voices (default: 8)
+  preset?: SoundPresetId;
 }
