@@ -32,7 +32,7 @@ export class HUD {
           <span style="font-weight: 700; font-size: 14px; letter-spacing: 0.5px; color: #00ffaa; text-transform: uppercase;">Spatial Laser Harp</span>
           <div style="display: flex; gap: 6px;">
             <button id="hud-audio-btn" style="background: rgba(255, 170, 0, 0.2); border: 1px solid rgba(255, 170, 0, 0.4); color: #ffbb33; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; cursor: pointer; pointer-events: auto; transition: background 0.2s;">🔇 Audio: Click to Enable</button>
-            <span style="background: rgba(0, 255, 170, 0.15); color: #00ffaa; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;">STEP 4</span>
+            <span style="background: rgba(0, 255, 170, 0.15); color: #00ffaa; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;">STEP 5</span>
           </div>
         </div>
         <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; color: #b0c4de;">

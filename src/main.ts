@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { EngineLoop } from './core/loop';
 import { CameraManager } from './vision/camera-manager';
 import { HandTracker } from './vision/hand-tracker';
@@ -6,6 +7,7 @@ import { VideoBackground } from './render/video-background';
 import { SkeletonView } from './render/skeleton-view';
 import { DynamicStringView } from './render/dynamic-string-view';
 import { AnchoredStringsView } from './render/anchored-strings-view';
+import { SparkParticlePool } from './render/spark-particle-pool';
 import { PinchDetector } from './gestures/pinch-detector';
 import { SpatialStringManager } from './instruments/spatial-string-manager';
 import { StringCollisionDetector } from './gestures/string-collision-detector';
@@ -29,9 +31,16 @@ class App {
   private skeletonView: SkeletonView;
   private dynamicStringView: DynamicStringView;
   private anchoredStringsView: AnchoredStringsView;
+  private sparkParticlePool: SparkParticlePool;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
+  private currentElapsed = 0;
+
+  // Reusable scratch vectors for spark burst calculations (zero-GC)
+  private sparkOrigin = new THREE.Vector3();
+  private sparkNormal = new THREE.Vector3();
+  private sparkDir = new THREE.Vector3();
 
   constructor() {
     this.container = document.getElementById('app') || document.body;
@@ -40,11 +49,12 @@ class App {
     this.videoBackground = new VideoBackground(this.container);
     this.cameraManager = new CameraManager(this.videoBackground.videoElement);
 
-    // 2. Three.js Scene, Skeleton & String visualizers
+    // 2. Three.js Scene, Post-Processing Bloom & Visual Pools
     this.sceneManager = new SceneManager(this.container);
     this.skeletonView = new SkeletonView(this.sceneManager);
     this.dynamicStringView = new DynamicStringView(this.sceneManager);
     this.anchoredStringsView = new AnchoredStringsView(this.sceneManager, 12);
+    this.sparkParticlePool = new SparkParticlePool(this.sceneManager.scene);
 
     // 3. Audio & Musical Harmony Subsystems
     this.scaleMapper = new ScaleMapper();
@@ -73,9 +83,36 @@ class App {
       () => this.unlockAudio()
     );
 
-    // 6. Pluck feedback listener for HUD
+    // 6. Pluck feedback listener: HUD, Harmonic Wave Physics & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {
       this.hud.setLastPluck(event.note, event.velocity);
+
+      // Trigger harmonic wave ripple on the string
+      this.anchoredStringsView.triggerPluck(
+        event.stringId,
+        event.velocity,
+        event.contactRatio,
+        this.currentElapsed
+      );
+
+      // Trigger radial spark particle burst at contact point
+      const targetStr = this.spatialStringManager.getStrings().find((s) => s.id === event.stringId);
+      if (targetStr) {
+        const videoAspect = this.cameraManager.aspectRatio;
+        const w1 = this.sceneManager.toWorldCoords(targetStr.point1.x, targetStr.point1.y, targetStr.point1.z, videoAspect);
+        const w2 = this.sceneManager.toWorldCoords(targetStr.point2.x, targetStr.point2.y, targetStr.point2.z, videoAspect);
+
+        this.sparkOrigin.lerpVectors(w1, w2, event.contactRatio);
+        this.sparkDir.subVectors(w2, w1).normalize();
+        this.sparkNormal.set(-this.sparkDir.y, this.sparkDir.x, 0).normalize();
+
+        this.sparkParticlePool.emitBurst(
+          this.sparkOrigin,
+          this.sparkNormal,
+          targetStr.color,
+          event.velocity
+        );
+      }
     });
 
     // 7. Hand tracker, gesture detector & loop ticker
@@ -133,6 +170,8 @@ class App {
   }
 
   private tick(elapsed: number, delta: number): void {
+    this.currentElapsed = elapsed;
+
     if (!this.isVisionReady || !this.cameraManager.isReady) {
       this.sceneManager.render();
       return;
@@ -168,10 +207,13 @@ class App {
       this.dynamicStringView.setVisible(false);
     }
 
-    // 7. Update anchored spatial strings (fret marks, persistent laser lines, end nodes & grab highlights)
+    // 7. Update anchored spatial strings (fret marks, standing wave ripples, end nodes & grab highlights)
     this.anchoredStringsView.update(anchoredStrings, activeGrabs, videoAspect, elapsed);
 
-    // 8. Update HUD diagnostics
+    // 8. Update GPU spark particles physics
+    this.sparkParticlePool.update(delta);
+
+    // 9. Update HUD diagnostics
     const handDetails = hands.map((h) => `${h.handedness}`);
     const singlePinch = gestureStates.find((g) => g.pinch.isPinching);
     const singlePinchHand = singlePinch ? singlePinch.handedness : null;
@@ -187,7 +229,7 @@ class App {
       this.spatialStringManager.isAnyEndpointGrabbed
     );
 
-    // 9. Render Three.js WebGL scene
+    // 10. Render Three.js WebGL scene with UnrealBloom post-processing
     this.sceneManager.render();
   }
 }

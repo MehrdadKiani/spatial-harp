@@ -68,8 +68,8 @@ Development proceeds strictly in progressive milestones from basic to advanced:
 | **Step 2** | **Pinch Detection & Dynamic Elastic String** | ✅ Completed | Hysteresis pinch detection, dual-hand elastic string, ruler/fret tick marks, animated anchor reticles. |
 | **Step 3** | **Mid-Air Spatial String Anchoring** | ✅ Completed | Releasing pinch locks 3D strings with fret/ruler tick marks in space; build multi-string harp. |
 | **Step 4** | **Real-Time Audio Synthesis & Plucking Engine** | ✅ Completed | Finger-string collision solver, velocity-sensitive plucking, Karplus-Strong string synthesis. |
-| **Step 5** | **Visual Physics, Wave Oscillation & Sparks** | ⏳ Next Up | Damped harmonic wave equations on plucked strings, GPU spark particle burst, UnrealBloom glow. |
-| **Step 6** | **Modular Sound Presets & Instrument Settings** | ⚪ Upcoming | Runtime sound preset selector (Plucked Harp, Laser Synth, Ambient Chime) and musical scales. |
+| **Step 5** | **Visual Physics, Wave Oscillation & Sparks** | ✅ Completed | Damped harmonic wave equations on plucked strings, GPU spark particle burst, UnrealBloom glow. |
+| **Step 6** | **Modular Sound Presets & Instrument Settings** | ⏳ Next Up | Runtime sound preset selector (Plucked Harp, Laser Synth, Ambient Chime) and musical scales. |
 
 ### Milestone Protocol:
 1. Focus only on the active step. Do not jump ahead without user alignment.

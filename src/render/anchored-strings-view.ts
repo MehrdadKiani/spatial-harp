@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { AnchoredString, EndpointGrabState } from '../types/instruments';
+import { StringVibrationState } from '../types/physics';
 import { SceneManager } from './scene-manager';
 
 export class AnchoredStringsView {
@@ -7,6 +8,10 @@ export class AnchoredStringsView {
   private sceneManager: SceneManager;
   private maxStrings: number;
   private maxTicksPerString = 30;
+
+  // Tessellation for wave vibration physics (32 segments = 33 vertices per string)
+  private segmentsPerString = 32;
+  private verticesPerString = 33;
 
   // Pre-allocated Pools (Zero-GC)
   private stringLines: THREE.Line[] = [];
@@ -17,6 +22,9 @@ export class AnchoredStringsView {
   // End-cap anchor node meshes (2 nodes per string * 12 = 24 nodes)
   private anchorNodes: THREE.Mesh[] = [];
 
+  // Active wave vibrations map (stringId -> StringVibrationState)
+  private vibrations = new Map<string, StringVibrationState>();
+
   // Reusable scratch vectors to avoid per-frame allocations
   private scratchP1 = new THREE.Vector3();
   private scratchP2 = new THREE.Vector3();
@@ -25,6 +33,7 @@ export class AnchoredStringsView {
   private scratchCenter = new THREE.Vector3();
   private scratchTop = new THREE.Vector3();
   private scratchBtm = new THREE.Vector3();
+  private scratchVert = new THREE.Vector3();
 
   constructor(sceneManager: SceneManager, maxStrings = 12) {
     this.sceneManager = sceneManager;
@@ -35,8 +44,8 @@ export class AnchoredStringsView {
     const anchorGeom = new THREE.CircleGeometry(0.009, 16);
 
     for (let i = 0; i < this.maxStrings; i++) {
-      // 1. String line mesh
-      const pos = new Float32Array(2 * 3);
+      // 1. Tessellated string line mesh (33 vertices for standing wave ripple)
+      const pos = new Float32Array(this.verticesPerString * 3);
       this.stringLinePositions.push(pos);
       const geom = new THREE.BufferGeometry();
       geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -44,7 +53,7 @@ export class AnchoredStringsView {
         color: 0x00f0ff,
         linewidth: 2.5,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.92,
         depthTest: false,
       });
       const line = new THREE.Line(geom, mat);
@@ -83,6 +92,23 @@ export class AnchoredStringsView {
     }
   }
 
+  /**
+   * Triggers damped harmonic standing wave vibration on a plucked string
+   */
+  public triggerPluck(stringId: string, velocity: number, contactRatio: number, elapsed: number): void {
+    const initialAmplitude = 0.016 * Math.min(1.0, Math.max(0.35, velocity));
+    this.vibrations.set(stringId, {
+      stringId,
+      initialAmplitude,
+      amplitude: initialAmplitude,
+      frequency: 28.0, // Visual ripple frequency in rad/s
+      damping: 3.6,    // Exponential decay factor (~900ms decay)
+      startTime: elapsed,
+      contactRatio,
+      active: true,
+    });
+  }
+
   public update(
     strings: AnchoredString[],
     activeGrabs: EndpointGrabState[],
@@ -100,7 +126,6 @@ export class AnchoredStringsView {
     strings.forEach((str, idx) => {
       if (idx >= this.maxStrings) return;
 
-      // Re-calculate world coordinates from normalized points to ensure proper aspect fit
       const p1 = this.scratchP1;
       const p2 = this.scratchP2;
       const w1 = this.sceneManager.toWorldCoords(str.point1.x, str.point1.y, str.point1.z, videoAspect);
@@ -108,15 +133,51 @@ export class AnchoredStringsView {
       p1.copy(w1);
       p2.copy(w2);
 
-      // Update main string line
+      // Compute string direction and perpendicular normal
+      const dir = this.scratchDir.subVectors(p2, p1);
+      const length = dir.length();
+      dir.normalize();
+
+      // Perpendicular normal in 2D plane: (-dy, dx, 0)
+      const normal = this.scratchNormal.set(-dir.y, dir.x, 0).normalize();
+
+      // Check active harmonic wave vibration state
+      const vib = this.vibrations.get(str.id);
+      let isVibrating = false;
+      let timeSincePluck = 0;
+
+      if (vib && vib.active) {
+        timeSincePluck = elapsed - vib.startTime;
+        if (timeSincePluck < 1.0) {
+          isVibrating = true;
+        } else {
+          vib.active = false;
+          this.vibrations.delete(str.id);
+        }
+      }
+
+      // Update tessellated string line (33 vertices) with standing harmonic wave equation
       const lineMesh = this.stringLines[idx];
       const linePos = this.stringLinePositions[idx];
-      linePos[0] = p1.x;
-      linePos[1] = p1.y;
-      linePos[2] = p1.z;
-      linePos[3] = p2.x;
-      linePos[4] = p2.y;
-      linePos[5] = p2.z;
+      let linePtr = 0;
+
+      for (let v = 0; v < this.verticesPerString; v++) {
+        const u = v / this.segmentsPerString; // 0.0 to 1.0 along string
+        const base = this.scratchVert.lerpVectors(p1, p2, u);
+
+        if (isVibrating && vib) {
+          // Standing wave equation: fundamental + 2nd harmonic
+          const fundamental = Math.sin(Math.PI * u) * Math.cos(vib.frequency * timeSincePluck) * Math.exp(-vib.damping * timeSincePluck);
+          const secondHarmonic = 0.45 * Math.sin(2 * Math.PI * u) * Math.cos(2 * vib.frequency * timeSincePluck) * Math.exp(-1.6 * vib.damping * timeSincePluck);
+          const displacement = vib.initialAmplitude * (fundamental + secondHarmonic);
+
+          base.addScaledVector(normal, displacement);
+        }
+
+        linePos[linePtr++] = base.x;
+        linePos[linePtr++] = base.y;
+        linePos[linePtr++] = base.z;
+      }
 
       (lineMesh.material as THREE.LineBasicMaterial).color.setHex(str.color);
       (lineMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
@@ -132,7 +193,6 @@ export class AnchoredStringsView {
       node1.position.copy(p1);
       node2.position.copy(p2);
 
-      // Visual feedback for grabbed node vs passive node
       if (isP1Grabbed) {
         (node1.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
         const grabScale = 1.8 + 0.2 * Math.sin(elapsed * 8.0);
@@ -156,13 +216,7 @@ export class AnchoredStringsView {
       node1.visible = true;
       node2.visible = true;
 
-      // Update graduated fret tick marks
-      const dir = this.scratchDir.subVectors(p2, p1);
-      const length = dir.length();
-      dir.normalize();
-
-      // Perpendicular normal: (-dy, dx, 0)
-      const normal = this.scratchNormal.set(-dir.y, dir.x, 0).normalize();
+      // Update graduated fret tick marks (vibrating in sync with the wave)
       const numTicks = Math.min(this.maxTicksPerString, Math.max(8, Math.floor(length * 35)));
       const tickLine = this.tickLines[idx];
       const tickPos = this.tickPositions[idx];
@@ -171,6 +225,12 @@ export class AnchoredStringsView {
       for (let t = 0; t < numTicks; t++) {
         const factor = (t + 1) / (numTicks + 1);
         const center = this.scratchCenter.lerpVectors(p1, p2, factor);
+
+        if (isVibrating && vib) {
+          const waveDisp = vib.initialAmplitude * Math.sin(Math.PI * factor) * Math.cos(vib.frequency * timeSincePluck) * Math.exp(-vib.damping * timeSincePluck);
+          center.addScaledVector(normal, waveDisp);
+        }
+
         const isMajor = t === Math.floor(numTicks / 2) || t % 4 === 0;
         const tickHeight = isMajor ? 0.014 : 0.007;
 
