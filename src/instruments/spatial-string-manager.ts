@@ -22,10 +22,14 @@ export class SpatialStringManager {
   private maxStrings: number;
   private minAnchorDistance: number;
   private minStretchDurationMs: number;
+  private releaseGraceMs: number;
+  private cooldownMs: number;
 
-  // Anchoring state machine tracking
-  private wasDualPinching = false;
+  // Robust anchoring state machine with debounce & flicker suppression
+  private isStretching = false;
   private stretchStartTime = 0;
+  private releaseStartTime = 0;
+  private lastAnchorTime = 0;
   private lastPoint1: Point3D | null = null;
   private lastPoint2: Point3D | null = null;
   private nextId = 1;
@@ -35,6 +39,8 @@ export class SpatialStringManager {
     this.maxStrings = config.maxStrings ?? 12;
     this.minAnchorDistance = config.minAnchorDistance ?? 0.10;
     this.minStretchDurationMs = config.minStretchDurationMs ?? 150;
+    this.releaseGraceMs = config.releaseGraceMs ?? 120;
+    this.cooldownMs = config.cooldownMs ?? 350;
   }
 
   public update(
@@ -45,34 +51,52 @@ export class SpatialStringManager {
     let newlyAnchored: AnchoredString | null = null;
 
     if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
-      if (!this.wasDualPinching) {
-        // Dual pinch just started
-        this.wasDualPinching = true;
-        this.stretchStartTime = nowMs;
+      // If we were in a pending release grace window, cancel it — motion blur tracking flicker absorbed
+      if (this.releaseStartTime > 0) {
+        this.releaseStartTime = 0;
       }
-      // Keep tracking latest pinch midpoints
-      this.lastPoint1 = { ...dualPinch.point1 };
-      this.lastPoint2 = { ...dualPinch.point2 };
-    } else {
-      // Transition from dual pinch active -> released
-      if (this.wasDualPinching && this.lastPoint1 && this.lastPoint2) {
-        const stretchDuration = nowMs - this.stretchStartTime;
 
-        // Calculate normalized 3D distance between pinch points
-        const dx = this.lastPoint1.x - this.lastPoint2.x;
-        const dy = this.lastPoint1.y - this.lastPoint2.y;
-        const dz = (this.lastPoint1.z - this.lastPoint2.z) * 0.5;
-        const normDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        // Validate threshold: minimum distance & duration to prevent accidental noise
-        if (normDistance >= this.minAnchorDistance && stretchDuration >= this.minStretchDurationMs) {
-          newlyAnchored = this.anchorString(this.lastPoint1, this.lastPoint2, videoAspect, nowMs);
+      if (!this.isStretching) {
+        // Enforce cooldown after a previous anchor to prevent rapid duplicate spawns
+        if (nowMs - this.lastAnchorTime >= this.cooldownMs) {
+          this.isStretching = true;
+          this.stretchStartTime = nowMs;
         }
       }
 
-      this.wasDualPinching = false;
-      this.lastPoint1 = null;
-      this.lastPoint2 = null;
+      if (this.isStretching) {
+        this.lastPoint1 = { ...dualPinch.point1 };
+        this.lastPoint2 = { ...dualPinch.point2 };
+      }
+    } else {
+      // Dual pinch is not currently detected
+      if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
+        if (this.releaseStartTime === 0) {
+          // Start the release grace window
+          this.releaseStartTime = nowMs;
+        } else if (nowMs - this.releaseStartTime >= this.releaseGraceMs) {
+          // Grace window expired — this is a confirmed, intentional release
+          const stretchDuration = this.releaseStartTime - this.stretchStartTime;
+
+          // Calculate normalized 3D distance between pinch points
+          const dx = this.lastPoint1.x - this.lastPoint2.x;
+          const dy = this.lastPoint1.y - this.lastPoint2.y;
+          const dz = (this.lastPoint1.z - this.lastPoint2.z) * 0.5;
+          const normDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          // Validate thresholds: minimum distance & duration to prevent noise
+          if (normDistance >= this.minAnchorDistance && stretchDuration >= this.minStretchDurationMs) {
+            newlyAnchored = this.anchorString(this.lastPoint1, this.lastPoint2, videoAspect, nowMs);
+            this.lastAnchorTime = nowMs;
+          }
+
+          // Reset stretching state after confirmed release
+          this.isStretching = false;
+          this.releaseStartTime = 0;
+          this.lastPoint1 = null;
+          this.lastPoint2 = null;
+        }
+      }
     }
 
     return newlyAnchored;
@@ -121,6 +145,10 @@ export class SpatialStringManager {
   public clearAll(): void {
     const count = this.strings.length;
     this.strings = [];
+    this.isStretching = false;
+    this.releaseStartTime = 0;
+    this.lastPoint1 = null;
+    this.lastPoint2 = null;
     globalBus.emit('string:cleared', { count });
   }
 
