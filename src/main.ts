@@ -43,6 +43,9 @@ class App {
       maxStrings: 12,
       minAnchorDistance: 0.10,
       minStretchDurationMs: 150,
+      releaseGraceMs: 120,
+      cooldownMs: 350,
+      grabProximityThreshold: 0.055,
     });
 
     // 4. UI HUD & clear callback
@@ -110,15 +113,20 @@ class App {
     // 3. Gesture recognition: Pinch detection & dual-hand connection
     const { gestureStates, dualPinch } = this.pinchDetector.detectDualPinch(hands);
 
-    // 4. Instruments: Spatial String Anchoring State Machine
-    this.spatialStringManager.update(dualPinch, videoAspect, nowMs);
+    // 4. Instruments: Spatial String Anchoring & Endpoint Grab/Repositioning
+    this.spatialStringManager.update(gestureStates, dualPinch, videoAspect, nowMs);
     const anchoredStrings = this.spatialStringManager.getStrings();
+    const activeGrabs = this.spatialStringManager.getActiveGrabs();
 
-    // 5. Update dynamic preview string & pinch anchor reticles
-    this.dynamicStringView.update(gestureStates, dualPinch, videoAspect, elapsed);
+    // 5. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
+    if (!this.spatialStringManager.isAnyEndpointGrabbed) {
+      this.dynamicStringView.update(gestureStates, dualPinch, videoAspect, elapsed);
+    } else {
+      this.dynamicStringView.setVisible(false);
+    }
 
-    // 6. Update anchored spatial strings (fret marks, persistent laser lines, end nodes)
-    this.anchoredStringsView.update(anchoredStrings, videoAspect, elapsed);
+    // 6. Update anchored spatial strings (fret marks, persistent laser lines, end nodes & grab highlights)
+    this.anchoredStringsView.update(anchoredStrings, activeGrabs, videoAspect, elapsed);
 
     // 7. Update HUD diagnostics
     const handDetails = hands.map((h) => `${h.handedness}`);
@@ -132,7 +140,8 @@ class App {
       dualPinch.isDualPinch,
       singlePinchHand,
       anchoredStrings.length,
-      this.spatialStringManager.maxCapacity
+      this.spatialStringManager.maxCapacity,
+      this.spatialStringManager.isAnyEndpointGrabbed
     );
 
     // 8. Render Three.js WebGL scene

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { AnchoredString } from '../types/instruments';
+import { AnchoredString, EndpointGrabState } from '../types/instruments';
 import { SceneManager } from './scene-manager';
 
 export class AnchoredStringsView {
@@ -83,7 +83,12 @@ export class AnchoredStringsView {
     }
   }
 
-  public update(strings: AnchoredString[], videoAspect: number, elapsed: number): void {
+  public update(
+    strings: AnchoredString[],
+    activeGrabs: EndpointGrabState[],
+    videoAspect: number,
+    elapsed: number
+  ): void {
     // Hide all meshes first
     for (let i = 0; i < this.maxStrings; i++) {
       this.stringLines[i].visible = false;
@@ -117,18 +122,37 @@ export class AnchoredStringsView {
       (lineMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       lineMesh.visible = true;
 
+      // Check if endpoints are currently grabbed
+      const isP1Grabbed = activeGrabs.some((g) => g.stringId === str.id && g.endpoint === 'p1');
+      const isP2Grabbed = activeGrabs.some((g) => g.stringId === str.id && g.endpoint === 'p2');
+
       // Update end anchor nodes
       const node1 = this.anchorNodes[idx * 2];
       const node2 = this.anchorNodes[idx * 2 + 1];
       node1.position.copy(p1);
       node2.position.copy(p2);
-      (node1.material as THREE.MeshBasicMaterial).color.setHex(str.color);
-      (node2.material as THREE.MeshBasicMaterial).color.setHex(str.color);
 
-      // Subtle breathing pulse for anchor nodes
-      const scale = 1.0 + 0.15 * Math.sin(elapsed * 3.0 + idx);
-      node1.scale.setScalar(scale);
-      node2.scale.setScalar(scale);
+      // Visual feedback for grabbed node vs passive node
+      if (isP1Grabbed) {
+        (node1.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
+        const grabScale = 1.8 + 0.2 * Math.sin(elapsed * 8.0);
+        node1.scale.setScalar(grabScale);
+      } else {
+        (node1.material as THREE.MeshBasicMaterial).color.setHex(str.color);
+        const normalScale = 1.0 + 0.15 * Math.sin(elapsed * 3.0 + idx);
+        node1.scale.setScalar(normalScale);
+      }
+
+      if (isP2Grabbed) {
+        (node2.material as THREE.MeshBasicMaterial).color.setHex(0xffffff);
+        const grabScale = 1.8 + 0.2 * Math.sin(elapsed * 8.0);
+        node2.scale.setScalar(grabScale);
+      } else {
+        (node2.material as THREE.MeshBasicMaterial).color.setHex(str.color);
+        const normalScale = 1.0 + 0.15 * Math.sin(elapsed * 3.0 + idx);
+        node2.scale.setScalar(normalScale);
+      }
+
       node1.visible = true;
       node2.visible = true;
 
@@ -150,7 +174,7 @@ export class AnchoredStringsView {
         const isMajor = t === Math.floor(numTicks / 2) || t % 4 === 0;
         const tickHeight = isMajor ? 0.014 : 0.007;
 
-        const top = this.scratchTop.addVectors(center, this.scratchNormal).copy(center).addScaledVector(normal, tickHeight);
+        const top = this.scratchTop.copy(center).addScaledVector(normal, tickHeight);
         const btm = this.scratchBtm.copy(center).addScaledVector(normal, -tickHeight);
 
         tickPos[ptr++] = top.x;

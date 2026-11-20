@@ -12,10 +12,17 @@ export interface AnchoredString {
   createdAt: number;     // Timestamp in ms
 }
 
+export interface EndpointGrabState {
+  handId: number;
+  stringId: string;
+  endpoint: 'p1' | 'p2';
+}
+
 export interface SpatialStringConfig {
   maxStrings?: number;           // Default: 12
   minAnchorDistance?: number;    // Default: 0.10 (normalized camera space)
   minStretchDurationMs?: number; // Default: 150ms
   releaseGraceMs?: number;       // Default: 120ms (debounce tracking flicker on fast movement)
   cooldownMs?: number;           // Default: 350ms (prevent rapid accidental duplicate anchors)
+  grabProximityThreshold?: number; // Default: 0.055 (normalized camera distance)
 }

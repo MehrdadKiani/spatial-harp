@@ -81,7 +81,8 @@ export class HUD {
     isDualPinching: boolean,
     singlePinchHand: string | null,
     stringsCount: number,
-    maxStrings: number
+    maxStrings: number,
+    isGrabbingEndpoint: boolean = false
   ): void {
     this.fpsDisplay.textContent = `${fps}`;
     this.fpsDisplay.style.color = fps >= 30 ? '#00ffaa' : fps >= 20 ? '#ffaa00' : '#ff4444';
@@ -94,7 +95,7 @@ export class HUD {
       this.handsDisplay.style.color = '#ff6666';
       this.gestureDisplay.textContent = 'None';
       this.statusDisplay.textContent = stringsCount > 0
-        ? `${stringsCount} string(s) anchored in space. Raise hands to stretch more.`
+        ? `${stringsCount} string(s) anchored in space. Raise hands to stretch or adjust.`
         : 'Raise your hands in front of the camera';
       return;
     }
@@ -102,19 +103,25 @@ export class HUD {
     this.handsDisplay.textContent = `${handsCount} (${handDetails.join(', ')})`;
     this.handsDisplay.style.color = '#00ffaa';
 
-    if (isDualPinching) {
+    if (isGrabbingEndpoint) {
+      this.gestureDisplay.textContent = 'Grabbing String Tip';
+      this.gestureDisplay.style.color = '#ffdd00';
+      this.statusDisplay.textContent = '🎯 Dragging string endpoint — move hand to reposition, release to lock';
+    } else if (isDualPinching) {
       this.gestureDisplay.textContent = 'Dual Pinch (Stretching)';
       this.gestureDisplay.style.color = '#00ffff';
       this.statusDisplay.textContent = '⚡ Release pinch to anchor this string in mid-air!';
     } else if (singlePinchHand) {
       this.gestureDisplay.textContent = `Pinch (${singlePinchHand})`;
       this.gestureDisplay.style.color = '#ffcc00';
-      this.statusDisplay.textContent = 'Pinch with other hand to connect the laser string';
+      this.statusDisplay.textContent = stringsCount > 0
+        ? 'Pinch near any string tip to grab & move it, or pinch other hand to add a string'
+        : 'Pinch with other hand to connect the laser string';
     } else {
       this.gestureDisplay.textContent = 'Open Hand';
       this.gestureDisplay.style.color = '#b0c4de';
       this.statusDisplay.textContent = stringsCount > 0
-        ? `Harp active (${stringsCount} strings). Pinch both hands to add another.`
+        ? `Harp active (${stringsCount} strings). Pinch a tip to reposition, or both hands to add another.`
         : 'Pinch thumb & index finger on both hands to stretch a string';
     }
   }
