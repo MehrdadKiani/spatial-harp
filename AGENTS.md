@@ -70,6 +70,7 @@ Development proceeds strictly in progressive milestones from basic to advanced:
 | **Step 4** | **Real-Time Audio Synthesis & Plucking Engine** | ✅ Completed | Finger-string collision solver, velocity-sensitive plucking, Karplus-Strong string synthesis. |
 | **Step 5** | **Visual Physics, Wave Oscillation & Sparks** | ✅ Completed | Damped harmonic wave equations on plucked strings, GPU spark particle burst, UnrealBloom glow. |
 | **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ Completed | Runtime sound preset selector (Plucked Harp, Laser Synth, Ambient Chime, Retro 8-Bit) and musical scales (Pentatonic, Minor, Hirajōshi, Major, Blues). |
+| **Step 7** | **Advanced Plucking Visual Effects & Wave Envelopes** | ⏳ Active Step | Resonant dual-wave envelope sheath (spindle oscillation), contact shockwaves, streak sparks, crosshair anchor reticles. |
 
 ### Milestone Protocol:
 1. Focus only on the active step. Do not jump ahead without user alignment.
