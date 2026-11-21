@@ -23,6 +23,7 @@ import { ScaleMapper } from './audio/scale-mapper';
 import { AudioEngine } from './audio/audio-engine';
 import { HUD } from './ui/hud';
 import { NavBar } from './ui/nav-bar';
+import { SplashScreen } from './ui/splash-screen';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
@@ -44,6 +45,7 @@ class App {
   private sparkParticlePool: SparkParticlePool;
   private pluckShockwavePool: PluckShockwavePool;
   private navBar: NavBar;
+  private splashScreen: SplashScreen;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
@@ -100,7 +102,7 @@ class App {
       palette: parseHexPalette(this.config.strings.palette),
     });
 
-    // 5. UI NavBar & HUD (persisting Preset & Scale selections to localStorage)
+    // 5. UI NavBar, HUD & Splash Screen (persisting Preset & Scale selections to localStorage)
     this.navBar = new NavBar(this.container, (tabId) => {
       console.log(`[NavBar] Switched to tab: ${tabId}`);
     });
@@ -118,6 +120,13 @@ class App {
         saveUserOverride({ defaultScale: scale });
       }
     );
+
+    // Initial Splash Screen: clicking START automatically unlocks Web Audio
+    this.splashScreen = new SplashScreen(this.container, {
+      onStart: async () => {
+        await this.unlockAudio();
+      },
+    });
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {
@@ -364,6 +373,10 @@ class App {
 
   public getNavBar(): NavBar {
     return this.navBar;
+  }
+
+  public getSplashScreen(): SplashScreen {
+    return this.splashScreen;
   }
 }
 
