@@ -82,8 +82,9 @@ export class NavBar {
         <circle cx="16" cy="14" r="2.2" fill="#ffffff" style="filter: drop-shadow(0 0 4px #ffffff);" />
       </svg>
       <div class="navbar-brand-text" style="display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap;">
-        <span class="navbar-brand-title" style="font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
-          <span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span><span class="navbar-brand-tail"> HARP</span>
+        <span class="navbar-brand-title" style="display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
+          <span><span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span><span class="navbar-brand-tail"> HARP</span></span>
+          <span class="navbar-version-badge" style="font-family: var(--font-primary); font-size: 9px; font-weight: 700; color: #00f0ff; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 4px; padding: 1px 5px; letter-spacing: 0.5px; line-height: 1.2;">v${__APP_VERSION__}</span>
         </span>
         <span class="navbar-brand-sub" style="font-family: var(--font-primary); font-size: 10px; letter-spacing: 1.8px; color: rgba(255, 255, 255, 0.55); font-weight: 700; text-transform: uppercase;">AR AUDIO-VISUAL LAB</span>
       </div>

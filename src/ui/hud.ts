@@ -68,6 +68,8 @@ export class HUD {
           <span id="hud-strings" style="font-weight: 600; color: #00f0ff;">0 / 12</span>
           <span>Audio:</span>
           <span id="hud-audio-status" style="font-weight: 600; color: #ffaa00;">Muted</span>
+          <span>Version:</span>
+          <span id="hud-version" style="font-weight: 600; color: #00f0ff;">v${__APP_VERSION__}</span>
           <span>Last Pluck:</span>
           <span id="hud-last-pluck" style="font-weight: 600; color: #00ffff;">--</span>
         </div>

@@ -215,6 +215,18 @@ export class SplashScreen {
           <span style="font-size: 16px;">🔊</span>
           <span>Clicking start will activate Web Audio and start the camera feed</span>
         </div>
+
+        <!-- App Version & Engine Footer -->
+        <div style="
+          font-family: var(--font-primary);
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.40);
+          letter-spacing: 1.2px;
+          margin-top: 2px;
+          text-transform: uppercase;
+        ">
+          SPATIAL HARP · <span style="color: rgba(0, 240, 255, 0.85); font-weight: 700;">v${__APP_VERSION__}</span> · OFFLINE AR ENGINE
+        </div>
       </div>
     `;
 
