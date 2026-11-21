@@ -102,6 +102,7 @@ export class NavBar {
     const defaultItems: NavItem[] = [
       { id: 'instrument', label: 'Instrument', icon: '🎸', active: true },
       { id: 'studio', label: 'Sound Studio', icon: '🎹' },
+      { id: 'tutorial', label: 'Tutorial', icon: '📖' },
       { id: 'settings', label: 'Settings', icon: '⚙️' },
     ];
 

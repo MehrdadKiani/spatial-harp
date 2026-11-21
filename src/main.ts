@@ -25,6 +25,7 @@ import { HUD } from './ui/hud';
 import { NavBar } from './ui/nav-bar';
 import { SplashScreen } from './ui/splash-screen';
 import { SoundStudioPanel } from './ui/sound-studio-panel';
+import { TutorialModal } from './ui/tutorial-modal';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
@@ -47,6 +48,7 @@ class App {
   private pluckShockwavePool: PluckShockwavePool;
   private navBar: NavBar;
   private soundStudioPanel: SoundStudioPanel;
+  private tutorialModal: TutorialModal;
   private splashScreen: SplashScreen;
   private hud: HUD;
   private loop: EngineLoop;
@@ -120,12 +122,21 @@ class App {
       },
     });
 
+    this.tutorialModal = new TutorialModal(this.container, () => {
+      this.navBar.setActiveTab('instrument');
+    });
+
     this.navBar = new NavBar(this.container, {
       onTabChange: (tabId) => {
         if (tabId === 'studio') {
           this.soundStudioPanel.open();
+          this.tutorialModal.close();
+        } else if (tabId === 'tutorial') {
+          this.tutorialModal.open();
+          this.soundStudioPanel.close();
         } else {
           this.soundStudioPanel.close();
+          this.tutorialModal.close();
         }
       },
       onToggleDiagnostics: () => {
@@ -144,10 +155,12 @@ class App {
       }
     );
 
-    // Initial Splash Screen: clicking START automatically unlocks Web Audio
+    // Initial Splash Screen: clicking START automatically unlocks Web Audio & pops up 4-step tutorial
     this.splashScreen = new SplashScreen(this.container, {
       onStart: async () => {
         await this.unlockAudio();
+        // Automatically open the 4-step tutorial popup when the user enters the app
+        this.tutorialModal.open();
       },
     });
 
