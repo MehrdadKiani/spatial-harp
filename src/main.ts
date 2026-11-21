@@ -8,6 +8,7 @@ import { SkeletonView } from './render/skeleton-view';
 import { DynamicStringView } from './render/dynamic-string-view';
 import { AnchoredStringsView } from './render/anchored-strings-view';
 import { SparkParticlePool } from './render/spark-particle-pool';
+import { PluckShockwavePool } from './render/pluck-shockwave-pool';
 import { PinchDetector } from './gestures/pinch-detector';
 import { SpatialStringManager } from './instruments/spatial-string-manager';
 import { StringCollisionDetector } from './gestures/string-collision-detector';
@@ -32,6 +33,7 @@ class App {
   private dynamicStringView: DynamicStringView;
   private anchoredStringsView: AnchoredStringsView;
   private sparkParticlePool: SparkParticlePool;
+  private pluckShockwavePool: PluckShockwavePool;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
@@ -55,6 +57,7 @@ class App {
     this.dynamicStringView = new DynamicStringView(this.sceneManager);
     this.anchoredStringsView = new AnchoredStringsView(this.sceneManager, 12);
     this.sparkParticlePool = new SparkParticlePool(this.sceneManager.scene);
+    this.pluckShockwavePool = new PluckShockwavePool(this.sceneManager.scene);
 
     // 3. Audio & Musical Harmony Subsystems
     this.scaleMapper = new ScaleMapper();
@@ -86,7 +89,7 @@ class App {
       (scale) => this.scaleMapper.setScaleById(scale)
     );
 
-    // 6. Pluck feedback listener: HUD, Harmonic Wave Physics & Spark VFX
+    // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {
       this.hud.setLastPluck(event.note, event.velocity);
 
@@ -98,7 +101,7 @@ class App {
         this.currentElapsed
       );
 
-      // Trigger radial spark particle burst at contact point
+      // Compute exact 3D strike point along the string
       const targetStr = this.spatialStringManager.getStrings().find((s) => s.id === event.stringId);
       if (targetStr) {
         const videoAspect = this.cameraManager.aspectRatio;
@@ -109,6 +112,14 @@ class App {
         this.sparkDir.subVectors(w2, w1).normalize();
         this.sparkNormal.set(-this.sparkDir.y, this.sparkDir.x, 0).normalize();
 
+        // 6a. Emit expanding contact strike shockwave ripple
+        this.pluckShockwavePool.emitShockwave(
+          this.sparkOrigin,
+          targetStr.color,
+          event.velocity
+        );
+
+        // 6b. Emit radial spark particle & floating mote burst
         this.sparkParticlePool.emitBurst(
           this.sparkOrigin,
           this.sparkNormal,
@@ -210,11 +221,12 @@ class App {
       this.dynamicStringView.setVisible(false);
     }
 
-    // 7. Update anchored spatial strings (fret marks, standing wave ripples, end nodes & grab highlights)
+    // 7. Update anchored spatial strings (fret marks, dual-wave envelopes, resonant ribbons & crosshair reticles)
     this.anchoredStringsView.update(anchoredStrings, activeGrabs, videoAspect, elapsed);
 
-    // 8. Update GPU spark particles physics
+    // 8. Update GPU spark particles & shockwaves physics
     this.sparkParticlePool.update(delta);
+    this.pluckShockwavePool.update(delta);
 
     // 9. Update HUD diagnostics
     const handDetails = hands.map((h) => `${h.handedness}`);

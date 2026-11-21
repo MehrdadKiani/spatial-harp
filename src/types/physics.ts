@@ -22,5 +22,22 @@ export interface SparkParticle {
   alpha: number;
   life: number;
   maxLife: number;
+  type: 'spark' | 'mote';  // Fast radial spark vs floating ambient dust mote
+  active: boolean;
+}
+
+export interface ShockwaveState {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  maxRadius: number;
+  r: number;
+  g: number;
+  b: number;
+  alpha: number;
+  elapsed: number;
+  duration: number;
   active: boolean;
 }
