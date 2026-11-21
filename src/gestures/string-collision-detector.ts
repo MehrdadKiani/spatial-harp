@@ -18,16 +18,15 @@ export class StringCollisionDetector {
   // Prevents stationary fingers held on a string from auto-plucking repeatedly
   private activeTouches = new Set<string>();
 
-  // High-sensitivity thresholds (with dead-zone margin around string tips)
+  // Natural acoustic pluck thresholds with hysteresis latch
   private depthTolerance = 0.55;       // Generous Z-axis depth allowance
-  private touchRadius = 0.046;         // Generous proximity contact radius along the playable string body
-  private releaseRadius = 0.048;       // Tight release radius so slight lift immediately re-arms
+  private touchRadius = 0.036;         // Contact radius to engage a pluck when approaching the string
+  private releaseRadius = 0.054;       // Wide hysteresis release radius so held fingers never jitter-unlatch
   private tipMarginRatio = 0.02;       // Outer 2% right at each string tip is an unplayable dead-zone margin
   private tipMarginRadius = 0.016;     // Exact crosshair reticle radius around each endpoint tip ignored for plucking
-  private minPluckTravel = 0.0008;     // Ultra-sensitive to light finger taps while filtering dead-still noise
-  private minCrossTravel = 0.0028;     // Minimum motion for centerline crossing while already inside touch zone
-  private retriggerCooldownMs = 65;    // Fast finger retrigger cooldown for tremolo & rapid taps
-  private stringCooldownMs = 50;       // Fast per-string cooldown allowing multi-finger harp rolls
+  private minPluckTravel = 0.0025;     // Minimum intentional finger motion to filter multi-finger stationary tremor
+  private retriggerCooldownMs = 120;   // Per-finger cooldown
+  private stringCooldownMs = 110;      // Per-string cooldown so placing multiple fingers down triggers one clean pluck
 
   constructor(scaleMapper: ScaleMapper) {
     this.scaleMapper = scaleMapper;
@@ -101,8 +100,7 @@ export class StringCollisionDetector {
               distToSeg = Math.sqrt((Bx - closeX) * (Bx - closeX) + (By - closeY) * (By - closeY));
             }
 
-            // Dead-zone margin around both string tips (P1 and P2):
-            // Ignore any finger activity near the endpoints or outside the inner [tipMarginRatio .. 1 - tipMarginRatio] span
+            // Dead-zone margin around both string tips (P1 and P2)
             const distToP1 = Math.sqrt((Bx - Cx) * (Bx - Cx) + (By - Cy) * (By - Cy));
             const distToP2 = Math.sqrt((Bx - Dx) * (Bx - Dx) + (By - Dy) * (By - Dy));
             if (
@@ -118,11 +116,20 @@ export class StringCollisionDetector {
             const prevDist = this.prevDistToStrings.get(pluckKey) ?? Infinity;
             this.prevDistToStrings.set(pluckKey, distToSeg);
 
-            // Release contact latch if finger moved outside releaseRadius OR pulled back away from string by > 0.004
+            // Strict hysteresis latch: if this finger is already touching/holding the string,
+            // it MUST move completely outside releaseRadius (0.054) before it can pluck again.
             if (this.activeTouches.has(pluckKey)) {
-              if (distToSeg > this.releaseRadius || distToSeg > prevDist + 0.0035) {
+              if (distToSeg > this.releaseRadius) {
                 this.activeTouches.delete(pluckKey);
+              } else {
+                return;
               }
+            }
+
+            // Also latch silently if a stationary finger is already resting inside touchRadius without intentional motion
+            if (distToSeg <= this.touchRadius && travelDist < this.minPluckTravel) {
+              this.activeTouches.add(pluckKey);
+              return;
             }
 
             const lastPluck = this.lastPluckTimes.get(pluckKey) || 0;
@@ -132,6 +139,11 @@ export class StringCollisionDetector {
               nowMs - lastPluck < this.retriggerCooldownMs ||
               nowMs - lastStringPluck < this.stringCooldownMs
             ) {
+              // If another finger on the hand just plucked this string, latch this finger too
+              // so placing multiple fingers on a string doesn't stagger-fire each finger
+              if (distToSeg <= this.touchRadius) {
+                this.activeTouches.add(pluckKey);
+              }
               return;
             }
 
@@ -146,8 +158,7 @@ export class StringCollisionDetector {
             let contactRatio = projT;
 
             // Test 1: 2D Trajectory line segment crossing between finger (A -> B) and string (C -> D)
-            // Always allowed when crossing the centerline with intentional motion (even during tight back-and-forth strums)
-            if (travelDist >= this.minCrossTravel) {
+            if (travelDist >= this.minPluckTravel) {
               const denom = (Bx - Ax) * (Dy - Cy) - (By - Ay) * (Dx - Cx);
 
               if (Math.abs(denom) > 1e-6) {
@@ -166,10 +177,11 @@ export class StringCollisionDetector {
               }
             }
 
-            // Test 2: High-sensitivity proximity touch (when not latched by a stationary hold)
+            // Test 2: Approaching proximity touch (finger moving inward into touchRadius from outside)
+            const isApproaching = distToSeg < prevDist - 0.001;
             if (
               !isHit &&
-              !this.activeTouches.has(pluckKey) &&
+              isApproaching &&
               travelDist >= this.minPluckTravel &&
               distToSeg <= this.touchRadius
             ) {
@@ -178,7 +190,7 @@ export class StringCollisionDetector {
             }
 
             if (isHit) {
-              // Latch touch state so holding the finger stationary on the string does not auto-repeat
+              // Latch touch state so holding one or multiple fingers on the string never auto-repeats
               this.activeTouches.add(pluckKey);
               this.lastPluckTimes.set(pluckKey, nowMs);
               this.lastStringPluckTimes.set(str.id, nowMs);
