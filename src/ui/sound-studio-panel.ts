@@ -32,7 +32,7 @@ export class SoundStudioPanel {
       borderRadius: '16px',
       padding: '18px 20px',
       boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65), 0 0 25px rgba(0, 240, 255, 0.15)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
+      fontFamily: 'var(--font-primary)',
       color: '#ffffff',
       userSelect: 'none',
       display: 'none',

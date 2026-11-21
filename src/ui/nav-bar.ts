@@ -42,19 +42,19 @@ export class NavBar {
       top: '12px',
       left: '16px',
       right: '16px',
-      height: '48px',
+      height: '52px',
       zIndex: '20',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 16px',
-      background: 'rgba(10, 15, 28, 0.72)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      border: '1px solid rgba(0, 240, 255, 0.22)',
-      borderRadius: '12px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
+      padding: '0 18px',
+      background: 'rgba(10, 15, 28, 0.75)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      border: '1px solid rgba(0, 240, 255, 0.28)',
+      borderRadius: '14px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.55), 0 0 20px rgba(0, 240, 255, 0.08)',
+      fontFamily: 'var(--font-primary)',
       pointerEvents: 'none',
       userSelect: 'none',
       transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
@@ -64,13 +64,13 @@ export class NavBar {
     this.logoContainer = document.createElement('div');
     this.logoContainer.style.display = 'flex';
     this.logoContainer.style.alignItems = 'center';
-    this.logoContainer.style.gap = '10px';
+    this.logoContainer.style.gap = '12px';
     this.logoContainer.style.pointerEvents = 'auto';
     this.logoContainer.style.cursor = 'pointer';
 
-    // Futuristic Neon Spatial Harp SVG Logo
+    // Futuristic Neon Spatial Harp SVG Logo with Orbitron font
     this.logoContainer.innerHTML = `
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 6px #00f0ff);">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 8px #00f0ff);">
         <!-- Outer Hex Shield -->
         <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" stroke="#00f0ff" stroke-width="1.8" fill="rgba(0, 240, 255, 0.08)"/>
         <!-- Vertical Harp Strings -->
@@ -80,11 +80,11 @@ export class NavBar {
         <!-- Contact Beam Spark Dot -->
         <circle cx="16" cy="14" r="2.2" fill="#ffffff" style="filter: drop-shadow(0 0 4px #ffffff);" />
       </svg>
-      <div style="display: flex; flex-direction: column; line-height: 1.1;">
-        <span style="font-weight: 800; font-size: 14px; letter-spacing: 1.2px; color: #ffffff; text-transform: uppercase;">
-          <span style="color: #00f0ff; text-shadow: 0 0 8px rgba(0,240,255,0.7);">SPATIAL</span> HARP
+      <div style="display: flex; flex-direction: column; line-height: 1.15;">
+        <span style="font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
+          <span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span> HARP
         </span>
-        <span style="font-size: 9px; letter-spacing: 0.8px; color: rgba(255, 255, 255, 0.45); font-weight: 600;">AR AUDIO-VISUAL LAB</span>
+        <span style="font-family: var(--font-primary); font-size: 10px; letter-spacing: 1.8px; color: rgba(255, 255, 255, 0.55); font-weight: 700; text-transform: uppercase;">AR AUDIO-VISUAL LAB</span>
       </div>
     `;
 
@@ -115,35 +115,39 @@ export class NavBar {
     rightContainer.style.gap = '10px';
     rightContainer.style.pointerEvents = 'auto';
 
-    // Diagnostics Button in NavBar (clean, no [D] shortcut suffix)
+    // Diagnostics Button in NavBar (clean, fancy font styling)
     this.diagBtn = document.createElement('button');
     this.diagBtn.id = 'navbar-diag-btn';
     this.diagBtn.title = 'Toggle System Metrics & Diagnostics HUD';
     Object.assign(this.diagBtn.style, {
       display: 'inline-flex',
       alignItems: 'center',
-      gap: '5px',
+      gap: '6px',
       background: 'rgba(0, 240, 255, 0.08)',
       border: '1px solid rgba(0, 240, 255, 0.35)',
       color: '#00f0ff',
       borderRadius: '8px',
-      padding: '5px 11px',
-      fontSize: '11px',
-      fontWeight: '600',
+      padding: '6px 14px',
+      fontSize: '13px',
+      fontWeight: '700',
+      letterSpacing: '0.8px',
+      textTransform: 'uppercase',
       cursor: 'pointer',
       outline: 'none',
-      transition: 'all 0.2s ease',
+      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
     });
     this.diagBtn.innerHTML = `<span>📊</span><span>Diagnostics</span>`;
 
     this.diagBtn.addEventListener('mouseenter', () => {
-      this.diagBtn.style.background = 'rgba(0, 240, 255, 0.20)';
-      this.diagBtn.style.boxShadow = '0 0 10px rgba(0, 240, 255, 0.3)';
+      this.diagBtn.style.background = 'rgba(0, 240, 255, 0.22)';
+      this.diagBtn.style.boxShadow = '0 0 14px rgba(0, 240, 255, 0.4)';
+      this.diagBtn.style.transform = 'translateY(-1px)';
     });
     this.diagBtn.addEventListener('mouseleave', () => {
       if (!this.isDiagActive) {
         this.diagBtn.style.background = 'rgba(0, 240, 255, 0.08)';
         this.diagBtn.style.boxShadow = 'none';
+        this.diagBtn.style.transform = 'translateY(0)';
       }
     });
     this.diagBtn.addEventListener('click', () => {
@@ -159,29 +163,33 @@ export class NavBar {
     Object.assign(this.clearBtn.style, {
       display: 'inline-flex',
       alignItems: 'center',
-      gap: '5px',
+      gap: '6px',
       background: 'rgba(255, 68, 68, 0.12)',
       border: '1px solid rgba(255, 68, 68, 0.35)',
       color: '#ff8888',
       borderRadius: '8px',
-      padding: '5px 11px',
-      fontSize: '11px',
-      fontWeight: '600',
+      padding: '6px 14px',
+      fontSize: '13px',
+      fontWeight: '700',
+      letterSpacing: '0.8px',
+      textTransform: 'uppercase',
       cursor: 'pointer',
       outline: 'none',
-      transition: 'all 0.2s ease',
+      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
     });
     this.clearBtn.innerHTML = `<span>🗑️</span><span>Clear</span>`;
 
     this.clearBtn.addEventListener('mouseenter', () => {
       this.clearBtn.style.background = 'rgba(255, 68, 68, 0.25)';
-      this.clearBtn.style.boxShadow = '0 0 10px rgba(255, 68, 68, 0.35)';
+      this.clearBtn.style.boxShadow = '0 0 14px rgba(255, 68, 68, 0.45)';
       this.clearBtn.style.color = '#ffffff';
+      this.clearBtn.style.transform = 'translateY(-1px)';
     });
     this.clearBtn.addEventListener('mouseleave', () => {
       this.clearBtn.style.background = 'rgba(255, 68, 68, 0.12)';
       this.clearBtn.style.boxShadow = 'none';
       this.clearBtn.style.color = '#ff8888';
+      this.clearBtn.style.transform = 'translateY(0)';
     });
     this.clearBtn.addEventListener('click', () => {
       if (this.onClearStrings) {
@@ -193,17 +201,18 @@ export class NavBar {
     Object.assign(this.statusBadge.style, {
       display: 'inline-flex',
       alignItems: 'center',
-      gap: '6px',
+      gap: '7px',
       background: 'rgba(0, 255, 170, 0.12)',
-      border: '1px solid rgba(0, 255, 170, 0.3)',
+      border: '1px solid rgba(0, 255, 170, 0.35)',
       color: '#00ffaa',
       borderRadius: '20px',
-      padding: '3px 10px',
-      fontSize: '11px',
-      fontWeight: '600',
-      letterSpacing: '0.4px',
+      padding: '4px 12px',
+      fontSize: '12px',
+      fontWeight: '700',
+      letterSpacing: '1.2px',
+      textTransform: 'uppercase',
     });
-    this.statusBadge.innerHTML = `<span style="width: 6px; height: 6px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 6px #00ffaa; animation: pulse 1.8s infinite;"></span>LIVE AR`;
+    this.statusBadge.innerHTML = `<span style="width: 7px; height: 7px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 8px #00ffaa; animation: pulse 1.8s infinite;"></span>LIVE AR`;
 
     rightContainer.appendChild(this.diagBtn);
     rightContainer.appendChild(this.clearBtn);
@@ -228,19 +237,21 @@ export class NavBar {
       alignItems: 'center',
       gap: '6px',
       background: isActive ? 'rgba(0, 240, 255, 0.18)' : 'transparent',
-      border: isActive ? '1px solid rgba(0, 240, 255, 0.5)' : '1px solid transparent',
+      border: isActive ? '1px solid rgba(0, 240, 255, 0.55)' : '1px solid transparent',
       color: isActive ? '#00f0ff' : 'rgba(255, 255, 255, 0.70)',
       borderRadius: '8px',
-      padding: '5px 12px',
-      fontSize: '12px',
-      fontWeight: '600',
+      padding: '6px 14px',
+      fontSize: '13px',
+      fontWeight: '700',
+      letterSpacing: '1.0px',
+      textTransform: 'uppercase',
       cursor: 'pointer',
       outline: 'none',
-      transition: 'all 0.2s ease',
-      textShadow: isActive ? '0 0 8px rgba(0, 240, 255, 0.4)' : 'none',
+      transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+      textShadow: isActive ? '0 0 10px rgba(0, 240, 255, 0.5)' : 'none',
     });
 
-    btn.innerHTML = `${item.icon ? `<span style="font-size: 13px;">${item.icon}</span>` : ''}<span>${item.label}</span>`;
+    btn.innerHTML = `${item.icon ? `<span style="font-size: 14px;">${item.icon}</span>` : ''}<span>${item.label}</span>`;
 
     btn.addEventListener('mouseenter', () => {
       if (btn.dataset.tabId !== this.activeTabId) {

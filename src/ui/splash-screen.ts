@@ -45,7 +45,7 @@ export class SplashScreen {
       background: 'radial-gradient(circle at center, rgba(14, 22, 42, 0.88) 0%, rgba(6, 8, 16, 0.96) 100%)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
+      fontFamily: 'var(--font-primary)',
       color: '#ffffff',
       userSelect: 'none',
       opacity: '1',

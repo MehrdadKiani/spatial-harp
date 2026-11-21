@@ -28,7 +28,7 @@ export class HUD {
       left: '16px',
       zIndex: '15',
       color: '#ffffff',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
+      fontFamily: 'var(--font-primary)',
       fontSize: '12px',
       userSelect: 'none',
       pointerEvents: 'none',
