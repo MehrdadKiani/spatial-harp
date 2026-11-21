@@ -1,6 +1,6 @@
-# 🎵 Spatial Laser Harp (AR Musical Instrument)
+# 🎵 Spatial Harp (AR Musical Instrument)
 
-A real-time, browser-based **Augmented Reality Laser Harp & Audio-Visual Instrument** powered by webcam hand tracking, Three.js WebGL rendering, and Web Audio/Tone.js synthesis. Built with **TypeScript** using a strictly modular, decoupled architecture.
+A real-time, browser-based **Augmented Reality Harp & Audio-Visual Instrument** powered by webcam hand tracking, Three.js WebGL rendering, and Web Audio/Tone.js synthesis. Built with **TypeScript** using a strictly modular, decoupled architecture.
 
 Reference video: [files/sample.mp4](./files/sample.mp4).
 
