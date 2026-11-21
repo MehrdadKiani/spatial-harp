@@ -13,33 +13,44 @@ export class AnchoredStringsView {
   private segmentsPerString = 64;
   private verticesPerString = 65;
 
-  // 1. Oscillating Main Laser Beam Lines (with per-vertex chromatic gradient colors)
+  // 1. White-Hot Incandescent Laser Core Line & Thick Core Beam Ribbon
   private coreLines: THREE.Line[] = [];
   private corePositions: Float32Array[] = [];
   private coreColors: Float32Array[] = [];
 
-  // 2. Motion-Blur Ghost Trail Lines (phase-lagged oscillating luminous trails)
-  private trailLines: THREE.Line[] = [];
-  private trailPositions: Float32Array[] = [];
-  private trailColors: Float32Array[] = [];
+  private coreBeamMeshes: THREE.Mesh[] = [];
+  private coreBeamPositions: Float32Array[] = [];
+  private coreBeamColors: Float32Array[] = [];
+  private coreBeamMaterials: THREE.MeshBasicMaterial[] = [];
 
-  // 3. Dual-Wave Envelope Boundary Lines (Upper & Lower luminous edges)
-  private upperEnvelopeLines: THREE.Line[] = [];
-  private upperEnvelopePositions: Float32Array[] = [];
-  private lowerEnvelopeLines: THREE.Line[] = [];
-  private lowerEnvelopePositions: Float32Array[] = [];
+  // 2. Intense Neon Inner Glow Beam Ribbon (surrounding the white-hot core)
+  private innerGlowMeshes: THREE.Mesh[] = [];
+  private innerGlowPositions: Float32Array[] = [];
+  private innerGlowColors: Float32Array[] = [];
+  private innerGlowMaterials: THREE.MeshBasicMaterial[] = [];
 
-  // 4. Resonant Additive Neon Bloom & Energy Ribbon Meshes (with per-vertex chromatic colors)
+  // 3. Wide Outer Laser Bloom Halo & Resonant Wave Envelope Ribbon
   private ribbonMeshes: THREE.Mesh[] = [];
   private ribbonPositions: Float32Array[] = [];
   private ribbonColors: Float32Array[] = [];
   private ribbonMaterials: THREE.MeshBasicMaterial[] = [];
 
-  // 5. Fret Tick Lines
+  // 4. Motion-Blur Ghost Trail Lines (phase-lagged oscillating luminous trails)
+  private trailLines: THREE.Line[] = [];
+  private trailPositions: Float32Array[] = [];
+  private trailColors: Float32Array[] = [];
+
+  // 5. Dual-Wave Envelope Boundary Lines (Upper & Lower luminous edges)
+  private upperEnvelopeLines: THREE.Line[] = [];
+  private upperEnvelopePositions: Float32Array[] = [];
+  private lowerEnvelopeLines: THREE.Line[] = [];
+  private lowerEnvelopePositions: Float32Array[] = [];
+
+  // 6. Subtle, High-Transparency Ruler / Fret Tick Lines
   private tickLines: THREE.LineSegments[] = [];
   private tickPositions: Float32Array[] = [];
 
-  // 6. Precision Sighting Anchor Reticles (⌖) (2 reticles per string * 12 = 24 reticles)
+  // 7. Precision Sighting Anchor Reticles (⌖) (2 reticles per string * 12 = 24 reticles)
   private anchorReticles: THREE.LineSegments[] = [];
   private anchorReticleMaterials: THREE.LineBasicMaterial[] = [];
 
@@ -86,7 +97,75 @@ export class AnchoredStringsView {
     const reticlePosArray = this.generateReticleGeometry();
 
     for (let i = 0; i < this.maxStrings; i++) {
-      // 1. Main Oscillating Laser Beam Line (vertex-colored for chromatic traveling wave)
+      // 1. Wide Outer Laser Bloom Halo & Wave Envelope Ribbon (rendered behind inner core)
+      const ribbonPos = new Float32Array(this.verticesPerString * 2 * 3);
+      const ribbonCol = new Float32Array(this.verticesPerString * 2 * 3);
+      this.ribbonPositions.push(ribbonPos);
+      this.ribbonColors.push(ribbonCol);
+      const ribbonGeom = new THREE.BufferGeometry();
+      ribbonGeom.setAttribute('position', new THREE.BufferAttribute(ribbonPos, 3));
+      ribbonGeom.setAttribute('color', new THREE.BufferAttribute(ribbonCol, 3));
+      ribbonGeom.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
+      const ribbonMat = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.30,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        side: THREE.DoubleSide,
+      });
+      const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
+      ribbonMesh.visible = false;
+      this.ribbonMeshes.push(ribbonMesh);
+      this.ribbonMaterials.push(ribbonMat);
+      this.group.add(ribbonMesh);
+
+      // 2. Intense Neon Inner Glow Beam Ribbon (saturated neon laser body)
+      const innerPos = new Float32Array(this.verticesPerString * 2 * 3);
+      const innerCol = new Float32Array(this.verticesPerString * 2 * 3);
+      this.innerGlowPositions.push(innerPos);
+      this.innerGlowColors.push(innerCol);
+      const innerGeom = new THREE.BufferGeometry();
+      innerGeom.setAttribute('position', new THREE.BufferAttribute(innerPos, 3));
+      innerGeom.setAttribute('color', new THREE.BufferAttribute(innerCol, 3));
+      innerGeom.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
+      const innerMat = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        side: THREE.DoubleSide,
+      });
+      const innerMesh = new THREE.Mesh(innerGeom, innerMat);
+      innerMesh.visible = false;
+      this.innerGlowMeshes.push(innerMesh);
+      this.innerGlowMaterials.push(innerMat);
+      this.group.add(innerMesh);
+
+      // 3. Saturated Neon Laser Core Beam Ribbon (true neon color, no white washout)
+      const coreBeamPos = new Float32Array(this.verticesPerString * 2 * 3);
+      const coreBeamCol = new Float32Array(this.verticesPerString * 2 * 3);
+      this.coreBeamPositions.push(coreBeamPos);
+      this.coreBeamColors.push(coreBeamCol);
+      const coreBeamGeom = new THREE.BufferGeometry();
+      coreBeamGeom.setAttribute('position', new THREE.BufferAttribute(coreBeamPos, 3));
+      coreBeamGeom.setAttribute('color', new THREE.BufferAttribute(coreBeamCol, 3));
+      coreBeamGeom.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
+      const coreBeamMat = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.95,
+        depthTest: false,
+        side: THREE.DoubleSide,
+      });
+      const coreBeamMesh = new THREE.Mesh(coreBeamGeom, coreBeamMat);
+      coreBeamMesh.visible = false;
+      this.coreBeamMeshes.push(coreBeamMesh);
+      this.coreBeamMaterials.push(coreBeamMat);
+      this.group.add(coreBeamMesh);
+
+      // 4. Razor-Sharp Center Filament Line (pure neon color)
       const corePos = new Float32Array(this.verticesPerString * 3);
       const coreCol = new Float32Array(this.verticesPerString * 3);
       this.corePositions.push(corePos);
@@ -98,8 +177,7 @@ export class AnchoredStringsView {
         vertexColors: true,
         linewidth: 2.5,
         transparent: true,
-        opacity: 0.98,
-        blending: THREE.AdditiveBlending,
+        opacity: 1.0,
         depthTest: false,
       });
       const coreLine = new THREE.Line(coreGeom, coreMat);
@@ -107,7 +185,7 @@ export class AnchoredStringsView {
       this.coreLines.push(coreLine);
       this.group.add(coreLine);
 
-      // 2. Motion-Blur Ghost Trail Line
+      // 5. Motion-Blur Ghost Trail Line
       const trailPos = new Float32Array(this.verticesPerString * 3);
       const trailCol = new Float32Array(this.verticesPerString * 3);
       this.trailPositions.push(trailPos);
@@ -119,7 +197,7 @@ export class AnchoredStringsView {
         vertexColors: true,
         linewidth: 1.5,
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.68,
         blending: THREE.AdditiveBlending,
         depthTest: false,
       });
@@ -128,7 +206,7 @@ export class AnchoredStringsView {
       this.trailLines.push(trailLine);
       this.group.add(trailLine);
 
-      // 3. Upper & Lower Luminous Envelope Edge Lines
+      // 6. Upper & Lower Luminous Envelope Edge Lines
       const upperPos = new Float32Array(this.verticesPerString * 3);
       this.upperEnvelopePositions.push(upperPos);
       const upperGeom = new THREE.BufferGeometry();
@@ -163,39 +241,16 @@ export class AnchoredStringsView {
       this.lowerEnvelopeLines.push(lowerLine);
       this.group.add(lowerLine);
 
-      // 4. Resonant Additive Neon Glow & Wave Ribbon Mesh (always visible as subtle laser bloom aura when idle, expands on pluck)
-      const ribbonPos = new Float32Array(this.verticesPerString * 2 * 3);
-      const ribbonCol = new Float32Array(this.verticesPerString * 2 * 3);
-      this.ribbonPositions.push(ribbonPos);
-      this.ribbonColors.push(ribbonCol);
-      const ribbonGeom = new THREE.BufferGeometry();
-      ribbonGeom.setAttribute('position', new THREE.BufferAttribute(ribbonPos, 3));
-      ribbonGeom.setAttribute('color', new THREE.BufferAttribute(ribbonCol, 3));
-      ribbonGeom.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
-      const ribbonMat = new THREE.MeshBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.42,
-        blending: THREE.AdditiveBlending,
-        depthTest: false,
-        side: THREE.DoubleSide,
-      });
-      const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
-      ribbonMesh.visible = false;
-      this.ribbonMeshes.push(ribbonMesh);
-      this.ribbonMaterials.push(ribbonMat);
-      this.group.add(ribbonMesh);
-
-      // 5. Fret Ticks
+      // 7. Subtle, Very Transparent Fret / Ruler Ticks
       const tickPos = new Float32Array(this.maxTicksPerString * 2 * 3);
       this.tickPositions.push(tickPos);
       const tickGeom = new THREE.BufferGeometry();
       tickGeom.setAttribute('position', new THREE.BufferAttribute(tickPos, 3));
       const tickMat = new THREE.LineBasicMaterial({
         color: 0xaaffdd,
-        linewidth: 1.5,
+        linewidth: 1.0,
         transparent: true,
-        opacity: 0.72,
+        opacity: 0.16,
         blending: THREE.AdditiveBlending,
         depthTest: false,
       });
@@ -204,7 +259,7 @@ export class AnchoredStringsView {
       this.tickLines.push(tickLine);
       this.group.add(tickLine);
 
-      // 6. Precision Sighting Anchor Reticles (2 per string: P1 and P2)
+      // 8. Precision Sighting Anchor Reticles (2 per string: P1 and P2)
       for (let j = 0; j < 2; j++) {
         const reticleGeom = new THREE.BufferGeometry();
         reticleGeom.setAttribute('position', new THREE.BufferAttribute(reticlePosArray, 3));
@@ -298,10 +353,12 @@ export class AnchoredStringsView {
   ): void {
     for (let i = 0; i < this.maxStrings; i++) {
       this.coreLines[i].visible = false;
+      this.coreBeamMeshes[i].visible = false;
+      this.innerGlowMeshes[i].visible = false;
+      this.ribbonMeshes[i].visible = false;
       this.trailLines[i].visible = false;
       this.upperEnvelopeLines[i].visible = false;
       this.lowerEnvelopeLines[i].visible = false;
-      this.ribbonMeshes[i].visible = false;
       this.tickLines[i].visible = false;
       this.anchorReticles[i * 2].visible = false;
       this.anchorReticles[i * 2 + 1].visible = false;
@@ -345,6 +402,21 @@ export class AnchoredStringsView {
       const corePos = this.corePositions[idx];
       const coreCol = this.coreColors[idx];
 
+      const coreBeamMesh = this.coreBeamMeshes[idx];
+      const coreBeamPos = this.coreBeamPositions[idx];
+      const coreBeamCol = this.coreBeamColors[idx];
+      const coreBeamMat = this.coreBeamMaterials[idx];
+
+      const innerGlowMesh = this.innerGlowMeshes[idx];
+      const innerGlowPos = this.innerGlowPositions[idx];
+      const innerGlowCol = this.innerGlowColors[idx];
+      const innerGlowMat = this.innerGlowMaterials[idx];
+
+      const ribbonMesh = this.ribbonMeshes[idx];
+      const ribbonPos = this.ribbonPositions[idx];
+      const ribbonCol = this.ribbonColors[idx];
+      const ribbonMat = this.ribbonMaterials[idx];
+
       const trailMesh = this.trailLines[idx];
       const trailPos = this.trailPositions[idx];
       const trailCol = this.trailColors[idx];
@@ -354,21 +426,18 @@ export class AnchoredStringsView {
       const lowerMesh = this.lowerEnvelopeLines[idx];
       const lowerPos = this.lowerEnvelopePositions[idx];
 
-      const ribbonMesh = this.ribbonMeshes[idx];
-      const ribbonPos = this.ribbonPositions[idx];
-      const ribbonCol = this.ribbonColors[idx];
-      const ribbonMat = this.ribbonMaterials[idx];
-
       let linePtr = 0;
       let ribbonPtr = 0;
 
-      // Subtle idle neon halo half-width so idle strings still have luminous bloom edges
-      const idleHaloWidth = 0.0038 + 0.0008 * Math.sin(elapsed * 3.2 + idx);
+      // Multi-layer laser beam widths (world units): sleek, razor-sharp focused laser beam
+      const pulse = 1.0 + 0.10 * Math.sin(elapsed * 4.5 + idx * 1.3);
+      const coreBeamHalfWidth = 0.00075 * pulse;
+      const innerGlowHalfWidth = 0.0020 * pulse;
+      const outerHaloHalfWidth = 0.0042 * pulse;
 
       for (let v = 0; v < this.verticesPerString; v++) {
         const u = v / this.segmentsPerString; // 0.0 to 1.0 along string
         const base = this.scratchVert.lerpVectors(p1, p2, u);
-        // Fixed string boundary condition: 0 at u=0 and u=1
         const boundaryPin = Math.sin(Math.PI * u);
 
         if (isVibrating && vib) {
@@ -378,14 +447,12 @@ export class AnchoredStringsView {
           const travelDist = vib.waveSpeed * timeSincePluck;
           const waveDecay = Math.exp(-1.9 * timeSincePluck);
 
-          // Direct wavefronts moving left (u0 - c*t) and right (u0 + c*t)
           const dLeft = u - (u0 - travelDist);
           const dRight = u - (u0 + travelDist);
-          // Reflected wavefronts bouncing off anchors at u=0 and u=1
           const dReflectLeft = u - (-(u0 - travelDist));
           const dReflectRight = u - (2.0 - (u0 + travelDist));
 
-          const sigma = 0.075; // Wave packet width
+          const sigma = 0.075;
           const invSigmaSq = 1.0 / (2.0 * sigma * sigma);
           const pulseLeft = Math.exp(-dLeft * dLeft * invSigmaSq);
           const pulseRight = Math.exp(-dRight * dRight * invSigmaSq);
@@ -394,14 +461,13 @@ export class AnchoredStringsView {
 
           const waveEnergy = Math.min(1.4, (pulseLeft + pulseRight + pulseRefL + pulseRefR) * waveDecay);
 
-          // Initial contact flash intensity right at u0 during the first 160ms
           const distFromContact = u - u0;
           const contactFlash =
             timeSincePluck < 0.16
               ? Math.exp(-distFromContact * distFromContact * 140.0) * (1.0 - timeSincePluck / 0.16)
               : 0;
 
-          // 2. Multi-Harmonic Standing Guitar String Oscillation (harmonics 1, 2, 3 excited by pluck point u0)
+          // 2. Multi-Harmonic Standing Guitar String Oscillation
           const w1Weight = Math.max(0.35, Math.sin(Math.PI * u0));
           const w2Weight = 0.45 * Math.sin(2.0 * Math.PI * u0);
           const w3Weight = 0.25 * Math.sin(3.0 * Math.PI * u0);
@@ -414,11 +480,9 @@ export class AnchoredStringsView {
           const mode2 = w2Weight * Math.sin(2.0 * Math.PI * u) * Math.exp(-1.45 * vib.damping * timeSincePluck);
           const mode3 = w3Weight * Math.sin(3.0 * Math.PI * u) * Math.exp(-2.1 * vib.damping * timeSincePluck);
 
-          // Traveling wave ripples riding on the string
           const travelingWaveOsc =
             0.55 * waveEnergy * Math.sin(14.0 * Math.PI * (u - u0) - 24.0 * timeSincePluck) * boundaryPin;
 
-          // Instantaneous oscillating string position (Core line)
           const instDisp =
             vib.initialAmplitude *
             (mode1 * Math.cos(phase1) +
@@ -426,7 +490,6 @@ export class AnchoredStringsView {
               mode3 * Math.cos(phase3) +
               travelingWaveOsc);
 
-          // Motion-blur ghost trail position (lagged in phase by 0.65 rad)
           const trailDisp =
             vib.initialAmplitude *
             0.82 *
@@ -434,9 +497,8 @@ export class AnchoredStringsView {
               mode2 * Math.cos(phase2 - 0.85) +
               travelingWaveOsc * 0.75);
 
-          // Persistence-of-vision outer resonant envelope sheath
           const envWidth =
-            idleHaloWidth +
+            outerHaloHalfWidth +
             vib.initialAmplitude *
               (Math.abs(mode1) * (0.68 + 0.32 * Math.abs(Math.cos(phase1))) +
                 Math.abs(mode2) * 0.75 +
@@ -444,8 +506,6 @@ export class AnchoredStringsView {
 
           const oscPt = this.scratchOsc.copy(base).addScaledVector(normal, instDisp);
           const trailPt = this.scratchTrail.copy(base).addScaledVector(normal, trailDisp);
-          const upper = this.scratchUpper.copy(base).addScaledVector(normal, envWidth);
-          const lower = this.scratchLower.copy(base).addScaledVector(normal, -envWidth);
 
           corePos[linePtr] = oscPt.x;
           corePos[linePtr + 1] = oscPt.y;
@@ -455,6 +515,82 @@ export class AnchoredStringsView {
           trailPos[linePtr + 1] = trailPt.y;
           trailPos[linePtr + 2] = trailPt.z;
 
+          // 3. Dynamic Chromatic Gradient (Cyan -> Electric Blue -> Magenta -> Purple, zero white washout)
+          const chromaPhase = u * 3.5 - timeSincePluck * 5.5;
+          const cyanFactor = 0.5 + 0.5 * Math.cos(chromaPhase);
+          const magentaFactor = 0.5 + 0.5 * Math.sin(chromaPhase);
+          const energyBoost = Math.min(1.0, waveEnergy * 0.85 + contactFlash * 0.5);
+
+          const r = Math.min(
+            1.0,
+            this.baseColor.r * (1.0 - energyBoost * 0.45) +
+              (0.95 * magentaFactor + 0.20 * (1.0 - cyanFactor)) * energyBoost
+          );
+          const g = Math.min(
+            1.0,
+            this.baseColor.g * (1.0 - energyBoost * 0.45) +
+              (0.95 * cyanFactor + 0.10 * magentaFactor) * energyBoost
+          );
+          const b = Math.min(
+            1.0,
+            this.baseColor.b * (1.0 - energyBoost * 0.35) + 0.90 * energyBoost
+          );
+
+          // Pure saturated neon core filament color (no white blending)
+          const coreR = r;
+          const coreG = g;
+          const coreB = b;
+
+          coreCol[linePtr] = coreR;
+          coreCol[linePtr + 1] = coreG;
+          coreCol[linePtr + 2] = coreB;
+
+          trailCol[linePtr] = Math.min(1.0, r * 0.85 + 0.25) * envelopeAlpha;
+          trailCol[linePtr + 1] = g * 0.55 * envelopeAlpha;
+          trailCol[linePtr + 2] = Math.min(1.0, b * 0.95) * envelopeAlpha;
+
+          // Layer A: Thick White-Hot Laser Core Ribbon (follows oscillating string oscPt)
+          const activeCoreW = coreBeamHalfWidth * (1.0 + 0.55 * energyBoost);
+          const coreTop = this.scratchUpper.copy(oscPt).addScaledVector(normal, activeCoreW);
+          const coreBtm = this.scratchLower.copy(oscPt).addScaledVector(normal, -activeCoreW);
+
+          coreBeamPos[ribbonPtr] = coreTop.x;
+          coreBeamPos[ribbonPtr + 1] = coreTop.y;
+          coreBeamPos[ribbonPtr + 2] = coreTop.z;
+          coreBeamCol[ribbonPtr] = coreR;
+          coreBeamCol[ribbonPtr + 1] = coreG;
+          coreBeamCol[ribbonPtr + 2] = coreB;
+
+          coreBeamPos[ribbonPtr + 3] = coreBtm.x;
+          coreBeamPos[ribbonPtr + 4] = coreBtm.y;
+          coreBeamPos[ribbonPtr + 5] = coreBtm.z;
+          coreBeamCol[ribbonPtr + 3] = coreR;
+          coreBeamCol[ribbonPtr + 4] = coreG;
+          coreBeamCol[ribbonPtr + 5] = coreB;
+
+          // Layer B: Intense Neon Inner Glow Beam (follows oscillating string oscPt)
+          const activeInnerW = innerGlowHalfWidth * (1.0 + 0.85 * energyBoost);
+          const innerTop = this.scratchUpper.copy(oscPt).addScaledVector(normal, activeInnerW);
+          const innerBtm = this.scratchLower.copy(oscPt).addScaledVector(normal, -activeInnerW);
+
+          innerGlowPos[ribbonPtr] = innerTop.x;
+          innerGlowPos[ribbonPtr + 1] = innerTop.y;
+          innerGlowPos[ribbonPtr + 2] = innerTop.z;
+          innerGlowCol[ribbonPtr] = r;
+          innerGlowCol[ribbonPtr + 1] = g;
+          innerGlowCol[ribbonPtr + 2] = b;
+
+          innerGlowPos[ribbonPtr + 3] = innerBtm.x;
+          innerGlowPos[ribbonPtr + 4] = innerBtm.y;
+          innerGlowPos[ribbonPtr + 5] = innerBtm.z;
+          innerGlowCol[ribbonPtr + 3] = r;
+          innerGlowCol[ribbonPtr + 4] = g;
+          innerGlowCol[ribbonPtr + 5] = b;
+
+          // Layer C: Wide Outer Bloom Halo & Resonant Wave Envelope Sheath
+          const upper = this.scratchUpper.copy(base).addScaledVector(normal, envWidth);
+          const lower = this.scratchLower.copy(base).addScaledVector(normal, -envWidth);
+
           upperPos[linePtr] = upper.x;
           upperPos[linePtr + 1] = upper.y;
           upperPos[linePtr + 2] = upper.z;
@@ -463,67 +599,80 @@ export class AnchoredStringsView {
           lowerPos[linePtr + 1] = lower.y;
           lowerPos[linePtr + 2] = lower.z;
 
-          // 3. Dynamic Chromatic Gradient (Cyan -> Electric Blue -> Magenta -> Purple -> White-Hot Wavefront)
-          const chromaPhase = u * 3.5 - timeSincePluck * 5.5;
-          const cyanFactor = 0.5 + 0.5 * Math.cos(chromaPhase);
-          const magentaFactor = 0.5 + 0.5 * Math.sin(chromaPhase);
-          const energyBoost = Math.min(1.0, waveEnergy * 0.85 + contactFlash);
-
-          // Blend base string color with chromatic wave surge and incandescent white contact flash
-          const r = Math.min(
-            1.0,
-            this.baseColor.r * (1.0 - energyBoost * 0.5) +
-              (0.95 * magentaFactor + 0.35 * (1.0 - cyanFactor)) * energyBoost +
-              contactFlash * 0.9
-          );
-          const g = Math.min(
-            1.0,
-            this.baseColor.g * (1.0 - energyBoost * 0.4) +
-              (0.95 * cyanFactor + 0.15 * magentaFactor) * energyBoost +
-              contactFlash * 0.9
-          );
-          const b = Math.min(1.0, this.baseColor.b * 0.4 + 0.85 + energyBoost * 0.35 + contactFlash * 0.9);
-
-          // Core line is white-hot at wavefronts and contact point
-          coreCol[linePtr] = Math.min(1.0, r + 0.25 + energyBoost * 0.35);
-          coreCol[linePtr + 1] = Math.min(1.0, g + 0.25 + energyBoost * 0.35);
-          coreCol[linePtr + 2] = Math.min(1.0, b + 0.30);
-
-          // Motion-blur trail shifts toward electric violet/magenta
-          trailCol[linePtr] = Math.min(1.0, r * 0.85 + 0.25) * envelopeAlpha;
-          trailCol[linePtr + 1] = g * 0.55 * envelopeAlpha;
-          trailCol[linePtr + 2] = Math.min(1.0, b * 0.95) * envelopeAlpha;
-
-          // Ribbon vertices & chromatic colors (interleaved top_v, btm_v)
           ribbonPos[ribbonPtr] = upper.x;
           ribbonPos[ribbonPtr + 1] = upper.y;
           ribbonPos[ribbonPtr + 2] = upper.z;
           ribbonCol[ribbonPtr] = r;
           ribbonCol[ribbonPtr + 1] = g;
           ribbonCol[ribbonPtr + 2] = b;
-          ribbonPtr += 3;
 
-          ribbonPos[ribbonPtr] = lower.x;
-          ribbonPos[ribbonPtr + 1] = lower.y;
-          ribbonPos[ribbonPtr + 2] = lower.z;
-          ribbonCol[ribbonPtr] = Math.min(1.0, r * 0.7 + 0.3);
-          ribbonCol[ribbonPtr + 1] = g * 0.6;
-          ribbonCol[ribbonPtr + 2] = b;
-          ribbonPtr += 3;
+          ribbonPos[ribbonPtr + 3] = lower.x;
+          ribbonPos[ribbonPtr + 4] = lower.y;
+          ribbonPos[ribbonPtr + 5] = lower.z;
+          ribbonCol[ribbonPtr + 3] = Math.min(1.0, r * 0.7 + 0.3);
+          ribbonCol[ribbonPtr + 4] = g * 0.6;
+          ribbonCol[ribbonPtr + 5] = b;
+
+          ribbonPtr += 6;
         } else {
-          // Idle State: Vivid straight laser string with bright core and subtle neon bloom edges
+          // Idle State: Intense, Glowing Multi-Layer Laser Beam
           corePos[linePtr] = base.x;
           corePos[linePtr + 1] = base.y;
           corePos[linePtr + 2] = base.z;
 
-          // Subtle idle chromatic shimmer along the straight laser beam
-          const idleShimmer = 0.88 + 0.12 * Math.sin(u * Math.PI * 3.0 + elapsed * 2.5 + idx);
-          coreCol[linePtr] = Math.min(1.0, (this.baseColor.r * 0.75 + 0.25) * idleShimmer);
-          coreCol[linePtr + 1] = Math.min(1.0, (this.baseColor.g * 0.75 + 0.25) * idleShimmer);
-          coreCol[linePtr + 2] = Math.min(1.0, (this.baseColor.b * 0.75 + 0.25) * idleShimmer);
+          const idleShimmer = 0.92 + 0.08 * Math.sin(u * Math.PI * 4.0 + elapsed * 3.5 + idx);
+          // Pure saturated neon string color (no white core tint)
+          const coreR = this.baseColor.r * idleShimmer;
+          const coreG = this.baseColor.g * idleShimmer;
+          const coreB = this.baseColor.b * idleShimmer;
 
-          const upperIdle = this.scratchUpper.copy(base).addScaledVector(normal, idleHaloWidth);
-          const lowerIdle = this.scratchLower.copy(base).addScaledVector(normal, -idleHaloWidth);
+          coreCol[linePtr] = coreR;
+          coreCol[linePtr + 1] = coreG;
+          coreCol[linePtr + 2] = coreB;
+
+          // Layer A: Thick White-Hot Core Beam Ribbon
+          const coreTop = this.scratchUpper.copy(base).addScaledVector(normal, coreBeamHalfWidth);
+          const coreBtm = this.scratchLower.copy(base).addScaledVector(normal, -coreBeamHalfWidth);
+
+          coreBeamPos[ribbonPtr] = coreTop.x;
+          coreBeamPos[ribbonPtr + 1] = coreTop.y;
+          coreBeamPos[ribbonPtr + 2] = coreTop.z;
+          coreBeamCol[ribbonPtr] = coreR;
+          coreBeamCol[ribbonPtr + 1] = coreG;
+          coreBeamCol[ribbonPtr + 2] = coreB;
+
+          coreBeamPos[ribbonPtr + 3] = coreBtm.x;
+          coreBeamPos[ribbonPtr + 4] = coreBtm.y;
+          coreBeamPos[ribbonPtr + 5] = coreBtm.z;
+          coreBeamCol[ribbonPtr + 3] = coreR;
+          coreBeamCol[ribbonPtr + 4] = coreG;
+          coreBeamCol[ribbonPtr + 5] = coreB;
+
+          // Layer B: Saturated Neon Inner Glow Beam Ribbon
+          const innerR = Math.min(1.0, this.baseColor.r * 1.15);
+          const innerG = Math.min(1.0, this.baseColor.g * 1.15);
+          const innerB = Math.min(1.0, this.baseColor.b * 1.15);
+
+          const innerTop = this.scratchUpper.copy(base).addScaledVector(normal, innerGlowHalfWidth);
+          const innerBtm = this.scratchLower.copy(base).addScaledVector(normal, -innerGlowHalfWidth);
+
+          innerGlowPos[ribbonPtr] = innerTop.x;
+          innerGlowPos[ribbonPtr + 1] = innerTop.y;
+          innerGlowPos[ribbonPtr + 2] = innerTop.z;
+          innerGlowCol[ribbonPtr] = innerR;
+          innerGlowCol[ribbonPtr + 1] = innerG;
+          innerGlowCol[ribbonPtr + 2] = innerB;
+
+          innerGlowPos[ribbonPtr + 3] = innerBtm.x;
+          innerGlowPos[ribbonPtr + 4] = innerBtm.y;
+          innerGlowPos[ribbonPtr + 5] = innerBtm.z;
+          innerGlowCol[ribbonPtr + 3] = innerR;
+          innerGlowCol[ribbonPtr + 4] = innerG;
+          innerGlowCol[ribbonPtr + 5] = innerB;
+
+          // Layer C: Wide Soft Outer Neon Bloom Halo
+          const upperIdle = this.scratchUpper.copy(base).addScaledVector(normal, outerHaloHalfWidth);
+          const lowerIdle = this.scratchLower.copy(base).addScaledVector(normal, -outerHaloHalfWidth);
 
           ribbonPos[ribbonPtr] = upperIdle.x;
           ribbonPos[ribbonPtr + 1] = upperIdle.y;
@@ -531,27 +680,38 @@ export class AnchoredStringsView {
           ribbonCol[ribbonPtr] = this.baseColor.r;
           ribbonCol[ribbonPtr + 1] = this.baseColor.g;
           ribbonCol[ribbonPtr + 2] = this.baseColor.b;
-          ribbonPtr += 3;
 
-          ribbonPos[ribbonPtr] = lowerIdle.x;
-          ribbonPos[ribbonPtr + 1] = lowerIdle.y;
-          ribbonPos[ribbonPtr + 2] = lowerIdle.z;
-          ribbonCol[ribbonPtr] = this.baseColor.r;
-          ribbonCol[ribbonPtr + 1] = this.baseColor.g;
-          ribbonCol[ribbonPtr + 2] = this.baseColor.b;
-          ribbonPtr += 3;
+          ribbonPos[ribbonPtr + 3] = lowerIdle.x;
+          ribbonPos[ribbonPtr + 4] = lowerIdle.y;
+          ribbonPos[ribbonPtr + 5] = lowerIdle.z;
+          ribbonCol[ribbonPtr + 3] = this.baseColor.r;
+          ribbonCol[ribbonPtr + 4] = this.baseColor.g;
+          ribbonCol[ribbonPtr + 5] = this.baseColor.b;
+
+          ribbonPtr += 6;
         }
 
         linePtr += 3;
       }
 
-      // Commit Core Laser Line
+      // Commit White-Hot Filament & Core Beam Ribbon
       (coreMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       (coreMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
       coreMesh.visible = true;
 
-      // Commit Additive Neon Bloom Ribbon (subtle luminous edges when idle, intense chromatic sheath when vibrating)
-      ribbonMat.opacity = isVibrating ? 0.18 + 0.36 * envelopeAlpha : 0.18;
+      coreBeamMat.opacity = isVibrating ? 0.98 : 0.92;
+      (coreBeamMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      (coreBeamMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      coreBeamMesh.visible = true;
+
+      // Commit Intense Neon Inner Glow Beam Ribbon
+      innerGlowMat.opacity = isVibrating ? 0.78 : 0.62;
+      (innerGlowMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      (innerGlowMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      innerGlowMesh.visible = true;
+
+      // Commit Wide Outer Neon Bloom Halo Ribbon
+      ribbonMat.opacity = isVibrating ? 0.26 + 0.32 * envelopeAlpha : 0.25;
       (ribbonMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       (ribbonMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
       ribbonMesh.visible = true;
@@ -563,12 +723,12 @@ export class AnchoredStringsView {
         trailMesh.visible = true;
 
         (upperMesh.material as THREE.LineBasicMaterial).color.setHex(str.color);
-        (upperMesh.material as THREE.LineBasicMaterial).opacity = 0.85 * envelopeAlpha;
+        (upperMesh.material as THREE.LineBasicMaterial).opacity = 0.75 * envelopeAlpha;
         (upperMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
         upperMesh.visible = true;
 
         (lowerMesh.material as THREE.LineBasicMaterial).color.setHex(0xd946ef);
-        (lowerMesh.material as THREE.LineBasicMaterial).opacity = 0.78 * envelopeAlpha;
+        (lowerMesh.material as THREE.LineBasicMaterial).opacity = 0.68 * envelopeAlpha;
         (lowerMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
         lowerMesh.visible = true;
       }
@@ -617,7 +777,7 @@ export class AnchoredStringsView {
       reticle1.visible = true;
       reticle2.visible = true;
 
-      // Update graduated fret tick marks (spanning across the vibrating envelope)
+      // Update subtle, transparent fret tick marks
       const numTicks = Math.min(this.maxTicksPerString, Math.max(8, Math.floor(length * 35)));
       const tickLine = this.tickLines[idx];
       const tickPos = this.tickPositions[idx];
@@ -628,12 +788,12 @@ export class AnchoredStringsView {
         const center = this.scratchCenter.lerpVectors(p1, p2, factor);
 
         const isMajor = t === Math.floor(numTicks / 2) || t % 4 === 0;
-        let tickHeight = isMajor ? 0.014 : 0.007;
+        let tickHeight = isMajor ? 0.011 : 0.0055;
 
         if (isVibrating && vib) {
           const fundamental = Math.sin(Math.PI * factor) * envelopeAlpha;
           const waveDisp = vib.initialAmplitude * fundamental;
-          tickHeight += waveDisp * 0.55;
+          tickHeight += waveDisp * 0.45;
         }
 
         const top = this.scratchTop.copy(center).addScaledVector(normal, tickHeight);

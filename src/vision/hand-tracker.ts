@@ -22,10 +22,13 @@ export class HandTracker {
     if (this.landmarker || this.isInitializing) return;
     this.isInitializing = true;
 
-    try {
-      const wasmPath = config.wasmPath || '/wasm';
-      const modelAssetPath = config.modelAssetPath || '/models/hand_landmarker.task';
+    const wasmPath = config.wasmPath || '/wasm';
+    const modelAssetPath = config.modelAssetPath || '/models/hand_landmarker.task';
+    const minHandDetectionConfidence = config.minHandDetectionConfidence ?? 0.30;
+    const minHandPresenceConfidence = config.minHandPresenceConfidence ?? 0.25;
+    const minTrackingConfidence = config.minTrackingConfidence ?? 0.25;
 
+    try {
       // Initialize FilesetResolver using local wasm files
       const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
@@ -36,17 +39,15 @@ export class HandTracker {
         },
         runningMode: 'VIDEO',
         numHands: config.numHands || 2,
-        minHandDetectionConfidence: config.minHandDetectionConfidence || 0.5,
-        minHandPresenceConfidence: config.minHandPresenceConfidence || 0.5,
-        minTrackingConfidence: config.minTrackingConfidence || 0.5,
+        minHandDetectionConfidence,
+        minHandPresenceConfidence,
+        minTrackingConfidence,
       });
 
       console.log('MediaPipe HandLandmarker initialized successfully (GPU accelerated).');
     } catch (err) {
       console.warn('GPU delegate failed or unavailable, falling back to CPU delegate:', err);
       try {
-        const wasmPath = config.wasmPath || '/wasm';
-        const modelAssetPath = config.modelAssetPath || '/models/hand_landmarker.task';
         const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
         this.landmarker = await HandLandmarker.createFromOptions(vision, {
@@ -56,6 +57,9 @@ export class HandTracker {
           },
           runningMode: 'VIDEO',
           numHands: config.numHands || 2,
+          minHandDetectionConfidence,
+          minHandPresenceConfidence,
+          minTrackingConfidence,
         });
         console.log('MediaPipe HandLandmarker initialized on CPU.');
       } catch (cpuErr) {

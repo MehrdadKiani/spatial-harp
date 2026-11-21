@@ -6,11 +6,15 @@ export class DynamicStringView {
   private group: THREE.Group;
   private sceneManager: SceneManager;
 
-  // Main elastic line
+  // Main elastic laser core line & glowing beam ribbons
   private lineMesh: THREE.Line;
   private linePositions: Float32Array;
+  private coreBeamMesh: THREE.Mesh;
+  private coreBeamPositions: Float32Array;
+  private outerHaloMesh: THREE.Mesh;
+  private outerHaloPositions: Float32Array;
 
-  // Ruler tick marks (up to 30 ticks)
+  // Subtle ruler tick marks (up to 30 ticks)
   private maxTicks = 30;
   private tickLines: THREE.LineSegments;
   private tickPositions: Float32Array;
@@ -39,32 +43,68 @@ export class DynamicStringView {
     this.group = new THREE.Group();
     this.sceneManager.scene.add(this.group);
 
-    // 1. Main Elastic Laser String Material (Neon White-Cyan with opacity)
+    const quadIndices = new Uint16Array([0, 1, 2, 2, 1, 3]);
+
+    // 0a. Outer Neon Laser Bloom Halo Ribbon
+    this.outerHaloPositions = new Float32Array(4 * 3);
+    const outerHaloGeom = new THREE.BufferGeometry();
+    outerHaloGeom.setAttribute('position', new THREE.BufferAttribute(this.outerHaloPositions, 3));
+    outerHaloGeom.setIndex(new THREE.BufferAttribute(quadIndices, 1));
+    const outerHaloMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.28,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+    this.outerHaloMesh = new THREE.Mesh(outerHaloGeom, outerHaloMat);
+    this.outerHaloMesh.visible = false;
+    this.group.add(this.outerHaloMesh);
+
+    // 0b. Saturated Neon Cyan Inner Laser Core Beam Ribbon
+    this.coreBeamPositions = new Float32Array(4 * 3);
+    const coreBeamGeom = new THREE.BufferGeometry();
+    coreBeamGeom.setAttribute('position', new THREE.BufferAttribute(this.coreBeamPositions, 3));
+    coreBeamGeom.setIndex(new THREE.BufferAttribute(quadIndices, 1));
+    const coreBeamMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.85,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+    this.coreBeamMesh = new THREE.Mesh(coreBeamGeom, coreBeamMat);
+    this.coreBeamMesh.visible = false;
+    this.group.add(this.coreBeamMesh);
+
+    // 1. Main Elastic Laser String Filament (Neon Cyan, no white)
     this.stringMaterial = new THREE.LineBasicMaterial({
-      color: 0xeeffff,
+      color: 0x00f0ff,
       linewidth: 3,
       transparent: true,
-      opacity: 0.95,
+      opacity: 1.0,
       depthTest: false,
     });
 
-    this.linePositions = new Float32Array(2 * 3); // 2 vertices (A, B)
+    this.linePositions = new Float32Array(2 * 3);
     const lineGeom = new THREE.BufferGeometry();
     lineGeom.setAttribute('position', new THREE.BufferAttribute(this.linePositions, 3));
     this.lineMesh = new THREE.Line(lineGeom, this.stringMaterial);
     this.lineMesh.visible = false;
     this.group.add(this.lineMesh);
 
-    // 2. Ruler Tick Marks Material
+    // 2. Subtle, High-Transparency Ruler Tick Marks Material
     this.tickMaterial = new THREE.LineBasicMaterial({
       color: 0xaaffdd,
-      linewidth: 1.5,
+      linewidth: 1.0,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.18,
+      blending: THREE.AdditiveBlending,
       depthTest: false,
     });
 
-    this.tickPositions = new Float32Array(this.maxTicks * 2 * 3); // 2 vertices per tick
+    this.tickPositions = new Float32Array(this.maxTicks * 2 * 3);
     const tickGeom = new THREE.BufferGeometry();
     tickGeom.setAttribute('position', new THREE.BufferAttribute(this.tickPositions, 3));
     this.tickLines = new THREE.LineSegments(tickGeom, this.tickMaterial);
@@ -82,6 +122,7 @@ export class DynamicStringView {
       color: 0x00ffcc,
       transparent: true,
       opacity: 0.5,
+      blending: THREE.AdditiveBlending,
       depthTest: false,
     });
 
@@ -123,7 +164,6 @@ export class DynamicStringView {
         ring.position.copy(worldPos);
         glow.position.copy(worldPos);
 
-        // Subtle pulsing rotation effect
         ring.rotation.z = elapsed * 2.0;
         glow.rotation.z = -elapsed * 1.5;
 
@@ -132,7 +172,7 @@ export class DynamicStringView {
       }
     });
 
-    // 2. Update dynamic connecting string between dual-pinching hands
+    // 2. Update dynamic connecting laser beam between dual-pinching hands
     if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
       const w1 = this.sceneManager.toWorldCoords(
         dualPinch.point1.x,
@@ -150,7 +190,13 @@ export class DynamicStringView {
       const p1 = this.scratchP1.copy(w1);
       const p2 = this.scratchP2.copy(w2);
 
-      // Set main line endpoints
+      // Compute vector direction and normal
+      const dir = this.scratchDir.subVectors(p2, p1);
+      const length = dir.length();
+      dir.normalize();
+      const normal = this.scratchNormal.set(-dir.y, dir.x, 0).normalize();
+
+      // Set main filament line endpoints
       this.linePositions[0] = p1.x;
       this.linePositions[1] = p1.y;
       this.linePositions[2] = p1.z;
@@ -161,15 +207,41 @@ export class DynamicStringView {
       (this.lineMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       this.lineMesh.visible = true;
 
-      // Compute vector direction and normal for perpendicular tick marks
-      const dir = this.scratchDir.subVectors(p2, p1);
-      const length = dir.length();
-      dir.normalize();
+      // Set sleek core beam & outer halo ribbons
+      const coreW = 0.0008;
+      const haloW = 0.0038;
 
-      // Perpendicular 2D normal vector (-dy, dx, 0)
-      const normal = this.scratchNormal.set(-dir.y, dir.x, 0).normalize();
+      this.coreBeamPositions[0] = p1.x + normal.x * coreW;
+      this.coreBeamPositions[1] = p1.y + normal.y * coreW;
+      this.coreBeamPositions[2] = p1.z;
+      this.coreBeamPositions[3] = p1.x - normal.x * coreW;
+      this.coreBeamPositions[4] = p1.y - normal.y * coreW;
+      this.coreBeamPositions[5] = p1.z;
+      this.coreBeamPositions[6] = p2.x + normal.x * coreW;
+      this.coreBeamPositions[7] = p2.y + normal.y * coreW;
+      this.coreBeamPositions[8] = p2.z;
+      this.coreBeamPositions[9] = p2.x - normal.x * coreW;
+      this.coreBeamPositions[10] = p2.y - normal.y * coreW;
+      this.coreBeamPositions[11] = p2.z;
+      (this.coreBeamMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      this.coreBeamMesh.visible = true;
 
-      // Number of tick marks proportional to string length (10 to 25 ticks)
+      this.outerHaloPositions[0] = p1.x + normal.x * haloW;
+      this.outerHaloPositions[1] = p1.y + normal.y * haloW;
+      this.outerHaloPositions[2] = p1.z;
+      this.outerHaloPositions[3] = p1.x - normal.x * haloW;
+      this.outerHaloPositions[4] = p1.y - normal.y * haloW;
+      this.outerHaloPositions[5] = p1.z;
+      this.outerHaloPositions[6] = p2.x + normal.x * haloW;
+      this.outerHaloPositions[7] = p2.y + normal.y * haloW;
+      this.outerHaloPositions[8] = p2.z;
+      this.outerHaloPositions[9] = p2.x - normal.x * haloW;
+      this.outerHaloPositions[10] = p2.y - normal.y * haloW;
+      this.outerHaloPositions[11] = p2.z;
+      (this.outerHaloMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      this.outerHaloMesh.visible = true;
+
+      // Subtle transparent ruler ticks
       const numTicks = Math.min(this.maxTicks, Math.max(8, Math.floor(length * 35)));
       const tickPosAttr = this.tickLines.geometry.attributes.position as THREE.BufferAttribute;
       const array = this.tickPositions;
@@ -179,9 +251,8 @@ export class DynamicStringView {
         const t = (i + 1) / (numTicks + 1);
         const tickCenter = this.scratchTickCenter.lerpVectors(p1, p2, t);
 
-        // Center tick and octave divisions are taller
         const isMajor = i === Math.floor(numTicks / 2) || i % 4 === 0;
-        const tickHalfHeight = isMajor ? 0.015 : 0.008;
+        const tickHalfHeight = isMajor ? 0.011 : 0.0055;
 
         const top = this.scratchTop.copy(tickCenter).addScaledVector(normal, tickHalfHeight);
         const btm = this.scratchBtm.copy(tickCenter).addScaledVector(normal, -tickHalfHeight);
@@ -194,7 +265,6 @@ export class DynamicStringView {
         array[ptr++] = btm.z;
       }
 
-      // Zero out unused ticks
       while (ptr < array.length) {
         array[ptr++] = 0;
       }
@@ -203,6 +273,8 @@ export class DynamicStringView {
       this.tickLines.visible = true;
     } else {
       this.lineMesh.visible = false;
+      this.coreBeamMesh.visible = false;
+      this.outerHaloMesh.visible = false;
       this.tickLines.visible = false;
     }
   }

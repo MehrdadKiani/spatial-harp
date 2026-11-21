@@ -177,11 +177,14 @@ class App {
       await this.cameraManager.start({ width: 1280, height: 720 });
       this.hud.setMessage('Loading MediaPipe HandLandmarker model...');
 
-      // Initialize hand tracking model
+      // Initialize hand tracking model (tuned for edge-of-screen / partially visible hands)
       await this.handTracker.init({
         wasmPath: '/wasm',
         modelAssetPath: '/models/hand_landmarker.task',
         numHands: 2,
+        minHandDetectionConfidence: 0.30,
+        minHandPresenceConfidence: 0.25,
+        minTrackingConfidence: 0.25,
       });
 
       this.isVisionReady = true;

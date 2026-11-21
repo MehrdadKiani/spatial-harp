@@ -1,13 +1,12 @@
 import * as THREE from 'three';
 import { SparkParticle } from '../types/physics';
 
-// Chromatic sci-fi laser palette: Cyan, Electric Blue, Neon Magenta, Vivid Purple
+// Chromatic sci-fi laser palette: Cyan, Electric Blue, Neon Magenta, Vivid Purple (no white)
 const CHROMATIC_SPARK_COLORS = [
   0x00f0ff, // Neon Cyan
   0x38bdf8, // Electric Blue
   0xff007f, // Neon Magenta
   0xa855f7, // Vivid Purple
-  0xffffff, // White-hot core
 ];
 
 export class SparkParticlePool {

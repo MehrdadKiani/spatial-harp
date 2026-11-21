@@ -18,10 +18,12 @@ export class StringCollisionDetector {
   // Prevents stationary fingers held on a string from auto-plucking repeatedly
   private activeTouches = new Set<string>();
 
-  // High-sensitivity thresholds
+  // High-sensitivity thresholds (with dead-zone margin around string tips)
   private depthTolerance = 0.55;       // Generous Z-axis depth allowance
-  private touchRadius = 0.046;         // Generous proximity contact radius around the string
+  private touchRadius = 0.046;         // Generous proximity contact radius along the playable string body
   private releaseRadius = 0.048;       // Tight release radius so slight lift immediately re-arms
+  private tipMarginRatio = 0.02;       // Outer 2% right at each string tip is an unplayable dead-zone margin
+  private tipMarginRadius = 0.016;     // Exact crosshair reticle radius around each endpoint tip ignored for plucking
   private minPluckTravel = 0.0008;     // Ultra-sensitive to light finger taps while filtering dead-still noise
   private minCrossTravel = 0.0028;     // Minimum motion for centerline crossing while already inside touch zone
   private retriggerCooldownMs = 65;    // Fast finger retrigger cooldown for tremolo & rapid taps
@@ -87,14 +89,30 @@ export class StringCollisionDetector {
             const segDx = Dx - Cx;
             const segDy = Dy - Cy;
             const segLenSq = segDx * segDx + segDy * segDy;
+            let rawT = 0.5;
             let projT = 0.5;
             let distToSeg = Infinity;
 
             if (segLenSq > 1e-6) {
-              projT = Math.max(0, Math.min(1, ((Bx - Cx) * segDx + (By - Cy) * segDy) / segLenSq));
+              rawT = ((Bx - Cx) * segDx + (By - Cy) * segDy) / segLenSq;
+              projT = Math.max(0, Math.min(1, rawT));
               const closeX = Cx + projT * segDx;
               const closeY = Cy + projT * segDy;
               distToSeg = Math.sqrt((Bx - closeX) * (Bx - closeX) + (By - closeY) * (By - closeY));
+            }
+
+            // Dead-zone margin around both string tips (P1 and P2):
+            // Ignore any finger activity near the endpoints or outside the inner [tipMarginRatio .. 1 - tipMarginRatio] span
+            const distToP1 = Math.sqrt((Bx - Cx) * (Bx - Cx) + (By - Cy) * (By - Cy));
+            const distToP2 = Math.sqrt((Bx - Dx) * (Bx - Dx) + (By - Dy) * (By - Dy));
+            if (
+              distToP1 < this.tipMarginRadius ||
+              distToP2 < this.tipMarginRadius ||
+              rawT < this.tipMarginRatio ||
+              rawT > 1.0 - this.tipMarginRatio
+            ) {
+              this.activeTouches.delete(pluckKey);
+              return;
             }
 
             const prevDist = this.prevDistToStrings.get(pluckKey) ?? Infinity;
@@ -136,7 +154,12 @@ export class StringCollisionDetector {
                 const u = ((Cx - Ax) * (Dy - Cy) - (Cy - Ay) * (Dx - Cx)) / denom;
                 const v = ((Cx - Ax) * (By - Ay) - (Cy - Ay) * (Bx - Ax)) / denom;
 
-                if (u >= 0 && u <= 1 && v >= 0 && v <= 1) {
+                if (
+                  u >= 0 &&
+                  u <= 1 &&
+                  v >= this.tipMarginRatio &&
+                  v <= 1.0 - this.tipMarginRatio
+                ) {
                   isHit = true;
                   contactRatio = v;
                 }
