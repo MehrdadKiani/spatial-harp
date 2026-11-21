@@ -10,20 +10,22 @@ const PLUCKING_FINGERS = [4, 8, 12, 16, 20];
 export class StringCollisionDetector {
   private scaleMapper: ScaleMapper;
   private prevFingertips = new Map<string, Point3D>();
+  private prevDistToStrings = new Map<string, number>();
   private lastPluckTimes = new Map<string, number>();
   private lastStringPluckTimes = new Map<string, number>();
 
   // Tracks fingers currently resting/holding on a string (hysteresis contact latch)
-  // A finger holding on a string will not re-pluck until it leaves releaseRadius
+  // Prevents stationary fingers held on a string from auto-plucking repeatedly
   private activeTouches = new Set<string>();
 
-  // Thresholds
-  private depthTolerance = 0.45;       // Maximum Z-axis distance to consider collision
-  private touchRadius = 0.036;         // Direct point-to-segment contact radius to engage pluck
-  private releaseRadius = 0.044;       // Hysteresis release radius: finger must move outside this to re-arm
-  private minPluckTravel = 0.0016;     // Minimum frame-to-frame finger motion to ignore stationary webcam jitter
-  private retriggerCooldownMs = 85;    // Cooldown between repeated plucks of the same string by the same finger
-  private stringCooldownMs = 75;       // Per-string cooldown to prevent multiple fingers on one swipe from flooding voices
+  // High-sensitivity thresholds
+  private depthTolerance = 0.55;       // Generous Z-axis depth allowance
+  private touchRadius = 0.046;         // Generous proximity contact radius around the string
+  private releaseRadius = 0.048;       // Tight release radius so slight lift immediately re-arms
+  private minPluckTravel = 0.0008;     // Ultra-sensitive to light finger taps while filtering dead-still noise
+  private minCrossTravel = 0.0028;     // Minimum motion for centerline crossing while already inside touch zone
+  private retriggerCooldownMs = 65;    // Fast finger retrigger cooldown for tremolo & rapid taps
+  private stringCooldownMs = 50;       // Fast per-string cooldown allowing multi-finger harp rolls
 
   constructor(scaleMapper: ScaleMapper) {
     this.scaleMapper = scaleMapper;
@@ -70,8 +72,8 @@ export class StringCollisionDetector {
           const safeDelta = Math.max(delta, 0.008);
           const speed = travelDist / safeDelta;
 
-          // Velocity mapping: speed 0.1 -> 0.3, speed 1.5 -> 1.0
-          const velocity = Math.min(1.0, Math.max(0.25, 0.25 + speed * 0.5));
+          // Velocity mapping: responsive even to gentle touches (0.35 .. 1.0)
+          const velocity = Math.min(1.0, Math.max(0.35, 0.35 + speed * 0.55));
 
           // Check collisions against every anchored string
           strings.forEach((str) => {
@@ -95,13 +97,13 @@ export class StringCollisionDetector {
               distToSeg = Math.sqrt((Bx - closeX) * (Bx - closeX) + (By - closeY) * (By - closeY));
             }
 
-            // Hysteresis check: if finger is currently resting/holding on this string,
-            // do not re-trigger until the finger moves outside releaseRadius
+            const prevDist = this.prevDistToStrings.get(pluckKey) ?? Infinity;
+            this.prevDistToStrings.set(pluckKey, distToSeg);
+
+            // Release contact latch if finger moved outside releaseRadius OR pulled back away from string by > 0.004
             if (this.activeTouches.has(pluckKey)) {
-              if (distToSeg > this.releaseRadius) {
+              if (distToSeg > this.releaseRadius || distToSeg > prevDist + 0.0035) {
                 this.activeTouches.delete(pluckKey);
-              } else {
-                return;
               }
             }
 
@@ -126,7 +128,8 @@ export class StringCollisionDetector {
             let contactRatio = projT;
 
             // Test 1: 2D Trajectory line segment crossing between finger (A -> B) and string (C -> D)
-            if (travelDist >= this.minPluckTravel) {
+            // Always allowed when crossing the centerline with intentional motion (even during tight back-and-forth strums)
+            if (travelDist >= this.minCrossTravel) {
               const denom = (Bx - Ax) * (Dy - Cy) - (By - Ay) * (Dx - Cx);
 
               if (Math.abs(denom) > 1e-6) {
@@ -140,14 +143,19 @@ export class StringCollisionDetector {
               }
             }
 
-            // Test 2: Edge-triggered proximity touch (entering touchRadius from outside with intentional movement)
-            if (!isHit && travelDist >= this.minPluckTravel && distToSeg <= this.touchRadius) {
+            // Test 2: High-sensitivity proximity touch (when not latched by a stationary hold)
+            if (
+              !isHit &&
+              !this.activeTouches.has(pluckKey) &&
+              travelDist >= this.minPluckTravel &&
+              distToSeg <= this.touchRadius
+            ) {
               isHit = true;
               contactRatio = projT;
             }
 
             if (isHit) {
-              // Latch touch state so holding the finger on the string does not auto-repeat
+              // Latch touch state so holding the finger stationary on the string does not auto-repeat
               this.activeTouches.add(pluckKey);
               this.lastPluckTimes.set(pluckKey, nowMs);
               this.lastStringPluckTimes.set(str.id, nowMs);
@@ -182,6 +190,7 @@ export class StringCollisionDetector {
 
   public reset(): void {
     this.prevFingertips.clear();
+    this.prevDistToStrings.clear();
     this.lastPluckTimes.clear();
     this.lastStringPluckTimes.clear();
     this.activeTouches.clear();

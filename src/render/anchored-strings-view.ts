@@ -9,37 +9,44 @@ export class AnchoredStringsView {
   private maxStrings: number;
   private maxTicksPerString = 30;
 
-  // Tessellation for wave vibration physics (32 segments = 33 vertices per string)
-  private segmentsPerString = 32;
-  private verticesPerString = 33;
+  // High-resolution tessellation for fluid traveling wave packets & harmonics (64 segments = 65 vertices)
+  private segmentsPerString = 64;
+  private verticesPerString = 65;
 
-  // 1. Core Center String Lines
+  // 1. Oscillating Main Laser Beam Lines (with per-vertex chromatic gradient colors)
   private coreLines: THREE.Line[] = [];
   private corePositions: Float32Array[] = [];
+  private coreColors: Float32Array[] = [];
 
-  // 2. Dual-Wave Envelope Boundary Lines (Upper & Lower)
+  // 2. Motion-Blur Ghost Trail Lines (phase-lagged oscillating luminous trails)
+  private trailLines: THREE.Line[] = [];
+  private trailPositions: Float32Array[] = [];
+  private trailColors: Float32Array[] = [];
+
+  // 3. Dual-Wave Envelope Boundary Lines (Upper & Lower luminous edges)
   private upperEnvelopeLines: THREE.Line[] = [];
   private upperEnvelopePositions: Float32Array[] = [];
   private lowerEnvelopeLines: THREE.Line[] = [];
   private lowerEnvelopePositions: Float32Array[] = [];
 
-  // 3. Resonant Luminous Ribbon Meshes (Triangle strip between upper & lower envelopes)
+  // 4. Resonant Additive Neon Bloom & Energy Ribbon Meshes (with per-vertex chromatic colors)
   private ribbonMeshes: THREE.Mesh[] = [];
   private ribbonPositions: Float32Array[] = [];
+  private ribbonColors: Float32Array[] = [];
   private ribbonMaterials: THREE.MeshBasicMaterial[] = [];
 
-  // 4. Fret Tick Lines
+  // 5. Fret Tick Lines
   private tickLines: THREE.LineSegments[] = [];
   private tickPositions: Float32Array[] = [];
 
-  // 5. Precision Sighting Anchor Reticles (⌖) (2 reticles per string * 12 = 24 reticles)
+  // 6. Precision Sighting Anchor Reticles (⌖) (2 reticles per string * 12 = 24 reticles)
   private anchorReticles: THREE.LineSegments[] = [];
   private anchorReticleMaterials: THREE.LineBasicMaterial[] = [];
 
   // Active wave vibrations map (stringId -> StringVibrationState)
   private vibrations = new Map<string, StringVibrationState>();
 
-  // Reusable scratch vectors to avoid per-frame allocations (Zero-GC)
+  // Reusable scratch vectors & colors to avoid per-frame allocations (Zero-GC)
   private scratchP1 = new THREE.Vector3();
   private scratchP2 = new THREE.Vector3();
   private scratchDir = new THREE.Vector3();
@@ -48,8 +55,11 @@ export class AnchoredStringsView {
   private scratchTop = new THREE.Vector3();
   private scratchBtm = new THREE.Vector3();
   private scratchVert = new THREE.Vector3();
+  private scratchOsc = new THREE.Vector3();
+  private scratchTrail = new THREE.Vector3();
   private scratchUpper = new THREE.Vector3();
   private scratchLower = new THREE.Vector3();
+  private baseColor = new THREE.Color();
 
   constructor(sceneManager: SceneManager, maxStrings = 12) {
     this.sceneManager = sceneManager;
@@ -57,7 +67,7 @@ export class AnchoredStringsView {
     this.group = new THREE.Group();
     this.sceneManager.scene.add(this.group);
 
-    // Pre-calculate shared index buffer for ribbon triangle strips (32 segments * 2 triangles = 64 triangles = 192 indices)
+    // Pre-calculate shared index buffer for ribbon triangle strips (64 segments * 2 triangles = 128 triangles = 384 indices)
     const ribbonIndices = new Uint16Array(this.segmentsPerString * 6);
     let idxPtr = 0;
     for (let s = 0; s < this.segmentsPerString; s++) {
@@ -65,31 +75,31 @@ export class AnchoredStringsView {
       const btmA = s * 2 + 1;
       const topB = (s + 1) * 2;
       const btmB = (s + 1) * 2 + 1;
-      // Triangle 1: topA -> btmA -> topB
       ribbonIndices[idxPtr++] = topA;
       ribbonIndices[idxPtr++] = btmA;
       ribbonIndices[idxPtr++] = topB;
-      // Triangle 2: topB -> btmA -> btmB
       ribbonIndices[idxPtr++] = topB;
       ribbonIndices[idxPtr++] = btmA;
       ribbonIndices[idxPtr++] = btmB;
     }
 
-    // Pre-calculate static geometry for Precision Crosshair Reticle (⌖)
-    // 16 circle segments (32 vertices) + 4 crosshair ticks (8 vertices) + center cross (4 vertices) = 44 vertices
     const reticlePosArray = this.generateReticleGeometry();
 
     for (let i = 0; i < this.maxStrings; i++) {
-      // 1. Core resting laser line
+      // 1. Main Oscillating Laser Beam Line (vertex-colored for chromatic traveling wave)
       const corePos = new Float32Array(this.verticesPerString * 3);
+      const coreCol = new Float32Array(this.verticesPerString * 3);
       this.corePositions.push(corePos);
+      this.coreColors.push(coreCol);
       const coreGeom = new THREE.BufferGeometry();
       coreGeom.setAttribute('position', new THREE.BufferAttribute(corePos, 3));
+      coreGeom.setAttribute('color', new THREE.BufferAttribute(coreCol, 3));
       const coreMat = new THREE.LineBasicMaterial({
-        color: 0xffffff,
-        linewidth: 2.0,
+        vertexColors: true,
+        linewidth: 2.5,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.98,
+        blending: THREE.AdditiveBlending,
         depthTest: false,
       });
       const coreLine = new THREE.Line(coreGeom, coreMat);
@@ -97,7 +107,28 @@ export class AnchoredStringsView {
       this.coreLines.push(coreLine);
       this.group.add(coreLine);
 
-      // 2. Upper & Lower Envelope Lines
+      // 2. Motion-Blur Ghost Trail Line
+      const trailPos = new Float32Array(this.verticesPerString * 3);
+      const trailCol = new Float32Array(this.verticesPerString * 3);
+      this.trailPositions.push(trailPos);
+      this.trailColors.push(trailCol);
+      const trailGeom = new THREE.BufferGeometry();
+      trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+      trailGeom.setAttribute('color', new THREE.BufferAttribute(trailCol, 3));
+      const trailMat = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        linewidth: 1.5,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+      });
+      const trailLine = new THREE.Line(trailGeom, trailMat);
+      trailLine.visible = false;
+      this.trailLines.push(trailLine);
+      this.group.add(trailLine);
+
+      // 3. Upper & Lower Luminous Envelope Edge Lines
       const upperPos = new Float32Array(this.verticesPerString * 3);
       this.upperEnvelopePositions.push(upperPos);
       const upperGeom = new THREE.BufferGeometry();
@@ -107,6 +138,7 @@ export class AnchoredStringsView {
         linewidth: 1.5,
         transparent: true,
         opacity: 0.85,
+        blending: THREE.AdditiveBlending,
         depthTest: false,
       });
       const upperLine = new THREE.Line(upperGeom, upperMat);
@@ -119,10 +151,11 @@ export class AnchoredStringsView {
       const lowerGeom = new THREE.BufferGeometry();
       lowerGeom.setAttribute('position', new THREE.BufferAttribute(lowerPos, 3));
       const lowerMat = new THREE.LineBasicMaterial({
-        color: 0x00f0ff,
+        color: 0xff007f,
         linewidth: 1.5,
         transparent: true,
         opacity: 0.85,
+        blending: THREE.AdditiveBlending,
         depthTest: false,
       });
       const lowerLine = new THREE.Line(lowerGeom, lowerMat);
@@ -130,16 +163,19 @@ export class AnchoredStringsView {
       this.lowerEnvelopeLines.push(lowerLine);
       this.group.add(lowerLine);
 
-      // 3. Resonant Luminous Ribbon Mesh
+      // 4. Resonant Additive Neon Glow & Wave Ribbon Mesh (always visible as subtle laser bloom aura when idle, expands on pluck)
       const ribbonPos = new Float32Array(this.verticesPerString * 2 * 3);
+      const ribbonCol = new Float32Array(this.verticesPerString * 2 * 3);
       this.ribbonPositions.push(ribbonPos);
+      this.ribbonColors.push(ribbonCol);
       const ribbonGeom = new THREE.BufferGeometry();
       ribbonGeom.setAttribute('position', new THREE.BufferAttribute(ribbonPos, 3));
+      ribbonGeom.setAttribute('color', new THREE.BufferAttribute(ribbonCol, 3));
       ribbonGeom.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
       const ribbonMat = new THREE.MeshBasicMaterial({
-        color: 0x00f0ff,
+        vertexColors: true,
         transparent: true,
-        opacity: 0.28,
+        opacity: 0.42,
         blending: THREE.AdditiveBlending,
         depthTest: false,
         side: THREE.DoubleSide,
@@ -150,7 +186,7 @@ export class AnchoredStringsView {
       this.ribbonMaterials.push(ribbonMat);
       this.group.add(ribbonMesh);
 
-      // 4. Fret Ticks
+      // 5. Fret Ticks
       const tickPos = new Float32Array(this.maxTicksPerString * 2 * 3);
       this.tickPositions.push(tickPos);
       const tickGeom = new THREE.BufferGeometry();
@@ -159,7 +195,8 @@ export class AnchoredStringsView {
         color: 0xaaffdd,
         linewidth: 1.5,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
         depthTest: false,
       });
       const tickLine = new THREE.LineSegments(tickGeom, tickMat);
@@ -167,7 +204,7 @@ export class AnchoredStringsView {
       this.tickLines.push(tickLine);
       this.group.add(tickLine);
 
-      // 5. Precision Sighting Anchor Reticles (2 per string: P1 and P2)
+      // 6. Precision Sighting Anchor Reticles (2 per string: P1 and P2)
       for (let j = 0; j < 2; j++) {
         const reticleGeom = new THREE.BufferGeometry();
         reticleGeom.setAttribute('position', new THREE.BufferAttribute(reticlePosArray, 3));
@@ -176,6 +213,7 @@ export class AnchoredStringsView {
           linewidth: 1.5,
           transparent: true,
           opacity: 0.92,
+          blending: THREE.AdditiveBlending,
           depthTest: false,
         });
         const reticle = new THREE.LineSegments(reticleGeom, reticleMat);
@@ -189,7 +227,6 @@ export class AnchoredStringsView {
 
   /**
    * Generates static vertex positions for the precision crosshair reticle (⌖)
-   * Outer circle (16 segments = 32 vertices) + 4 crosshair ticks (8 vertices) + center cross (4 vertices)
    */
   private generateReticleGeometry(): Float32Array {
     const circleSegments = 16;
@@ -197,11 +234,9 @@ export class AnchoredStringsView {
     const tickStart = 0.007;
     const tickEnd = 0.016;
 
-    // Total: 32 + 8 + 4 = 44 vertices -> 44 * 3 = 132 floats
     const pos = new Float32Array((circleSegments * 2 + 8 + 4) * 3);
     let ptr = 0;
 
-    // 1. Outer circle segments
     for (let s = 0; s < circleSegments; s++) {
       const a1 = (s / circleSegments) * Math.PI * 2;
       const a2 = ((s + 1) / circleSegments) * Math.PI * 2;
@@ -215,21 +250,17 @@ export class AnchoredStringsView {
       pos[ptr++] = 0;
     }
 
-    // 2. Crosshair sight ticks (aligned horizontally and vertically)
-    // Left tick
+    // Left, Right, Bottom, Top sight ticks
     pos[ptr++] = -tickEnd; pos[ptr++] = 0; pos[ptr++] = 0;
     pos[ptr++] = -tickStart; pos[ptr++] = 0; pos[ptr++] = 0;
-    // Right tick
     pos[ptr++] = tickStart; pos[ptr++] = 0; pos[ptr++] = 0;
     pos[ptr++] = tickEnd; pos[ptr++] = 0; pos[ptr++] = 0;
-    // Bottom tick
     pos[ptr++] = 0; pos[ptr++] = -tickEnd; pos[ptr++] = 0;
     pos[ptr++] = 0; pos[ptr++] = -tickStart; pos[ptr++] = 0;
-    // Top tick
     pos[ptr++] = 0; pos[ptr++] = tickStart; pos[ptr++] = 0;
     pos[ptr++] = 0; pos[ptr++] = tickEnd; pos[ptr++] = 0;
 
-    // 3. Center sighting cross
+    // Center cross
     const centerSpan = 0.0035;
     pos[ptr++] = -centerSpan; pos[ptr++] = 0; pos[ptr++] = 0;
     pos[ptr++] = centerSpan; pos[ptr++] = 0; pos[ptr++] = 0;
@@ -240,18 +271,21 @@ export class AnchoredStringsView {
   }
 
   /**
-   * Triggers damped harmonic standing wave vibration on a plucked string
+   * Triggers bi-directional traveling energy wave and multi-harmonic string oscillation (~1.75s decay)
    */
   public triggerPluck(stringId: string, velocity: number, contactRatio: number, elapsed: number): void {
-    const initialAmplitude = 0.022 * Math.min(1.0, Math.max(0.35, velocity));
+    const clampedVel = Math.min(1.0, Math.max(0.35, velocity));
+    const initialAmplitude = 0.028 * clampedVel;
     this.vibrations.set(stringId, {
       stringId,
       initialAmplitude,
       amplitude: initialAmplitude,
-      frequency: 28.0, // Visual ripple frequency in rad/s
-      damping: 3.4,    // Exponential decay factor (~950ms decay)
+      frequency: 36.0,    // Rapid realistic oscillation frequency (rad/s)
+      waveSpeed: 1.55,    // Bi-directional traveling wave packet speed (normalized length/s)
+      damping: 2.25,      // Smooth ~1.75s exponential dissipation back to idle state
       startTime: elapsed,
       contactRatio,
+      velocity: clampedVel,
       active: true,
     });
   }
@@ -262,9 +296,9 @@ export class AnchoredStringsView {
     videoAspect: number,
     elapsed: number
   ): void {
-    // Hide all meshes first
     for (let i = 0; i < this.maxStrings; i++) {
       this.coreLines[i].visible = false;
+      this.trailLines[i].visible = false;
       this.upperEnvelopeLines[i].visible = false;
       this.lowerEnvelopeLines[i].visible = false;
       this.ribbonMeshes[i].visible = false;
@@ -283,15 +317,14 @@ export class AnchoredStringsView {
       p1.copy(w1);
       p2.copy(w2);
 
-      // Compute string direction and perpendicular normal
       const dir = this.scratchDir.subVectors(p2, p1);
       const length = dir.length();
       dir.normalize();
 
-      // Perpendicular normal in 2D plane: (-dy, dx, 0)
       const normal = this.scratchNormal.set(-dir.y, dir.x, 0).normalize();
+      this.baseColor.setHex(str.color);
 
-      // Check active harmonic wave vibration state
+      // Check active harmonic & traveling wave vibration state (~1.75s duration)
       const vib = this.vibrations.get(str.id);
       let isVibrating = false;
       let timeSincePluck = 0;
@@ -299,7 +332,7 @@ export class AnchoredStringsView {
 
       if (vib && vib.active) {
         timeSincePluck = elapsed - vib.startTime;
-        if (timeSincePluck < 1.1) {
+        if (timeSincePluck < 1.80) {
           isVibrating = true;
           envelopeAlpha = Math.exp(-vib.damping * timeSincePluck);
         } else {
@@ -308,43 +341,119 @@ export class AnchoredStringsView {
         }
       }
 
-      // 1. Update Core Laser Line, Dual-Wave Envelopes & Resonant Ribbon
       const coreMesh = this.coreLines[idx];
       const corePos = this.corePositions[idx];
+      const coreCol = this.coreColors[idx];
+
+      const trailMesh = this.trailLines[idx];
+      const trailPos = this.trailPositions[idx];
+      const trailCol = this.trailColors[idx];
+
       const upperMesh = this.upperEnvelopeLines[idx];
       const upperPos = this.upperEnvelopePositions[idx];
       const lowerMesh = this.lowerEnvelopeLines[idx];
       const lowerPos = this.lowerEnvelopePositions[idx];
+
       const ribbonMesh = this.ribbonMeshes[idx];
       const ribbonPos = this.ribbonPositions[idx];
+      const ribbonCol = this.ribbonColors[idx];
       const ribbonMat = this.ribbonMaterials[idx];
 
       let linePtr = 0;
       let ribbonPtr = 0;
 
+      // Subtle idle neon halo half-width so idle strings still have luminous bloom edges
+      const idleHaloWidth = 0.0038 + 0.0008 * Math.sin(elapsed * 3.2 + idx);
+
       for (let v = 0; v < this.verticesPerString; v++) {
         const u = v / this.segmentsPerString; // 0.0 to 1.0 along string
         const base = this.scratchVert.lerpVectors(p1, p2, u);
-
-        // Core line coordinates
-        corePos[linePtr] = base.x;
-        corePos[linePtr + 1] = base.y;
-        corePos[linePtr + 2] = base.z;
+        // Fixed string boundary condition: 0 at u=0 and u=1
+        const boundaryPin = Math.sin(Math.PI * u);
 
         if (isVibrating && vib) {
-          // Standing wave envelope equation:
-          // Fundamental wave modulated with acoustic persistence-of-vision envelope
-          const oscCos = Math.cos(vib.frequency * timeSincePluck);
-          const oscCos2 = Math.cos(2 * vib.frequency * timeSincePluck);
-          const fundamental = Math.sin(Math.PI * u) * envelopeAlpha;
-          const secondHarmonic = 0.40 * Math.sin(2 * Math.PI * u) * Math.exp(-1.6 * vib.damping * timeSincePluck);
+          const u0 = vib.contactRatio;
 
-          // Envelope amplitude: combines persistent visual envelope width + oscillating pulse
-          const envAmplitude = vib.initialAmplitude * (fundamental * (0.65 + 0.35 * Math.abs(oscCos)) + secondHarmonic * (0.6 + 0.4 * Math.abs(oscCos2)));
+          // 1. Bi-Directional Propagating Energy Wave Packets (left-traveling & right-traveling with boundary reflection)
+          const travelDist = vib.waveSpeed * timeSincePluck;
+          const waveDecay = Math.exp(-1.9 * timeSincePluck);
 
-          // Upper and Lower wave boundaries forming the resonant spindle/lens
-          const upper = this.scratchUpper.copy(base).addScaledVector(normal, envAmplitude);
-          const lower = this.scratchLower.copy(base).addScaledVector(normal, -envAmplitude);
+          // Direct wavefronts moving left (u0 - c*t) and right (u0 + c*t)
+          const dLeft = u - (u0 - travelDist);
+          const dRight = u - (u0 + travelDist);
+          // Reflected wavefronts bouncing off anchors at u=0 and u=1
+          const dReflectLeft = u - (-(u0 - travelDist));
+          const dReflectRight = u - (2.0 - (u0 + travelDist));
+
+          const sigma = 0.075; // Wave packet width
+          const invSigmaSq = 1.0 / (2.0 * sigma * sigma);
+          const pulseLeft = Math.exp(-dLeft * dLeft * invSigmaSq);
+          const pulseRight = Math.exp(-dRight * dRight * invSigmaSq);
+          const pulseRefL = 0.65 * Math.exp(-dReflectLeft * dReflectLeft * invSigmaSq);
+          const pulseRefR = 0.65 * Math.exp(-dReflectRight * dReflectRight * invSigmaSq);
+
+          const waveEnergy = Math.min(1.4, (pulseLeft + pulseRight + pulseRefL + pulseRefR) * waveDecay);
+
+          // Initial contact flash intensity right at u0 during the first 160ms
+          const distFromContact = u - u0;
+          const contactFlash =
+            timeSincePluck < 0.16
+              ? Math.exp(-distFromContact * distFromContact * 140.0) * (1.0 - timeSincePluck / 0.16)
+              : 0;
+
+          // 2. Multi-Harmonic Standing Guitar String Oscillation (harmonics 1, 2, 3 excited by pluck point u0)
+          const w1Weight = Math.max(0.35, Math.sin(Math.PI * u0));
+          const w2Weight = 0.45 * Math.sin(2.0 * Math.PI * u0);
+          const w3Weight = 0.25 * Math.sin(3.0 * Math.PI * u0);
+
+          const phase1 = vib.frequency * timeSincePluck;
+          const phase2 = 2.05 * vib.frequency * timeSincePluck;
+          const phase3 = 3.12 * vib.frequency * timeSincePluck;
+
+          const mode1 = w1Weight * Math.sin(Math.PI * u) * envelopeAlpha;
+          const mode2 = w2Weight * Math.sin(2.0 * Math.PI * u) * Math.exp(-1.45 * vib.damping * timeSincePluck);
+          const mode3 = w3Weight * Math.sin(3.0 * Math.PI * u) * Math.exp(-2.1 * vib.damping * timeSincePluck);
+
+          // Traveling wave ripples riding on the string
+          const travelingWaveOsc =
+            0.55 * waveEnergy * Math.sin(14.0 * Math.PI * (u - u0) - 24.0 * timeSincePluck) * boundaryPin;
+
+          // Instantaneous oscillating string position (Core line)
+          const instDisp =
+            vib.initialAmplitude *
+            (mode1 * Math.cos(phase1) +
+              mode2 * Math.cos(phase2) +
+              mode3 * Math.cos(phase3) +
+              travelingWaveOsc);
+
+          // Motion-blur ghost trail position (lagged in phase by 0.65 rad)
+          const trailDisp =
+            vib.initialAmplitude *
+            0.82 *
+            (mode1 * Math.cos(phase1 - 0.65) +
+              mode2 * Math.cos(phase2 - 0.85) +
+              travelingWaveOsc * 0.75);
+
+          // Persistence-of-vision outer resonant envelope sheath
+          const envWidth =
+            idleHaloWidth +
+            vib.initialAmplitude *
+              (Math.abs(mode1) * (0.68 + 0.32 * Math.abs(Math.cos(phase1))) +
+                Math.abs(mode2) * 0.75 +
+                0.65 * waveEnergy * boundaryPin);
+
+          const oscPt = this.scratchOsc.copy(base).addScaledVector(normal, instDisp);
+          const trailPt = this.scratchTrail.copy(base).addScaledVector(normal, trailDisp);
+          const upper = this.scratchUpper.copy(base).addScaledVector(normal, envWidth);
+          const lower = this.scratchLower.copy(base).addScaledVector(normal, -envWidth);
+
+          corePos[linePtr] = oscPt.x;
+          corePos[linePtr + 1] = oscPt.y;
+          corePos[linePtr + 2] = oscPt.z;
+
+          trailPos[linePtr] = trailPt.x;
+          trailPos[linePtr + 1] = trailPt.y;
+          trailPos[linePtr + 2] = trailPt.z;
 
           upperPos[linePtr] = upper.x;
           upperPos[linePtr + 1] = upper.y;
@@ -354,61 +463,121 @@ export class AnchoredStringsView {
           lowerPos[linePtr + 1] = lower.y;
           lowerPos[linePtr + 2] = lower.z;
 
-          // Ribbon vertices (interleaved pairs: top_0, btm_0, top_1, btm_1...)
-          ribbonPos[ribbonPtr++] = upper.x;
-          ribbonPos[ribbonPtr++] = upper.y;
-          ribbonPos[ribbonPtr++] = upper.z;
-          ribbonPos[ribbonPtr++] = lower.x;
-          ribbonPos[ribbonPtr++] = lower.y;
-          ribbonPos[ribbonPtr++] = lower.z;
+          // 3. Dynamic Chromatic Gradient (Cyan -> Electric Blue -> Magenta -> Purple -> White-Hot Wavefront)
+          const chromaPhase = u * 3.5 - timeSincePluck * 5.5;
+          const cyanFactor = 0.5 + 0.5 * Math.cos(chromaPhase);
+          const magentaFactor = 0.5 + 0.5 * Math.sin(chromaPhase);
+          const energyBoost = Math.min(1.0, waveEnergy * 0.85 + contactFlash);
+
+          // Blend base string color with chromatic wave surge and incandescent white contact flash
+          const r = Math.min(
+            1.0,
+            this.baseColor.r * (1.0 - energyBoost * 0.5) +
+              (0.95 * magentaFactor + 0.35 * (1.0 - cyanFactor)) * energyBoost +
+              contactFlash * 0.9
+          );
+          const g = Math.min(
+            1.0,
+            this.baseColor.g * (1.0 - energyBoost * 0.4) +
+              (0.95 * cyanFactor + 0.15 * magentaFactor) * energyBoost +
+              contactFlash * 0.9
+          );
+          const b = Math.min(1.0, this.baseColor.b * 0.4 + 0.85 + energyBoost * 0.35 + contactFlash * 0.9);
+
+          // Core line is white-hot at wavefronts and contact point
+          coreCol[linePtr] = Math.min(1.0, r + 0.25 + energyBoost * 0.35);
+          coreCol[linePtr + 1] = Math.min(1.0, g + 0.25 + energyBoost * 0.35);
+          coreCol[linePtr + 2] = Math.min(1.0, b + 0.30);
+
+          // Motion-blur trail shifts toward electric violet/magenta
+          trailCol[linePtr] = Math.min(1.0, r * 0.85 + 0.25) * envelopeAlpha;
+          trailCol[linePtr + 1] = g * 0.55 * envelopeAlpha;
+          trailCol[linePtr + 2] = Math.min(1.0, b * 0.95) * envelopeAlpha;
+
+          // Ribbon vertices & chromatic colors (interleaved top_v, btm_v)
+          ribbonPos[ribbonPtr] = upper.x;
+          ribbonPos[ribbonPtr + 1] = upper.y;
+          ribbonPos[ribbonPtr + 2] = upper.z;
+          ribbonCol[ribbonPtr] = r;
+          ribbonCol[ribbonPtr + 1] = g;
+          ribbonCol[ribbonPtr + 2] = b;
+          ribbonPtr += 3;
+
+          ribbonPos[ribbonPtr] = lower.x;
+          ribbonPos[ribbonPtr + 1] = lower.y;
+          ribbonPos[ribbonPtr + 2] = lower.z;
+          ribbonCol[ribbonPtr] = Math.min(1.0, r * 0.7 + 0.3);
+          ribbonCol[ribbonPtr + 1] = g * 0.6;
+          ribbonCol[ribbonPtr + 2] = b;
+          ribbonPtr += 3;
         } else {
-          upperPos[linePtr] = base.x;
-          upperPos[linePtr + 1] = base.y;
-          upperPos[linePtr + 2] = base.z;
+          // Idle State: Vivid straight laser string with bright core and subtle neon bloom edges
+          corePos[linePtr] = base.x;
+          corePos[linePtr + 1] = base.y;
+          corePos[linePtr + 2] = base.z;
 
-          lowerPos[linePtr] = base.x;
-          lowerPos[linePtr + 1] = base.y;
-          lowerPos[linePtr + 2] = base.z;
+          // Subtle idle chromatic shimmer along the straight laser beam
+          const idleShimmer = 0.88 + 0.12 * Math.sin(u * Math.PI * 3.0 + elapsed * 2.5 + idx);
+          coreCol[linePtr] = Math.min(1.0, (this.baseColor.r * 0.75 + 0.25) * idleShimmer);
+          coreCol[linePtr + 1] = Math.min(1.0, (this.baseColor.g * 0.75 + 0.25) * idleShimmer);
+          coreCol[linePtr + 2] = Math.min(1.0, (this.baseColor.b * 0.75 + 0.25) * idleShimmer);
 
-          ribbonPos[ribbonPtr++] = base.x;
-          ribbonPos[ribbonPtr++] = base.y;
-          ribbonPos[ribbonPtr++] = base.z;
-          ribbonPos[ribbonPtr++] = base.x;
-          ribbonPos[ribbonPtr++] = base.y;
-          ribbonPos[ribbonPtr++] = base.z;
+          const upperIdle = this.scratchUpper.copy(base).addScaledVector(normal, idleHaloWidth);
+          const lowerIdle = this.scratchLower.copy(base).addScaledVector(normal, -idleHaloWidth);
+
+          ribbonPos[ribbonPtr] = upperIdle.x;
+          ribbonPos[ribbonPtr + 1] = upperIdle.y;
+          ribbonPos[ribbonPtr + 2] = upperIdle.z;
+          ribbonCol[ribbonPtr] = this.baseColor.r;
+          ribbonCol[ribbonPtr + 1] = this.baseColor.g;
+          ribbonCol[ribbonPtr + 2] = this.baseColor.b;
+          ribbonPtr += 3;
+
+          ribbonPos[ribbonPtr] = lowerIdle.x;
+          ribbonPos[ribbonPtr + 1] = lowerIdle.y;
+          ribbonPos[ribbonPtr + 2] = lowerIdle.z;
+          ribbonCol[ribbonPtr] = this.baseColor.r;
+          ribbonCol[ribbonPtr + 1] = this.baseColor.g;
+          ribbonCol[ribbonPtr + 2] = this.baseColor.b;
+          ribbonPtr += 3;
         }
 
         linePtr += 3;
       }
 
-      // Update core line
-      (coreMesh.material as THREE.LineBasicMaterial).color.setHex(str.color);
+      // Commit Core Laser Line
       (coreMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      (coreMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
       coreMesh.visible = true;
 
-      // Update dual-wave envelope lines & resonant ribbon mesh
+      // Commit Additive Neon Bloom Ribbon (subtle luminous edges when idle, intense chromatic sheath when vibrating)
+      ribbonMat.opacity = isVibrating ? 0.18 + 0.36 * envelopeAlpha : 0.18;
+      (ribbonMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      (ribbonMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      ribbonMesh.visible = true;
+
+      // Commit Motion-Blur Trail & Envelope Boundary Lines during vibration
       if (isVibrating && vib) {
+        (trailMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+        (trailMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+        trailMesh.visible = true;
+
         (upperMesh.material as THREE.LineBasicMaterial).color.setHex(str.color);
         (upperMesh.material as THREE.LineBasicMaterial).opacity = 0.85 * envelopeAlpha;
         (upperMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
         upperMesh.visible = true;
 
-        (lowerMesh.material as THREE.LineBasicMaterial).color.setHex(str.color);
-        (lowerMesh.material as THREE.LineBasicMaterial).opacity = 0.85 * envelopeAlpha;
+        (lowerMesh.material as THREE.LineBasicMaterial).color.setHex(0xd946ef);
+        (lowerMesh.material as THREE.LineBasicMaterial).opacity = 0.78 * envelopeAlpha;
         (lowerMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
         lowerMesh.visible = true;
-
-        ribbonMat.color.setHex(str.color);
-        ribbonMat.opacity = 0.40 * envelopeAlpha;
-        (ribbonMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-        ribbonMesh.visible = true;
       }
 
       // Check if endpoints are currently grabbed
       const isP1Grabbed = activeGrabs.some((g) => g.stringId === str.id && g.endpoint === 'p1');
       const isP2Grabbed = activeGrabs.some((g) => g.stringId === str.id && g.endpoint === 'p2');
 
-      // 2. Update Precision Sighting Anchor Reticles (⌖)
+      // Update Precision Sighting Anchor Reticles (⌖)
       const reticle1 = this.anchorReticles[idx * 2];
       const reticle2 = this.anchorReticles[idx * 2 + 1];
       const mat1 = this.anchorReticleMaterials[idx * 2];
@@ -417,7 +586,6 @@ export class AnchoredStringsView {
       reticle1.position.copy(p1);
       reticle2.position.copy(p2);
 
-      // Rotate reticle to align primary crosshair ticks with string direction
       const stringAngle = Math.atan2(dir.y, dir.x);
       reticle1.rotation.z = stringAngle;
       reticle2.rotation.z = stringAngle;
@@ -449,7 +617,7 @@ export class AnchoredStringsView {
       reticle1.visible = true;
       reticle2.visible = true;
 
-      // 3. Update graduated fret tick marks (dynamically spanning across the vibrating envelope)
+      // Update graduated fret tick marks (spanning across the vibrating envelope)
       const numTicks = Math.min(this.maxTicksPerString, Math.max(8, Math.floor(length * 35)));
       const tickLine = this.tickLines[idx];
       const tickPos = this.tickPositions[idx];
@@ -465,7 +633,7 @@ export class AnchoredStringsView {
         if (isVibrating && vib) {
           const fundamental = Math.sin(Math.PI * factor) * envelopeAlpha;
           const waveDisp = vib.initialAmplitude * fundamental;
-          tickHeight += waveDisp * 0.5; // Tick marks stretch with envelope
+          tickHeight += waveDisp * 0.55;
         }
 
         const top = this.scratchTop.copy(center).addScaledVector(normal, tickHeight);

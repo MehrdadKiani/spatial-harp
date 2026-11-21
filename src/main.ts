@@ -115,19 +115,29 @@ class App {
         this.sparkDir.subVectors(w2, w1).normalize();
         this.sparkNormal.set(-this.sparkDir.y, this.sparkDir.x, 0).normalize();
 
-        // 6a. Emit expanding contact strike shockwave ripple
+        // 6a. Emit intense contact neon flash & dual expanding shockwave ripples
         this.pluckShockwavePool.emitShockwave(
           this.sparkOrigin,
           targetStr.color,
           event.velocity
         );
 
-        // 6b. Emit radial spark particle & floating mote burst
+        // 6b. Emit radial spark particle burst, flowing light trails & floating motes at contact point
         this.sparkParticlePool.emitBurst(
           this.sparkOrigin,
           this.sparkNormal,
           targetStr.color,
           event.velocity
+        );
+
+        // 6c. Emit wave-rider particles & luminous trails propagating along the string in both directions
+        this.sparkParticlePool.emitWaveTrail(
+          w1,
+          w2,
+          this.sparkNormal,
+          targetStr.color,
+          event.velocity,
+          event.contactRatio
         );
       }
     });
