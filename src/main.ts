@@ -322,7 +322,9 @@ class App {
     } catch (err) {
       console.error('Initialization failed:', err);
       const errMsg = (err as Error).message;
-      this.splashScreen.setProgress(0.5, `Error: ${errMsg}`);
+      this.splashScreen.setError(`Error: ${errMsg}`, () => {
+        this.start();
+      });
       this.hud.setMessage(`Error: ${errMsg}`);
     }
   }

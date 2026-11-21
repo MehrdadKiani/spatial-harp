@@ -280,6 +280,39 @@ export class SplashScreen {
   }
 
   /**
+   * Displays a prominent error state on the splash screen with a retry button
+   */
+  public setError(status: string, onRetry?: () => void): void {
+    this.isReady = false;
+    this.progressBar.style.width = '100%';
+    this.progressBar.style.background = 'linear-gradient(90deg, #ff0055, #ff5500)';
+    this.progressBar.style.boxShadow = '0 0 12px #ff0055';
+    this.progressPercent.textContent = '!';
+    this.progressPercent.style.color = '#ff4466';
+    this.progressLabel.textContent = status;
+    this.progressLabel.style.color = '#ff6688';
+
+    if (onRetry) {
+      this.startBtn.disabled = false;
+      this.startBtn.style.cursor = 'pointer';
+      this.startBtn.style.background = 'linear-gradient(135deg, #ff0055 0%, #ff5500 100%)';
+      this.startBtn.style.border = 'none';
+      this.startBtn.style.color = '#ffffff';
+      this.startBtn.style.boxShadow = '0 6px 24px rgba(255, 0, 85, 0.45)';
+      this.startBtn.textContent = 'RETRY CONNECTION';
+      this.startBtn.onclick = () => {
+        this.startBtn.disabled = true;
+        this.startBtn.textContent = 'CONNECTING...';
+        this.progressBar.style.background = 'linear-gradient(90deg, #00f0ff, #38ef7d)';
+        this.progressBar.style.boxShadow = '0 0 12px #00f0ff';
+        this.progressPercent.style.color = '#00f0ff';
+        this.progressLabel.style.color = 'rgba(255, 255, 255, 0.75)';
+        onRetry();
+      };
+    }
+  }
+
+  /**
    * Enables the Start button with glowing neon styles once everything has finished loading
    */
   public setReady(): void {

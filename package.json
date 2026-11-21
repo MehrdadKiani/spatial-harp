@@ -3,6 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "Real-time Augmented Reality Spatial Harp & Audio-Visual Instrument built with TypeScript, Three.js WebGL, MediaPipe HandLandmarker, and Tone.js",
+  "author": "Mehrdad Kiani",
+  "license": "MIT",
+  "keywords": [
+    "augmented-reality",
+    "spatial-audio",
+    "spatial-harp",
+    "threejs",
+    "mediapipe",
+    "tonejs",
+    "webaudio",
+    "webgl",
+    "gesture-recognition"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

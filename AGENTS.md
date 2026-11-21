@@ -1,6 +1,6 @@
 # Agent Guidelines & Project Instructions (`AGENTS.md`)
 
-This repository is a high-performance, real-time **Augmented Reality Spatial Laser Harp & Audio-Visual Instrument** built with **TypeScript**, **Three.js WebGL**, **MediaPipe HandLandmarker**, and **Tone.js**.
+This repository is a high-performance, real-time **Augmented Reality Spatial Harp & Audio-Visual Instrument** built with **TypeScript**, **Three.js WebGL**, **MediaPipe HandLandmarker**, and **Tone.js**.
 
 Reference video: [`files/sample.mp4`](./files/sample.mp4).  
 Master documentation: [`docs/documentation.md`](./docs/documentation.md).
