@@ -195,7 +195,8 @@ export class HUD {
     singlePinchHand: string | null,
     stringsCount: number,
     maxStrings: number,
-    isGrabbingEndpoint: boolean = false
+    isGrabbingEndpoint: boolean = false,
+    grabbedStringNote: string | null = null
   ): void {
     this.fpsDisplay.textContent = `${fps}`;
     this.fpsDisplay.style.color = fps >= 30 ? '#00ffaa' : fps >= 20 ? '#ffaa00' : '#ff4444';
@@ -217,9 +218,10 @@ export class HUD {
     this.handsDisplay.style.color = '#00ffaa';
 
     if (isGrabbingEndpoint) {
-      this.gestureDisplay.textContent = 'Grabbing String Tip';
+      const pitchLabel = grabbedStringNote ? ` → Note: ${grabbedStringNote}` : '';
+      this.gestureDisplay.textContent = `Resizing String${pitchLabel}`;
       this.gestureDisplay.style.color = '#ffdd00';
-      this.statusDisplay.textContent = '🎯 Dragging string endpoint — move hand to reposition, release to lock';
+      this.statusDisplay.textContent = `🎯 Dragging string endpoint${pitchLabel} — stretch/shrink to tune pitch, release to lock`;
     } else if (isDualPinching) {
       this.gestureDisplay.textContent = 'Dual Pinch (Stretching)';
       this.gestureDisplay.style.color = '#00ffff';

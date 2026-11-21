@@ -44,6 +44,9 @@ class App {
   private sparkNormal = new THREE.Vector3();
   private sparkDir = new THREE.Vector3();
 
+  // Short post-grab cooldown per handId so releasing a string tip doesn't accidentally pluck it
+  private handGrabCooldownUntil = new Map<number, number>();
+
   constructor() {
     this.container = document.getElementById('app') || document.body;
 
@@ -211,7 +214,29 @@ class App {
 
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();
-    activeGrabs.forEach((grab) => ignoreHandIds.add(grab.handId));
+    let grabbedStringNote: string | null = null;
+
+    if (activeGrabs.length > 0) {
+      activeGrabs.forEach((grab) => {
+        ignoreHandIds.add(grab.handId);
+        // Set a 250ms grace window after releasing the tip so releasing pinch doesn't pluck the string
+        this.handGrabCooldownUntil.set(grab.handId, nowMs + 250);
+        const grabbedStr = anchoredStrings.find((s) => s.id === grab.stringId);
+        if (grabbedStr) {
+          const { note } = this.scaleMapper.getNoteForString(grabbedStr, anchoredStrings);
+          grabbedStringNote = note;
+        }
+      });
+    }
+
+    this.handGrabCooldownUntil.forEach((untilMs, handId) => {
+      if (nowMs < untilMs) {
+        ignoreHandIds.add(handId);
+      } else {
+        this.handGrabCooldownUntil.delete(handId);
+      }
+    });
+
     this.collisionDetector.update(hands, anchoredStrings, delta, nowMs, ignoreHandIds);
 
     // 6. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
@@ -241,7 +266,8 @@ class App {
       singlePinchHand,
       anchoredStrings.length,
       this.spatialStringManager.maxCapacity,
-      this.spatialStringManager.isAnyEndpointGrabbed
+      this.spatialStringManager.isAnyEndpointGrabbed,
+      grabbedStringNote
     );
 
     // 10. Render Three.js WebGL scene with UnrealBloom post-processing

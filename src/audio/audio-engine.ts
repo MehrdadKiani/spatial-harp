@@ -29,6 +29,7 @@ export class AudioEngine {
   private isAudioStarted = false;
   private currentPresetId: SoundPresetId = 'harp';
   private poolSize: number;
+  private lastTriggerTime = 0;
 
   // 1. Karplus-Strong Physical PluckSynth Voice Pool
   private harpVoicePool: Tone.PluckSynth[] = [];
@@ -46,7 +47,7 @@ export class AudioEngine {
   private limiter: Tone.Limiter;
 
   constructor(config: AudioEngineConfig = {}) {
-    this.poolSize = config.polyphony ?? 8;
+    this.poolSize = config.polyphony ?? 12;
     this.currentPresetId = config.preset ?? 'harp';
     const volumeDb = config.volume ?? -4;
     const reverbWet = config.reverbWet ?? 0.3;
@@ -60,7 +61,7 @@ export class AudioEngine {
       wet: delayWet,
     });
     this.reverb = new Tone.Reverb({
-      decay: 2.6,
+      decay: 2.8,
       preDelay: 0.01,
       wet: reverbWet,
     });
@@ -81,15 +82,17 @@ export class AudioEngine {
     }
 
     // 3. Laser Synth: Polyphonic Sawtooth Synth with fast punchy decay
+    // Note: sustain > 0 prevents Tone.Synth from prematurely stopping the oscillator during attack
     this.laserSynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'sawtooth' },
       envelope: {
         attack: 0.005,
-        decay: 0.32,
-        sustain: 0.0,
-        release: 0.25,
+        decay: 0.18,
+        sustain: 0.05,
+        release: 0.22,
       },
     });
+    this.laserSynth.maxPolyphony = 24;
     this.laserSynth.connect(this.mainVolume);
 
     // 4. Ambient Chime: Polyphonic FM Synth with inharmonic bell ratios
@@ -99,30 +102,32 @@ export class AudioEngine {
       oscillator: { type: 'sine' },
       envelope: {
         attack: 0.003,
-        decay: 2.4,
-        sustain: 0.04,
-        release: 2.8,
+        decay: 0.9,
+        sustain: 0.05,
+        release: 1.4,
       },
       modulation: { type: 'sine' },
       modulationEnvelope: {
         attack: 0.005,
-        decay: 0.8,
-        sustain: 0.0,
-        release: 1.2,
+        decay: 0.5,
+        sustain: 0.05,
+        release: 0.8,
       },
     });
+    this.chimeSynth.maxPolyphony = 24;
     this.chimeSynth.connect(this.mainVolume);
 
     // 5. Retro 8-Bit: Polyphonic Square Wave Chiptune Synth
     this.retro8bitSynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'square' },
       envelope: {
-        attack: 0.001,
-        decay: 0.16,
-        sustain: 0.0,
-        release: 0.1,
+        attack: 0.002,
+        decay: 0.12,
+        sustain: 0.05,
+        release: 0.12,
       },
     });
+    this.retro8bitSynth.maxPolyphony = 24;
     this.retro8bitSynth.connect(this.mainVolume);
 
     // Apply initial preset FX profile
@@ -138,7 +143,7 @@ export class AudioEngine {
    * Resumes and unlocks the Web Audio AudioContext after user interaction
    */
   public async unlock(): Promise<boolean> {
-    if (this.isAudioStarted) return true;
+    if (this.isAudioStarted && Tone.context.state === 'running') return true;
 
     try {
       await Tone.start();
@@ -169,24 +174,21 @@ export class AudioEngine {
         this.delay.wet.value = 0.12;
         this.delay.delayTime.value = '8n.';
         this.delay.feedback.value = 0.22;
-        this.reverb.wet.value = 0.3;
-        this.reverb.decay = 2.6;
+        this.reverb.wet.value = 0.30;
         break;
 
       case 'laser':
         this.delay.wet.value = 0.32;
         this.delay.delayTime.value = '16n.';
-        this.delay.feedback.value = 0.40;
+        this.delay.feedback.value = 0.38;
         this.reverb.wet.value = 0.24;
-        this.reverb.decay = 1.8;
         break;
 
       case 'chime':
         this.delay.wet.value = 0.22;
         this.delay.delayTime.value = '8n';
         this.delay.feedback.value = 0.28;
-        this.reverb.wet.value = 0.50;
-        this.reverb.decay = 4.2;
+        this.reverb.wet.value = 0.52;
         break;
 
       case 'retro8bit':
@@ -194,7 +196,6 @@ export class AudioEngine {
         this.delay.delayTime.value = '16n';
         this.delay.feedback.value = 0.15;
         this.reverb.wet.value = 0.10;
-        this.reverb.decay = 1.0;
         break;
     }
   }
@@ -205,35 +206,47 @@ export class AudioEngine {
   public triggerPluck(event: PluckEvent): void {
     if (!this.isAudioStarted) return;
 
+    if (Tone.context.state !== 'running') {
+      Tone.context.resume();
+    }
+
     // Clamp velocity to audible range [0.25 .. 1.0]
     const vel = Math.max(0.25, Math.min(1.0, event.velocity));
 
-    switch (this.currentPresetId) {
-      case 'harp': {
-        const voice = this.harpVoicePool[this.nextHarpVoice];
-        this.nextHarpVoice = (this.nextHarpVoice + 1) % this.poolSize;
+    // Guarantee strictly monotonically increasing audio schedule times
+    const now = Math.max(Tone.now(), this.lastTriggerTime + 0.002);
+    this.lastTriggerTime = now;
 
-        voice.volume.value = Tone.gainToDb(vel);
-        voice.attackNoise = 0.5 + vel * 2.0;
-        voice.resonance = Math.min(0.98, 0.92 + vel * 0.05);
-        voice.triggerAttack(event.frequency);
-        break;
-      }
+    try {
+      switch (this.currentPresetId) {
+        case 'harp': {
+          const voice = this.harpVoicePool[this.nextHarpVoice];
+          this.nextHarpVoice = (this.nextHarpVoice + 1) % this.poolSize;
 
-      case 'laser': {
-        this.laserSynth.triggerAttackRelease(event.note, '16n', undefined, vel);
-        break;
-      }
+          voice.volume.value = Tone.gainToDb(vel);
+          voice.attackNoise = 0.5 + vel * 2.0;
+          voice.resonance = Math.min(0.98, 0.92 + vel * 0.05);
+          voice.triggerAttack(event.frequency, now);
+          break;
+        }
 
-      case 'chime': {
-        this.chimeSynth.triggerAttackRelease(event.note, '2n', undefined, vel * 0.85);
-        break;
-      }
+        case 'laser': {
+          this.laserSynth.triggerAttackRelease(event.frequency, 0.08, now, vel);
+          break;
+        }
 
-      case 'retro8bit': {
-        this.retro8bitSynth.triggerAttackRelease(event.note, '16n', undefined, vel * 0.9);
-        break;
+        case 'chime': {
+          this.chimeSynth.triggerAttackRelease(event.frequency, 0.08, now, vel * 0.85);
+          break;
+        }
+
+        case 'retro8bit': {
+          this.retro8bitSynth.triggerAttackRelease(event.frequency, 0.08, now, vel * 0.9);
+          break;
+        }
       }
+    } catch (err) {
+      console.warn('Audio trigger warning:', err);
     }
   }
 

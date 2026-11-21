@@ -7,31 +7,56 @@ export const SCALES: Record<MusicalScaleId, MusicalScaleInfo> = {
     id: 'pentatonic',
     label: 'C Major Pentatonic',
     description: 'Consonant & harmonious — impossible to play a wrong note',
-    notes: ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6'],
+    notes: [
+      'C3', 'D3', 'E3', 'G3', 'A3',
+      'C4', 'D4', 'E4', 'G4', 'A4',
+      'C5', 'D5', 'E5', 'G5', 'A5',
+      'C6', 'D6', 'E6',
+    ],
   },
   minor: {
     id: 'minor',
     label: 'C Minor Pentatonic',
     description: 'Moody, introspective, and soulful ambient scale',
-    notes: ['C4', 'Eb4', 'F4', 'G4', 'Bb4', 'C5', 'Eb5', 'F5', 'G5', 'Bb5', 'C6', 'Eb6'],
+    notes: [
+      'C3', 'Eb3', 'F3', 'G3', 'Bb3',
+      'C4', 'Eb4', 'F4', 'G4', 'Bb4',
+      'C5', 'Eb5', 'F5', 'G5', 'Bb5',
+      'C6', 'Eb6', 'F6',
+    ],
   },
   hirajoshi: {
     id: 'hirajoshi',
     label: 'Hirajōshi (Japanese)',
     description: 'Traditional exotic Japanese koto pentatonic tuning',
-    notes: ['C4', 'Db4', 'F4', 'Gb4', 'Bb4', 'C5', 'Db5', 'F5', 'Gb5', 'Bb5', 'C6', 'Db6'],
+    notes: [
+      'C3', 'Db3', 'F3', 'Gb3', 'Bb3',
+      'C4', 'Db4', 'F4', 'Gb4', 'Bb4',
+      'C5', 'Db5', 'F5', 'Gb5', 'Bb5',
+      'C6', 'Db6', 'F6',
+    ],
   },
   major: {
     id: 'major',
     label: 'C Major Diatonic',
     description: 'Bright classical 7-note diatonic European scale',
-    notes: ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5'],
+    notes: [
+      'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3',
+      'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4',
+      'C5', 'D5', 'E5', 'F5', 'G5', 'A5', 'B5',
+      'C6',
+    ],
   },
   blues: {
     id: 'blues',
     label: 'Blues Hexatonic',
     description: 'Gritty blues scale featuring the expressive flat-fifth blue note',
-    notes: ['C4', 'Eb4', 'F4', 'Gb4', 'G4', 'Bb4', 'C5', 'Eb5', 'F5', 'Gb5', 'G5', 'Bb5'],
+    notes: [
+      'C3', 'Eb3', 'F3', 'Gb3', 'G3', 'Bb3',
+      'C4', 'Eb4', 'F4', 'Gb4', 'G4', 'Bb4',
+      'C5', 'Eb5', 'F5', 'Gb5', 'G5', 'Bb5',
+      'C6', 'Eb6',
+    ],
   },
 };
 
@@ -41,36 +66,37 @@ export class ScaleMapper {
   private scaleId: MusicalScaleId;
   private scale: string[];
 
+  // Normalized string length bounds for acoustic pitch mapping:
+  // Longer strings -> lower bass notes (index 0)
+  // Shorter strings -> higher treble notes (index scale.length - 1)
+  private readonly minNormLength = 0.10;
+  private readonly maxNormLength = 0.82;
+
   constructor(initialScaleId: MusicalScaleId = 'pentatonic') {
     this.scaleId = initialScaleId;
     this.scale = SCALES[initialScaleId].notes;
   }
 
   /**
-   * Evaluates the musical pitch of a string by sorting all active strings horizontally
-   * from left to right (lowest pitch on the left, highest on the right), matching acoustic concert harps.
+   * Evaluates the musical pitch of a string based on its physical 3D length
+   * (Mersenne's Law: shorter strings produce higher pitches, longer strings produce deeper bass pitches).
+   * Resizing a string dynamically shifts its note across the active 3-octave musical scale.
    */
   public getNoteForString(
     targetString: AnchoredString,
-    allStrings: AnchoredString[]
+    _allStrings?: AnchoredString[]
   ): { note: string; frequency: number } {
-    if (allStrings.length === 0) {
-      const defaultNote = this.scale[0];
-      return {
-        note: defaultNote,
-        frequency: Tone.Frequency(defaultNote).toFrequency(),
-      };
-    }
+    const dx = targetString.point2.x - targetString.point1.x;
+    const dy = targetString.point2.y - targetString.point1.y;
+    const dz = (targetString.point2.z - targetString.point1.z) * 0.5;
+    const normLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-    // Sort strings by horizontal center: (P1.x + P2.x) / 2
-    const sorted = [...allStrings].sort((a, b) => {
-      const aMidX = (a.point1.x + a.point2.x) * 0.5;
-      const bMidX = (b.point1.x + b.point2.x) * 0.5;
-      return aMidX - bMidX;
-    });
+    // Clamp length into [minNormLength, maxNormLength] and invert so shorter = higher index
+    const clamped = Math.max(this.minNormLength, Math.min(this.maxNormLength, normLength));
+    const pitchRatio = (this.maxNormLength - clamped) / (this.maxNormLength - this.minNormLength);
 
-    const index = sorted.findIndex((s) => s.id === targetString.id);
-    const scaleIndex = index !== -1 ? index % this.scale.length : 0;
+    const maxIndex = this.scale.length - 1;
+    const scaleIndex = Math.max(0, Math.min(maxIndex, Math.round(pitchRatio * maxIndex)));
     const note = this.scale[scaleIndex];
     const frequency = Tone.Frequency(note).toFrequency();
 

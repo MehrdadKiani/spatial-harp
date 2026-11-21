@@ -16,6 +16,7 @@ export class HandTracker {
   private smoother: LandmarkSmoother = new LandmarkSmoother(0.75);
   private isInitializing = false;
   private lastVideoTime = -1;
+  private lastPoses: HandPose[] = [];
 
   public async init(config: HandTrackerConfig = {}): Promise<void> {
     if (this.landmarker || this.isInitializing) return;
@@ -71,15 +72,16 @@ export class HandTracker {
       return [];
     }
 
-    // MediaPipe requires monotonically increasing timestamps
+    // MediaPipe requires monotonically increasing timestamps; return cached poses between 30fps video frames on high-Hz monitors
     if (video.currentTime === this.lastVideoTime) {
-      return [];
+      return this.lastPoses;
     }
     this.lastVideoTime = video.currentTime;
 
     const result = this.landmarker.detectForVideo(video, timestamp);
     if (!result.landmarks || result.landmarks.length === 0) {
       this.smoother.reset();
+      this.lastPoses = [];
       return [];
     }
 
@@ -110,6 +112,7 @@ export class HandTracker {
       });
     }
 
+    this.lastPoses = poses;
     return poses;
   }
 
