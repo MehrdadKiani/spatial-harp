@@ -1,5 +1,5 @@
 {
-  "_comment": "Master configuration for Spatial Laser Harp. Edit any value and refresh the browser to apply.",
+  "_comment": "Master configuration for Spatial Harp. Edit any value and refresh the browser to apply.",
 
   "vision": {
     "_comment": "Camera resolution, landmark smoothing (0..1), and MediaPipe confidence thresholds (lower values keep half-screen hands tracked at frame edges).",

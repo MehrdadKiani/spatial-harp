@@ -1,9 +1,7 @@
-import { SoundPresetId, MusicalScaleId } from '../types/audio';
-import { PRESETS } from '../audio/audio-engine';
-import { SCALES } from '../audio/scale-mapper';
-
 export class HUD {
   private element: HTMLDivElement;
+  private cardElement: HTMLDivElement;
+  private toggleBtn: HTMLButtonElement;
   private fpsDisplay: HTMLSpanElement;
   private handsDisplay: HTMLSpanElement;
   private gestureDisplay: HTMLSpanElement;
@@ -13,16 +11,13 @@ export class HUD {
   private statusDisplay: HTMLDivElement;
   private audioBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
-  private presetSelect: HTMLSelectElement;
-  private scaleSelect: HTMLSelectElement;
   private isAudioUnlocked = false;
+  private isExpanded = false;
 
   constructor(
     container: HTMLElement,
     onClear?: () => void,
-    onAudioUnlock?: () => void,
-    onPresetChange?: (preset: SoundPresetId) => void,
-    onScaleChange?: (scale: MusicalScaleId) => void
+    onAudioUnlock?: () => void
   ) {
     this.element = document.createElement('div');
     this.element.id = 'hud-overlay';
@@ -31,42 +26,58 @@ export class HUD {
       position: 'absolute',
       top: '72px',
       left: '16px',
-      zIndex: '10',
+      zIndex: '15',
       color: '#ffffff',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
-      fontSize: '13px',
-      pointerEvents: 'none',
+      fontSize: '12px',
       userSelect: 'none',
     });
 
-    const presetOptions = Object.values(PRESETS)
-      .map((p) => `<option value="${p.id}">${p.label}</option>`)
-      .join('');
-
-    const scaleOptions = Object.values(SCALES)
-      .map((s) => `<option value="${s.id}">${s.label}</option>`)
-      .join('');
-
     this.element.innerHTML = `
-      <div style="background: rgba(10, 15, 25, 0.88); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 12px 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); min-width: 310px; max-width: 360px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <span style="font-weight: 700; font-size: 14px; letter-spacing: 0.5px; color: #00ffaa; text-transform: uppercase;">Spatial Laser Harp</span>
-          <div style="display: flex; gap: 6px;">
-            <button id="hud-audio-btn" style="background: rgba(255, 170, 0, 0.2); border: 1px solid rgba(255, 170, 0, 0.4); color: #ffbb33; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; cursor: pointer; pointer-events: auto; transition: background 0.2s;">🔇 Audio: Click to Enable</button>
-            <span style="background: rgba(0, 255, 170, 0.15); color: #00ffaa; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;">STEP 7</span>
-          </div>
-        </div>
+      <!-- Collapsed Floating Debug Pill / Button with Tooltip -->
+      <div style="position: relative; display: inline-block;">
+        <button id="hud-toggle-btn" title="Toggle HUD Diagnostics & Controls" style="
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(10, 15, 28, 0.85);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(0, 240, 255, 0.35);
+          border-radius: 20px;
+          padding: 6px 14px;
+          color: #00f0ff;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+          transition: all 0.2s ease;
+        ">
+          <span style="font-size: 14px;">📊</span>
+          <span>Diagnostics [D]</span>
+        </button>
+      </div>
 
-        <!-- Instrument Settings Controls -->
-        <div style="display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 11px;">
-          <label style="color: #00f0ff; font-weight: 600;">Preset:</label>
-          <select id="hud-preset-select" style="background: rgba(10, 20, 35, 0.9); border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 4px; color: #ffffff; font-size: 11px; padding: 3px 6px; cursor: pointer; pointer-events: auto; outline: none; width: 100%;">
-            ${presetOptions}
-          </select>
-          <label style="color: #00f0ff; font-weight: 600;">Scale:</label>
-          <select id="hud-scale-select" style="background: rgba(10, 20, 35, 0.9); border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 4px; color: #ffffff; font-size: 11px; padding: 3px 6px; cursor: pointer; pointer-events: auto; outline: none; width: 100%;">
-            ${scaleOptions}
-          </select>
+      <!-- Expandable Debug / Diagnostics Card (Hidden by default) -->
+      <div id="hud-card" style="
+        display: none;
+        margin-top: 8px;
+        background: rgba(10, 15, 25, 0.92);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(0, 240, 255, 0.25);
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 240, 255, 0.12);
+        min-width: 290px;
+        max-width: 340px;
+        pointer-events: auto;
+      ">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 6px;">
+          <span style="font-weight: 700; font-size: 12px; letter-spacing: 0.8px; color: #00ffaa; text-transform: uppercase;">System Metrics</span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button id="hud-audio-btn" style="background: rgba(255, 170, 0, 0.2); border: 1px solid rgba(255, 170, 0, 0.4); color: #ffbb33; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.2s;">🔇 Audio</button>
+            <button id="hud-close-card-btn" style="background: transparent; border: none; color: rgba(255, 255, 255, 0.5); font-size: 14px; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
+          </div>
         </div>
 
         <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; color: #b0c4de;">
@@ -79,16 +90,16 @@ export class HUD {
           <span>Strings:</span>
           <span id="hud-strings" style="font-weight: 600; color: #00f0ff;">0 / 12</span>
           <span>Audio:</span>
-          <span id="hud-audio-status" style="font-weight: 600; color: #ffaa00;">Muted (Click anywhere)</span>
+          <span id="hud-audio-status" style="font-weight: 600; color: #ffaa00;">Muted</span>
           <span>Last Pluck:</span>
           <span id="hud-last-pluck" style="font-weight: 600; color: #00ffff;">--</span>
         </div>
 
         <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px;">
-          <div id="hud-status" style="font-size: 12px; color: #9ab; flex: 1; padding-right: 8px;">
+          <div id="hud-status" style="font-size: 11px; color: #9ab; flex: 1; padding-right: 8px;">
             Pinch thumb & index on both hands to stretch a string
           </div>
-          <button id="hud-clear-btn" style="background: rgba(255, 68, 68, 0.18); border: 1px solid rgba(255, 68, 68, 0.35); color: #ff8888; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer; pointer-events: auto; white-space: nowrap; transition: background 0.2s;">
+          <button id="hud-clear-btn" style="background: rgba(255, 68, 68, 0.18); border: 1px solid rgba(255, 68, 68, 0.35); color: #ff8888; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.2s;">
             Clear [C]
           </button>
         </div>
@@ -97,6 +108,8 @@ export class HUD {
 
     container.appendChild(this.element);
 
+    this.toggleBtn = this.element.querySelector('#hud-toggle-btn')!;
+    this.cardElement = this.element.querySelector('#hud-card')!;
     this.fpsDisplay = this.element.querySelector('#hud-fps')!;
     this.handsDisplay = this.element.querySelector('#hud-hands')!;
     this.gestureDisplay = this.element.querySelector('#hud-gesture')!;
@@ -106,8 +119,16 @@ export class HUD {
     this.statusDisplay = this.element.querySelector('#hud-status')!;
     this.audioBtn = this.element.querySelector('#hud-audio-btn')!;
     this.clearBtn = this.element.querySelector('#hud-clear-btn')!;
-    this.presetSelect = this.element.querySelector('#hud-preset-select')!;
-    this.scaleSelect = this.element.querySelector('#hud-scale-select')!;
+    const closeCardBtn = this.element.querySelector('#hud-close-card-btn')!;
+
+    this.toggleBtn.addEventListener('click', () => this.toggleCard());
+    closeCardBtn.addEventListener('click', () => this.setCardExpanded(false));
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyD') {
+        this.toggleCard();
+      }
+    });
 
     if (onClear) {
       this.clearBtn.addEventListener('click', (e) => {
@@ -123,23 +144,6 @@ export class HUD {
       });
     }
 
-    if (onPresetChange) {
-      this.presetSelect.addEventListener('change', (e) => {
-        e.stopPropagation();
-        const selected = this.presetSelect.value as SoundPresetId;
-        onPresetChange(selected);
-        this.updateAudioStatusText();
-      });
-    }
-
-    if (onScaleChange) {
-      this.scaleSelect.addEventListener('change', (e) => {
-        e.stopPropagation();
-        const selected = this.scaleSelect.value as MusicalScaleId;
-        onScaleChange(selected);
-      });
-    }
-
     this.clearBtn.addEventListener('mouseenter', () => {
       this.clearBtn.style.background = 'rgba(255, 68, 68, 0.35)';
     });
@@ -148,29 +152,43 @@ export class HUD {
     });
   }
 
+  public toggleCard(): void {
+    this.setCardExpanded(!this.isExpanded);
+  }
+
+  public setCardExpanded(expanded: boolean): void {
+    this.isExpanded = expanded;
+    this.cardElement.style.display = expanded ? 'block' : 'none';
+    this.toggleBtn.style.background = expanded
+      ? 'rgba(0, 240, 255, 0.25)'
+      : 'rgba(10, 15, 28, 0.85)';
+    this.toggleBtn.style.borderColor = expanded
+      ? '#00f0ff'
+      : 'rgba(0, 240, 255, 0.35)';
+  }
+
   public setAudioActive(active: boolean): void {
     this.isAudioUnlocked = active;
     if (active) {
-      this.audioBtn.textContent = '🔊 Audio: Active';
+      this.audioBtn.textContent = '🔊 Active';
       this.audioBtn.style.background = 'rgba(0, 255, 170, 0.2)';
       this.audioBtn.style.borderColor = 'rgba(0, 255, 170, 0.4)';
       this.audioBtn.style.color = '#00ffaa';
-      this.updateAudioStatusText();
+      this.audioStatusDisplay.textContent = 'Active';
+      this.audioStatusDisplay.style.color = '#00ffaa';
     } else {
-      this.audioBtn.textContent = '🔇 Audio: Click to Enable';
+      this.audioBtn.textContent = '🔇 Enable';
       this.audioBtn.style.background = 'rgba(255, 170, 0, 0.2)';
       this.audioBtn.style.borderColor = 'rgba(255, 170, 0, 0.4)';
       this.audioBtn.style.color = '#ffbb33';
-      this.audioStatusDisplay.textContent = 'Muted (Click anywhere)';
+      this.audioStatusDisplay.textContent = 'Muted';
       this.audioStatusDisplay.style.color = '#ffaa00';
     }
   }
 
-  private updateAudioStatusText(): void {
+  public updateAudioPreset(presetLabel: string): void {
     if (!this.isAudioUnlocked) return;
-    const presetId = this.presetSelect.value as SoundPresetId;
-    const presetLabel = PRESETS[presetId]?.label || 'Active';
-    this.audioStatusDisplay.textContent = `Ready (${presetLabel})`;
+    this.audioStatusDisplay.textContent = `Active (${presetLabel})`;
     this.audioStatusDisplay.style.color = '#00ffaa';
   }
 
@@ -243,14 +261,5 @@ export class HUD {
 
   public setMessage(msg: string): void {
     this.statusDisplay.textContent = msg;
-  }
-
-  public setSelectedPreset(presetId: SoundPresetId): void {
-    this.presetSelect.value = presetId;
-    this.updateAudioStatusText();
-  }
-
-  public setSelectedScale(scaleId: MusicalScaleId): void {
-    this.scaleSelect.value = scaleId;
   }
 }

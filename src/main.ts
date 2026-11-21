@@ -24,6 +24,7 @@ import { AudioEngine } from './audio/audio-engine';
 import { HUD } from './ui/hud';
 import { NavBar } from './ui/nav-bar';
 import { SplashScreen } from './ui/splash-screen';
+import { SoundStudioPanel } from './ui/sound-studio-panel';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
@@ -45,6 +46,7 @@ class App {
   private sparkParticlePool: SparkParticlePool;
   private pluckShockwavePool: PluckShockwavePool;
   private navBar: NavBar;
+  private soundStudioPanel: SoundStudioPanel;
   private splashScreen: SplashScreen;
   private hud: HUD;
   private loop: EngineLoop;
@@ -102,23 +104,34 @@ class App {
       palette: parseHexPalette(this.config.strings.palette),
     });
 
-    // 5. UI NavBar, HUD & Splash Screen (persisting Preset & Scale selections to localStorage)
+    // 5. UI NavBar, SoundStudioPanel, HUD & Splash Screen
+    this.soundStudioPanel = new SoundStudioPanel(this.container, {
+      onPresetChange: (preset) => {
+        this.audioEngine.setPreset(preset);
+        saveUserOverride({ defaultPreset: preset });
+        this.hud.updateAudioPreset(preset);
+      },
+      onScaleChange: (scale) => {
+        this.scaleMapper.setScaleById(scale);
+        saveUserOverride({ defaultScale: scale });
+      },
+      onClose: () => {
+        this.navBar.setActiveTab('instrument');
+      },
+    });
+
     this.navBar = new NavBar(this.container, (tabId) => {
-      console.log(`[NavBar] Switched to tab: ${tabId}`);
+      if (tabId === 'studio') {
+        this.soundStudioPanel.open();
+      } else {
+        this.soundStudioPanel.close();
+      }
     });
 
     this.hud = new HUD(
       this.container,
       () => this.spatialStringManager.clearAll(),
-      () => this.unlockAudio(),
-      (preset) => {
-        this.audioEngine.setPreset(preset);
-        saveUserOverride({ defaultPreset: preset });
-      },
-      (scale) => {
-        this.scaleMapper.setScaleById(scale);
-        saveUserOverride({ defaultScale: scale });
-      }
+      () => this.unlockAudio()
     );
 
     // Initial Splash Screen: clicking START automatically unlocks Web Audio
@@ -232,9 +245,9 @@ class App {
     this.pluckShockwavePool.configure(cfg.visuals);
     this.sparkParticlePool.configure(cfg.visuals);
 
-    // 6. Sync HUD dropdowns with loaded config
-    this.hud.setSelectedPreset(cfg.audio.defaultPreset);
-    this.hud.setSelectedScale(cfg.audio.defaultScale);
+    // 6. Sync Sound Studio dropdowns with loaded config
+    this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
+    this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
   }
 
   private async unlockAudio(): Promise<void> {
@@ -377,6 +390,10 @@ class App {
 
   public getSplashScreen(): SplashScreen {
     return this.splashScreen;
+  }
+
+  public getSoundStudioPanel(): SoundStudioPanel {
+    return this.soundStudioPanel;
   }
 }
 

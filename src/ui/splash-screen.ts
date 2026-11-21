@@ -45,7 +45,7 @@ export class SplashScreen {
       transition: 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
     });
 
-    const titleText = options.title || 'SPATIAL LASER HARP';
+    const titleText = options.title || 'SPATIAL HARP';
     const subtitleText = options.subtitle || 'Augmented Reality Audio-Visual Instrument';
     const buttonLabel = options.buttonLabel || 'START EXPERIENCE';
 

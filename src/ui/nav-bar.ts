@@ -55,12 +55,12 @@ export class NavBar {
     this.logoContainer.style.pointerEvents = 'auto';
     this.logoContainer.style.cursor = 'pointer';
 
-    // Futuristic Neon Laser Harp SVG Logo
+    // Futuristic Neon Spatial Harp SVG Logo
     this.logoContainer.innerHTML = `
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 6px #00f0ff);">
         <!-- Outer Hex Shield -->
         <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" stroke="#00f0ff" stroke-width="1.8" fill="rgba(0, 240, 255, 0.08)"/>
-        <!-- Vertical Laser Harp Strings -->
+        <!-- Vertical Harp Strings -->
         <line x1="11" y1="8" x2="11" y2="24" stroke="#ff007f" stroke-width="1.5" stroke-linecap="round" />
         <line x1="16" y1="5" x2="16" y2="27" stroke="#00f0ff" stroke-width="1.8" stroke-linecap="round" />
         <line x1="21" y1="8" x2="21" y2="24" stroke="#38ef7d" stroke-width="1.5" stroke-linecap="round" />
