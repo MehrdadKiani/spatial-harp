@@ -120,18 +120,28 @@ class App {
       },
     });
 
-    this.navBar = new NavBar(this.container, (tabId) => {
-      if (tabId === 'studio') {
-        this.soundStudioPanel.open();
-      } else {
-        this.soundStudioPanel.close();
-      }
+    this.navBar = new NavBar(this.container, {
+      onTabChange: (tabId) => {
+        if (tabId === 'studio') {
+          this.soundStudioPanel.open();
+        } else {
+          this.soundStudioPanel.close();
+        }
+      },
+      onToggleDiagnostics: () => {
+        this.hud.toggleCard();
+      },
+      onClearStrings: () => {
+        this.spatialStringManager.clearAll();
+      },
     });
 
     this.hud = new HUD(
       this.container,
-      () => this.spatialStringManager.clearAll(),
-      () => this.unlockAudio()
+      () => this.unlockAudio(),
+      (expanded) => {
+        this.navBar.setDiagnosticsActive(expanded);
+      }
     );
 
     // Initial Splash Screen: clicking START automatically unlocks Web Audio
@@ -258,21 +268,26 @@ class App {
   }
 
   public async start(): Promise<void> {
+    this.splashScreen.setProgress(0.10, 'Loading configuration (/config.json)...');
     this.hud.setMessage('Loading configuration (/config.json)...');
 
     try {
       // 1. Load external /config.json + localStorage overrides
       const loadedConfig = await loadAppConfig('/config.json');
       this.applyConfig(loadedConfig);
+      this.splashScreen.setProgress(0.30, 'Configuration loaded.');
 
       // 2. Start camera feed
+      this.splashScreen.setProgress(0.40, 'Requesting camera stream...');
       this.hud.setMessage('Requesting camera permission...');
       await this.cameraManager.start({
         width: this.config.vision.cameraWidth,
         height: this.config.vision.cameraHeight,
       });
+      this.splashScreen.setProgress(0.65, 'Camera feed connected.');
 
       // 3. Initialize hand tracking model
+      this.splashScreen.setProgress(0.75, 'Loading MediaPipe HandLandmarker...');
       this.hud.setMessage('Loading MediaPipe HandLandmarker model...');
       await this.handTracker.init({
         wasmPath: this.config.vision.wasmPath,
@@ -285,6 +300,7 @@ class App {
       });
 
       this.isVisionReady = true;
+      this.splashScreen.setProgress(1.0, 'All systems ready!');
       this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
 
       // 4. Start main tick loop
@@ -292,7 +308,9 @@ class App {
       this.loop.start();
     } catch (err) {
       console.error('Initialization failed:', err);
-      this.hud.setMessage(`Error: ${(err as Error).message}`);
+      const errMsg = (err as Error).message;
+      this.splashScreen.setProgress(0.5, `Error: ${errMsg}`);
+      this.hud.setMessage(`Error: ${errMsg}`);
     }
   }
 

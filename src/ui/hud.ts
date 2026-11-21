@@ -1,7 +1,6 @@
 export class HUD {
   private element: HTMLDivElement;
   private cardElement: HTMLDivElement;
-  private toggleBtn: HTMLButtonElement;
   private fpsDisplay: HTMLSpanElement;
   private handsDisplay: HTMLSpanElement;
   private gestureDisplay: HTMLSpanElement;
@@ -10,15 +9,16 @@ export class HUD {
   private lastPluckDisplay: HTMLSpanElement;
   private statusDisplay: HTMLDivElement;
   private audioBtn: HTMLButtonElement;
-  private clearBtn: HTMLButtonElement;
   private isAudioUnlocked = false;
   private isExpanded = false;
+  private onToggleStateChange?: (expanded: boolean) => void;
 
   constructor(
     container: HTMLElement,
-    onClear?: () => void,
-    onAudioUnlock?: () => void
+    onAudioUnlock?: () => void,
+    onToggleStateChange?: (expanded: boolean) => void
   ) {
+    this.onToggleStateChange = onToggleStateChange;
     this.element = document.createElement('div');
     this.element.id = 'hud-overlay';
 
@@ -31,40 +31,17 @@ export class HUD {
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
       fontSize: '12px',
       userSelect: 'none',
+      pointerEvents: 'none',
     });
 
     this.element.innerHTML = `
-      <!-- Collapsed Floating Debug Pill / Button with Tooltip -->
-      <div style="position: relative; display: inline-block;">
-        <button id="hud-toggle-btn" title="Toggle HUD Diagnostics & Controls" style="
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(10, 15, 28, 0.85);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(0, 240, 255, 0.35);
-          border-radius: 20px;
-          padding: 6px 14px;
-          color: #00f0ff;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          pointer-events: auto;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-          transition: all 0.2s ease;
-        ">
-          <span style="font-size: 14px;">📊</span>
-          <span>Diagnostics [D]</span>
-        </button>
-      </div>
-
-      <!-- Expandable Debug / Diagnostics Card (Hidden by default) -->
+      <!-- Diagnostics HUD Card (Hidden by default, toggled via NavBar) -->
       <div id="hud-card" style="
         display: none;
-        margin-top: 8px;
         background: rgba(10, 15, 25, 0.92);
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(0, 240, 255, 0.25);
+        WebkitBackdropFilter: blur(12px);
+        border: 1px solid rgba(0, 240, 255, 0.28);
         border-radius: 12px;
         padding: 14px 16px;
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 240, 255, 0.12);
@@ -95,20 +72,16 @@ export class HUD {
           <span id="hud-last-pluck" style="font-weight: 600; color: #00ffff;">--</span>
         </div>
 
-        <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px;">
-          <div id="hud-status" style="font-size: 11px; color: #9ab; flex: 1; padding-right: 8px;">
+        <div style="margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px;">
+          <div id="hud-status" style="font-size: 11px; color: #9ab; line-height: 1.3;">
             Pinch thumb & index on both hands to stretch a string
           </div>
-          <button id="hud-clear-btn" style="background: rgba(255, 68, 68, 0.18); border: 1px solid rgba(255, 68, 68, 0.35); color: #ff8888; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.2s;">
-            Clear [C]
-          </button>
         </div>
       </div>
     `;
 
     container.appendChild(this.element);
 
-    this.toggleBtn = this.element.querySelector('#hud-toggle-btn')!;
     this.cardElement = this.element.querySelector('#hud-card')!;
     this.fpsDisplay = this.element.querySelector('#hud-fps')!;
     this.handsDisplay = this.element.querySelector('#hud-hands')!;
@@ -118,10 +91,8 @@ export class HUD {
     this.lastPluckDisplay = this.element.querySelector('#hud-last-pluck')!;
     this.statusDisplay = this.element.querySelector('#hud-status')!;
     this.audioBtn = this.element.querySelector('#hud-audio-btn')!;
-    this.clearBtn = this.element.querySelector('#hud-clear-btn')!;
     const closeCardBtn = this.element.querySelector('#hud-close-card-btn')!;
 
-    this.toggleBtn.addEventListener('click', () => this.toggleCard());
     closeCardBtn.addEventListener('click', () => this.setCardExpanded(false));
 
     window.addEventListener('keydown', (e) => {
@@ -130,26 +101,12 @@ export class HUD {
       }
     });
 
-    if (onClear) {
-      this.clearBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onClear();
-      });
-    }
-
     if (onAudioUnlock) {
       this.audioBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         onAudioUnlock();
       });
     }
-
-    this.clearBtn.addEventListener('mouseenter', () => {
-      this.clearBtn.style.background = 'rgba(255, 68, 68, 0.35)';
-    });
-    this.clearBtn.addEventListener('mouseleave', () => {
-      this.clearBtn.style.background = 'rgba(255, 68, 68, 0.18)';
-    });
   }
 
   public toggleCard(): void {
@@ -159,12 +116,13 @@ export class HUD {
   public setCardExpanded(expanded: boolean): void {
     this.isExpanded = expanded;
     this.cardElement.style.display = expanded ? 'block' : 'none';
-    this.toggleBtn.style.background = expanded
-      ? 'rgba(0, 240, 255, 0.25)'
-      : 'rgba(10, 15, 28, 0.85)';
-    this.toggleBtn.style.borderColor = expanded
-      ? '#00f0ff'
-      : 'rgba(0, 240, 255, 0.35)';
+    if (this.onToggleStateChange) {
+      this.onToggleStateChange(expanded);
+    }
+  }
+
+  public getIsExpanded(): boolean {
+    return this.isExpanded;
   }
 
   public setAudioActive(active: boolean): void {

@@ -10,16 +10,29 @@ export interface NavItem {
   active?: boolean;
 }
 
+export interface NavBarOptions {
+  onTabChange?: (tabId: string) => void;
+  onToggleDiagnostics?: () => void;
+  onClearStrings?: () => void;
+}
+
 export class NavBar {
   private element: HTMLElement;
   private logoContainer: HTMLDivElement;
   private navItemsContainer: HTMLDivElement;
+  private diagBtn: HTMLButtonElement;
+  private clearBtn: HTMLButtonElement;
   private statusBadge: HTMLSpanElement;
   private activeTabId: string = 'instrument';
+  private isDiagActive = false;
   private onTabChange?: (tabId: string) => void;
+  private onToggleDiagnostics?: () => void;
+  private onClearStrings?: () => void;
 
-  constructor(container: HTMLElement, onTabChange?: (tabId: string) => void) {
-    this.onTabChange = onTabChange;
+  constructor(container: HTMLElement, options: NavBarOptions = {}) {
+    this.onTabChange = options.onTabChange;
+    this.onToggleDiagnostics = options.onToggleDiagnostics;
+    this.onClearStrings = options.onClearStrings;
 
     this.element = document.createElement('header');
     this.element.id = 'app-navbar';
@@ -95,12 +108,86 @@ export class NavBar {
       this.navItemsContainer.appendChild(btn);
     });
 
-    // 3. Right Status Badge & Live AR Indicator
+    // 3. Right Container: Diagnostics Toggle Button & Live AR Indicator
     const rightContainer = document.createElement('div');
     rightContainer.style.display = 'flex';
     rightContainer.style.alignItems = 'center';
-    rightContainer.style.gap = '8px';
+    rightContainer.style.gap = '10px';
     rightContainer.style.pointerEvents = 'auto';
+
+    // Diagnostics Button in NavBar (clean, no [D] shortcut suffix)
+    this.diagBtn = document.createElement('button');
+    this.diagBtn.id = 'navbar-diag-btn';
+    this.diagBtn.title = 'Toggle System Metrics & Diagnostics HUD';
+    Object.assign(this.diagBtn.style, {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '5px',
+      background: 'rgba(0, 240, 255, 0.08)',
+      border: '1px solid rgba(0, 240, 255, 0.35)',
+      color: '#00f0ff',
+      borderRadius: '8px',
+      padding: '5px 11px',
+      fontSize: '11px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'all 0.2s ease',
+    });
+    this.diagBtn.innerHTML = `<span>📊</span><span>Diagnostics</span>`;
+
+    this.diagBtn.addEventListener('mouseenter', () => {
+      this.diagBtn.style.background = 'rgba(0, 240, 255, 0.20)';
+      this.diagBtn.style.boxShadow = '0 0 10px rgba(0, 240, 255, 0.3)';
+    });
+    this.diagBtn.addEventListener('mouseleave', () => {
+      if (!this.isDiagActive) {
+        this.diagBtn.style.background = 'rgba(0, 240, 255, 0.08)';
+        this.diagBtn.style.boxShadow = 'none';
+      }
+    });
+    this.diagBtn.addEventListener('click', () => {
+      if (this.onToggleDiagnostics) {
+        this.onToggleDiagnostics();
+      }
+    });
+
+    // Dedicated Clear Strings Button in NavBar
+    this.clearBtn = document.createElement('button');
+    this.clearBtn.id = 'navbar-clear-btn';
+    this.clearBtn.title = 'Clear all active strings in mid-air [C]';
+    Object.assign(this.clearBtn.style, {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '5px',
+      background: 'rgba(255, 68, 68, 0.12)',
+      border: '1px solid rgba(255, 68, 68, 0.35)',
+      color: '#ff8888',
+      borderRadius: '8px',
+      padding: '5px 11px',
+      fontSize: '11px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'all 0.2s ease',
+    });
+    this.clearBtn.innerHTML = `<span>🗑️</span><span>Clear</span>`;
+
+    this.clearBtn.addEventListener('mouseenter', () => {
+      this.clearBtn.style.background = 'rgba(255, 68, 68, 0.25)';
+      this.clearBtn.style.boxShadow = '0 0 10px rgba(255, 68, 68, 0.35)';
+      this.clearBtn.style.color = '#ffffff';
+    });
+    this.clearBtn.addEventListener('mouseleave', () => {
+      this.clearBtn.style.background = 'rgba(255, 68, 68, 0.12)';
+      this.clearBtn.style.boxShadow = 'none';
+      this.clearBtn.style.color = '#ff8888';
+    });
+    this.clearBtn.addEventListener('click', () => {
+      if (this.onClearStrings) {
+        this.onClearStrings();
+      }
+    });
 
     this.statusBadge = document.createElement('span');
     Object.assign(this.statusBadge.style, {
@@ -118,6 +205,8 @@ export class NavBar {
     });
     this.statusBadge.innerHTML = `<span style="width: 6px; height: 6px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 6px #00ffaa; animation: pulse 1.8s infinite;"></span>LIVE AR`;
 
+    rightContainer.appendChild(this.diagBtn);
+    rightContainer.appendChild(this.clearBtn);
     rightContainer.appendChild(this.statusBadge);
 
     // Assemble components into element
@@ -188,6 +277,13 @@ export class NavBar {
     if (this.onTabChange) {
       this.onTabChange(tabId);
     }
+  }
+
+  public setDiagnosticsActive(active: boolean): void {
+    this.isDiagActive = active;
+    this.diagBtn.style.background = active ? 'rgba(0, 240, 255, 0.28)' : 'rgba(0, 240, 255, 0.08)';
+    this.diagBtn.style.borderColor = active ? '#00f0ff' : 'rgba(0, 240, 255, 0.35)';
+    this.diagBtn.style.boxShadow = active ? '0 0 12px rgba(0, 240, 255, 0.45)' : 'none';
   }
 
   public setVisible(visible: boolean): void {
