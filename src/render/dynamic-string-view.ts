@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { DualPinchState, HandGestureState } from '../types/gestures';
 import { SceneManager } from './scene-manager';
+import { VisualsConfigGroup } from '../core/config';
 
 export class DynamicStringView {
   private group: THREE.Group;
@@ -23,11 +24,15 @@ export class DynamicStringView {
   private anchorRings: THREE.Mesh[] = [];
   private anchorGlowRings: THREE.Mesh[] = [];
 
-  // Materials
+  // Materials & configurable dimensions
   private stringMaterial: THREE.LineBasicMaterial;
   private tickMaterial: THREE.LineBasicMaterial;
   private anchorMaterial: THREE.MeshBasicMaterial;
   private anchorGlowMaterial: THREE.MeshBasicMaterial;
+  private previewCoreHalfWidth = 0.0008;
+  private previewHaloHalfWidth = 0.0038;
+  private majorTickHeight = 0.010;
+  private minorTickHeight = 0.005;
 
   // Reusable scratch vectors to ensure ZERO GC allocations inside tick loop
   private scratchP1 = new THREE.Vector3();
@@ -141,13 +146,20 @@ export class DynamicStringView {
     }
   }
 
+  public configure(cfg: Partial<VisualsConfigGroup>): void {
+    if (cfg.previewCoreHalfWidth !== undefined) this.previewCoreHalfWidth = cfg.previewCoreHalfWidth;
+    if (cfg.previewHaloHalfWidth !== undefined) this.previewHaloHalfWidth = cfg.previewHaloHalfWidth;
+    if (cfg.previewRulerTickOpacity !== undefined) this.tickMaterial.opacity = cfg.previewRulerTickOpacity;
+    if (cfg.majorTickHeight !== undefined) this.majorTickHeight = cfg.majorTickHeight;
+    if (cfg.minorTickHeight !== undefined) this.minorTickHeight = cfg.minorTickHeight;
+  }
+
   public update(
     gestureStates: HandGestureState[],
     dualPinch: DualPinchState,
     videoAspect: number,
     elapsed: number
   ): void {
-    // 1. Update individual pinch anchor rings
     this.anchorRings.forEach((r) => (r.visible = false));
     this.anchorGlowRings.forEach((r) => (r.visible = false));
 
@@ -172,7 +184,6 @@ export class DynamicStringView {
       }
     });
 
-    // 2. Update dynamic connecting laser beam between dual-pinching hands
     if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
       const w1 = this.sceneManager.toWorldCoords(
         dualPinch.point1.x,
@@ -190,13 +201,11 @@ export class DynamicStringView {
       const p1 = this.scratchP1.copy(w1);
       const p2 = this.scratchP2.copy(w2);
 
-      // Compute vector direction and normal
       const dir = this.scratchDir.subVectors(p2, p1);
       const length = dir.length();
       dir.normalize();
       const normal = this.scratchNormal.set(-dir.y, dir.x, 0).normalize();
 
-      // Set main filament line endpoints
       this.linePositions[0] = p1.x;
       this.linePositions[1] = p1.y;
       this.linePositions[2] = p1.z;
@@ -207,9 +216,8 @@ export class DynamicStringView {
       (this.lineMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       this.lineMesh.visible = true;
 
-      // Set sleek core beam & outer halo ribbons
-      const coreW = 0.0008;
-      const haloW = 0.0038;
+      const coreW = this.previewCoreHalfWidth;
+      const haloW = this.previewHaloHalfWidth;
 
       this.coreBeamPositions[0] = p1.x + normal.x * coreW;
       this.coreBeamPositions[1] = p1.y + normal.y * coreW;
@@ -241,7 +249,6 @@ export class DynamicStringView {
       (this.outerHaloMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       this.outerHaloMesh.visible = true;
 
-      // Subtle transparent ruler ticks
       const numTicks = Math.min(this.maxTicks, Math.max(8, Math.floor(length * 35)));
       const tickPosAttr = this.tickLines.geometry.attributes.position as THREE.BufferAttribute;
       const array = this.tickPositions;
@@ -252,7 +259,7 @@ export class DynamicStringView {
         const tickCenter = this.scratchTickCenter.lerpVectors(p1, p2, t);
 
         const isMajor = i === Math.floor(numTicks / 2) || i % 4 === 0;
-        const tickHalfHeight = isMajor ? 0.011 : 0.0055;
+        const tickHalfHeight = isMajor ? this.majorTickHeight : this.minorTickHeight;
 
         const top = this.scratchTop.copy(tickCenter).addScaledVector(normal, tickHalfHeight);
         const btm = this.scratchBtm.copy(tickCenter).addScaledVector(normal, -tickHalfHeight);

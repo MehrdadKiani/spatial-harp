@@ -4,6 +4,7 @@ import { LandmarkSmoother } from './smoothing-filter';
 
 export interface HandTrackerConfig {
   numHands?: number;
+  smoothingAlpha?: number;
   minHandDetectionConfidence?: number;
   minHandPresenceConfidence?: number;
   minTrackingConfidence?: number;
@@ -22,11 +23,15 @@ export class HandTracker {
     if (this.landmarker || this.isInitializing) return;
     this.isInitializing = true;
 
+    if (config.smoothingAlpha !== undefined) {
+      this.smoother.setAlpha(config.smoothingAlpha);
+    }
+
     const wasmPath = config.wasmPath || '/wasm';
     const modelAssetPath = config.modelAssetPath || '/models/hand_landmarker.task';
-    const minHandDetectionConfidence = config.minHandDetectionConfidence ?? 0.30;
-    const minHandPresenceConfidence = config.minHandPresenceConfidence ?? 0.25;
-    const minTrackingConfidence = config.minTrackingConfidence ?? 0.25;
+    const minHandDetectionConfidence = config.minHandDetectionConfidence ?? 0.55;
+    const minHandPresenceConfidence = config.minHandPresenceConfidence ?? 0.55;
+    const minTrackingConfidence = config.minTrackingConfidence ?? 0.55;
 
     try {
       // Initialize FilesetResolver using local wasm files

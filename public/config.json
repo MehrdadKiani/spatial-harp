@@ -1,0 +1,98 @@
+{
+  "_comment": "Master configuration for Spatial Laser Harp. Edit any value and refresh the browser to apply.",
+
+  "vision": {
+    "_comment": "Camera resolution, landmark smoothing (0..1), and MediaPipe confidence thresholds (lower values keep half-screen hands tracked at frame edges).",
+    "cameraWidth": 1280,
+    "cameraHeight": 720,
+    "numHands": 2,
+    "smoothingAlpha": 0.75,
+    "minHandDetectionConfidence": 0.55,
+    "minHandPresenceConfidence": 0.55,
+    "minTrackingConfidence": 0.55,
+    "wasmPath": "/wasm",
+    "modelAssetPath": "/models/hand_landmarker.task"
+  },
+
+  "pinch": {
+    "_comment": "Thumb-to-index 3D distance thresholds for starting a pinch (pinchThreshold) and releasing it (releaseThreshold).",
+    "pinchThreshold": 0.055,
+    "releaseThreshold": 0.080
+  },
+
+  "strings": {
+    "_comment": "Mid-air string creation rules, 3-layer anti-snag endpoint tip grabbing (hitbox radius, firm pinch distance, hold dwell time, max hand speed), and laser color palette.",
+    "maxStrings": 8,
+    "minAnchorDistance": 0.10,
+    "minStretchDurationMs": 150,
+    "releaseGraceMs": 120,
+    "cooldownMs": 350,
+    "grabProximityThreshold": 0.045,
+    "grabPinchDistance": 0.052,
+    "grabDwellMs": 35,
+    "maxGrabHandSpeed": 1.10,
+    "postGrabReleaseCooldownMs": 250,
+    "palette": [
+      "#00f0ff",
+      "#38ef7d",
+      "#9b51e0",
+      "#ff007f",
+      "#ffaa00",
+      "#00e5ff",
+      "#76ff03",
+      "#e040fb"
+    ]
+  },
+
+  "plucking": {
+    "_comment": "Finger-to-string collision sensitivity, hysteresis release radius (prevents auto-plucking when holding multiple fingers on a string), and unplayable dead-zone margin around string tips.",
+    "pluckingFingers": [4, 8, 12, 16, 20],
+    "depthTolerance": 0.55,
+    "touchRadius": 0.036,
+    "releaseRadius": 0.054,
+    "tipMarginRatio": 0.02,
+    "tipMarginRadius": 0.016,
+    "minPluckTravel": 0.0025,
+    "retriggerCooldownMs": 120,
+    "stringCooldownMs": 110
+  },
+
+  "audio": {
+    "_comment": "Default synthesizer preset ('harp' | 'laser' | 'chime' | 'retro8bit'), musical scale ('pentatonic' | 'minor' | 'hirajoshi' | 'major' | 'blues'), master volume/FX, and 3D length-to-pitch bounds.",
+    "defaultPreset": "harp",
+    "defaultScale": "pentatonic",
+    "volumeDb": -4,
+    "reverbWet": 0.30,
+    "delayWet": 0.12,
+    "polyphony": 12,
+    "minNormLengthForPitch": 0.10,
+    "maxNormLengthForPitch": 0.82
+  },
+
+  "visuals": {
+    "_comment": "Laser beam thickness, ruler tick transparency, multi-crest sinusoidal rainbow wave physics, concentric echo contours, radial contact starburst rays, and fine glitter dust.",
+    "baselineGlowHalfWidth": 0.0022,
+    "waveCoreHalfWidth": 0.0014,
+    "waveGlowHalfWidth": 0.0038,
+    "previewCoreHalfWidth": 0.0008,
+    "previewHaloHalfWidth": 0.0038,
+    "rulerTickOpacity": 0.14,
+    "previewRulerTickOpacity": 0.18,
+    "majorTickHeight": 0.010,
+    "minorTickHeight": 0.005,
+    "waveAmplitude": 0.042,
+    "waveFrequency": 26.0,
+    "waveSpeed": 1.65,
+    "waveDamping": 2.05,
+    "waveDurationSec": 1.75,
+    "waveCycles": 3.5,
+    "numEchoContours": 5,
+    "contactStarburstRays": 18,
+    "contactStarburstOpacity": 0.28,
+    "contactStarburstDurationSec": 0.24,
+    "contactStarburstMaxRadius": 0.036,
+    "sparkPointSize": 0.009,
+    "contactSparkBurstCount": 40,
+    "waveGlitterParticleCount": 32
+  }
+}

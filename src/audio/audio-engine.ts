@@ -265,4 +265,24 @@ export class AudioEngine {
   public setVolume(volumeDb: number): void {
     this.mainVolume.volume.value = volumeDb;
   }
+
+  public configure(options: {
+    volumeDb?: number;
+    reverbWet?: number;
+    delayWet?: number;
+    defaultPreset?: SoundPresetId;
+  }): void {
+    if (options.volumeDb !== undefined) {
+      this.mainVolume.volume.value = options.volumeDb;
+    }
+    if (options.defaultPreset) {
+      this.setPreset(options.defaultPreset);
+    }
+    if (options.reverbWet !== undefined) {
+      this.reverb.wet.value = options.reverbWet;
+    }
+    if (options.delayWet !== undefined) {
+      this.delay.wet.value = options.delayWet;
+    }
+  }
 }

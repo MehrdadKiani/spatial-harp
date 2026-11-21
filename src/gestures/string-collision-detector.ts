@@ -3,9 +3,10 @@ import { HandPose, Point3D } from '../types/vision';
 import { PluckEvent } from '../types/audio';
 import { ScaleMapper } from '../audio/scale-mapper';
 import { globalBus } from '../core/event-bus';
+import { PluckingConfigGroup } from '../core/config';
 
-// Active plucking fingertips to track (Thumb: 4, Index: 8, Middle: 12, Ring: 16, Pinky: 20)
-const PLUCKING_FINGERS = [4, 8, 12, 16, 20];
+// Default active plucking fingertips to track (Thumb: 4, Index: 8, Middle: 12, Ring: 16, Pinky: 20)
+const DEFAULT_PLUCKING_FINGERS = [4, 8, 12, 16, 20];
 
 export class StringCollisionDetector {
   private scaleMapper: ScaleMapper;
@@ -19,6 +20,7 @@ export class StringCollisionDetector {
   private activeTouches = new Set<string>();
 
   // Natural acoustic pluck thresholds with hysteresis latch
+  private pluckingFingers: number[] = DEFAULT_PLUCKING_FINGERS;
   private depthTolerance = 0.55;       // Generous Z-axis depth allowance
   private touchRadius = 0.036;         // Contact radius to engage a pluck when approaching the string
   private releaseRadius = 0.054;       // Wide hysteresis release radius so held fingers never jitter-unlatch
@@ -30,6 +32,18 @@ export class StringCollisionDetector {
 
   constructor(scaleMapper: ScaleMapper) {
     this.scaleMapper = scaleMapper;
+  }
+
+  public configure(cfg: Partial<PluckingConfigGroup>): void {
+    if (cfg.pluckingFingers && cfg.pluckingFingers.length > 0) this.pluckingFingers = cfg.pluckingFingers;
+    if (cfg.depthTolerance !== undefined) this.depthTolerance = cfg.depthTolerance;
+    if (cfg.touchRadius !== undefined) this.touchRadius = cfg.touchRadius;
+    if (cfg.releaseRadius !== undefined) this.releaseRadius = cfg.releaseRadius;
+    if (cfg.tipMarginRatio !== undefined) this.tipMarginRatio = cfg.tipMarginRatio;
+    if (cfg.tipMarginRadius !== undefined) this.tipMarginRadius = cfg.tipMarginRadius;
+    if (cfg.minPluckTravel !== undefined) this.minPluckTravel = cfg.minPluckTravel;
+    if (cfg.retriggerCooldownMs !== undefined) this.retriggerCooldownMs = cfg.retriggerCooldownMs;
+    if (cfg.stringCooldownMs !== undefined) this.stringCooldownMs = cfg.stringCooldownMs;
   }
 
   public update(
@@ -51,7 +65,7 @@ export class StringCollisionDetector {
         return;
       }
 
-      PLUCKING_FINGERS.forEach((fingerIdx) => {
+      this.pluckingFingers.forEach((fingerIdx) => {
         const currentPos = hand.landmarks[fingerIdx];
         if (!currentPos) return;
 

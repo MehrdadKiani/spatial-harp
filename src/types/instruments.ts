@@ -19,10 +19,14 @@ export interface EndpointGrabState {
 }
 
 export interface SpatialStringConfig {
-  maxStrings?: number;           // Default: 12
-  minAnchorDistance?: number;    // Default: 0.10 (normalized camera space)
-  minStretchDurationMs?: number; // Default: 150ms
-  releaseGraceMs?: number;       // Default: 120ms (debounce tracking flicker on fast movement)
-  cooldownMs?: number;           // Default: 350ms (prevent rapid accidental duplicate anchors)
-  grabProximityThreshold?: number; // Default: 0.055 (normalized camera distance)
+  maxStrings?: number;             // Default: 12
+  minAnchorDistance?: number;      // Default: 0.10 (normalized camera space)
+  minStretchDurationMs?: number;   // Default: 150ms
+  releaseGraceMs?: number;         // Default: 120ms (debounce tracking flicker on fast movement)
+  cooldownMs?: number;             // Default: 350ms (prevent rapid accidental duplicate anchors)
+  grabProximityThreshold?: number; // Default: 0.032 (tight crosshair reticle hitbox)
+  grabPinchDistance?: number;      // Default: 0.040 (firm thumb-index pinch required to grab)
+  grabDwellMs?: number;            // Default: 85ms (intentional hold duration on reticle)
+  maxGrabHandSpeed?: number;       // Default: 0.45 (reject fast strumming hands sweeping past tips)
+  palette?: number[];              // Custom numeric hex color palette for anchored strings
 }

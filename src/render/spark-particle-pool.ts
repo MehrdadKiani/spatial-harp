@@ -1,27 +1,33 @@
 import * as THREE from 'three';
 import { SparkParticle } from '../types/physics';
+import { VisualsConfigGroup } from '../core/config';
 
-// Chromatic sci-fi laser palette: Cyan, Electric Blue, Neon Magenta, Vivid Purple (no white)
+// Spectrum spark palette matching Neon Guitar String Pluck Animation.gif:
+// Hot Pink/Magenta, Electric Violet, Glowing Cyan, Neon Emerald Green, Golden Yellow
 const CHROMATIC_SPARK_COLORS = [
-  0x00f0ff, // Neon Cyan
-  0x38bdf8, // Electric Blue
-  0xff007f, // Neon Magenta
-  0xa855f7, // Vivid Purple
+  0xff007f, // Hot Pink / Magenta
+  0x7c3aed, // Electric Violet
+  0x00f0ff, // Glowing Cyan
+  0x22ff66, // Neon Emerald Green
+  0xffe600, // Golden Neon Yellow
 ];
 
 export class SparkParticlePool {
   private group: THREE.Group;
-  private maxParticles = 384;
+  private maxParticles = 420;
   private particles: SparkParticle[] = [];
+  private defaultBurstCount = 40;
+  private defaultWaveGlitterCount = 32;
 
-  // 1. Three.js GPU Points for glowing spark cores & floating motes (Zero-GC)
+  // 1. Fine Sparkling Dust & Glitter Cores (THREE.Points)
   private points: THREE.Points;
+  private pointsMaterial: THREE.PointsMaterial;
   private positionBuffer: Float32Array;
   private colorBuffer: Float32Array;
   private posAttribute: THREE.BufferAttribute;
   private colAttribute: THREE.BufferAttribute;
 
-  // 2. Three.js GPU LineSegments for flowing luminous light trails & motion-blur streaks (Zero-GC)
+  // 2. Radial Contact Streaks (THREE.LineSegments)
   private trailLines: THREE.LineSegments;
   private trailPositionBuffer: Float32Array;
   private trailColorBuffer: Float32Array;
@@ -36,7 +42,6 @@ export class SparkParticlePool {
     this.group = new THREE.Group();
     scene.add(this.group);
 
-    // 1. Points buffer setup
     this.positionBuffer = new Float32Array(this.maxParticles * 3);
     this.colorBuffer = new Float32Array(this.maxParticles * 3);
 
@@ -49,8 +54,8 @@ export class SparkParticlePool {
     geometry.setAttribute('position', this.posAttribute);
     geometry.setAttribute('color', this.colAttribute);
 
-    const material = new THREE.PointsMaterial({
-      size: 0.016,
+    this.pointsMaterial = new THREE.PointsMaterial({
+      size: 0.009,
       vertexColors: true,
       transparent: true,
       opacity: 0.95,
@@ -58,10 +63,9 @@ export class SparkParticlePool {
       depthTest: false,
     });
 
-    this.points = new THREE.Points(geometry, material);
+    this.points = new THREE.Points(geometry, this.pointsMaterial);
     this.group.add(this.points);
 
-    // 2. Luminous Light Trail Streaks buffer setup (2 vertices per particle = head + tail)
     this.trailPositionBuffer = new Float32Array(this.maxParticles * 2 * 3);
     this.trailColorBuffer = new Float32Array(this.maxParticles * 2 * 3);
 
@@ -77,7 +81,7 @@ export class SparkParticlePool {
     const trailMat = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.85,
       blending: THREE.AdditiveBlending,
       depthTest: false,
     });
@@ -85,7 +89,6 @@ export class SparkParticlePool {
     this.trailLines = new THREE.LineSegments(trailGeom, trailMat);
     this.group.add(this.trailLines);
 
-    // Pre-allocate particle states
     for (let i = 0; i < this.maxParticles; i++) {
       this.particles.push({
         x: 0,
@@ -103,7 +106,7 @@ export class SparkParticlePool {
         alpha: 0,
         life: 0,
         maxLife: 0.8,
-        trailLength: 0.04,
+        trailLength: 0.03,
         phase: Math.random() * Math.PI * 2,
         type: 'spark',
         active: false,
@@ -111,18 +114,30 @@ export class SparkParticlePool {
     }
   }
 
+  public configure(cfg: Partial<VisualsConfigGroup>): void {
+    if (cfg.sparkPointSize !== undefined) {
+      this.pointsMaterial.size = cfg.sparkPointSize;
+    }
+    if (cfg.contactSparkBurstCount !== undefined) {
+      this.defaultBurstCount = cfg.contactSparkBurstCount;
+    }
+    if (cfg.waveGlitterParticleCount !== undefined) {
+      this.defaultWaveGlitterCount = cfg.waveGlitterParticleCount;
+    }
+  }
+
   /**
-   * Spawns a radial burst of glowing sparks, chromatic light trails, and floating motes at the contact point
+   * Frame 2 Contact Impact: Tight 360-degree radial starburst of fine sparks at the pluck point
    */
   public emitBurst(
     origin: THREE.Vector3,
     normal: THREE.Vector3,
     hexColor: number,
     velocity: number,
-    count = 36
+    count = this.defaultBurstCount
   ): void {
     this.tempColor.setHex(hexColor);
-    const speedBase = 0.50 + velocity * 0.90;
+    const speedBase = 0.35 + velocity * 0.65;
 
     let spawned = 0;
     for (let i = 0; i < this.maxParticles && spawned < count; i++) {
@@ -137,51 +152,33 @@ export class SparkParticlePool {
       p.prevY = origin.y;
       p.prevZ = origin.z;
 
-      // Chromatic blend: mix string color with cyan/magenta/purple/blue palette
-      const paletteHex = CHROMATIC_SPARK_COLORS[spawned % CHROMATIC_SPARK_COLORS.length];
-      this.accentColor.setHex(paletteHex);
-
-      const mode = spawned % 4;
       const theta = Math.random() * Math.PI * 2;
-      const phi = (Math.random() - 0.5) * Math.PI * 0.75;
+      const phi = (Math.random() - 0.5) * Math.PI * 0.5;
 
-      if (mode === 0) {
-        // Floating glowing motes: long-lived (1.0s - 1.65s), swirling around the string
+      if (spawned % 3 === 0) {
         p.type = 'mote';
-        const moteSpeed = speedBase * (0.14 + Math.random() * 0.24);
-        p.vx = moteSpeed * Math.cos(theta) + normal.x * moteSpeed * 0.25;
-        p.vy = Math.abs(moteSpeed * Math.sin(theta)) * 0.45 + 0.04 + Math.random() * 0.07;
+        const moteSpeed = speedBase * (0.08 + Math.random() * 0.22);
+        p.vx = moteSpeed * Math.cos(theta) + normal.x * moteSpeed * 0.3;
+        p.vy = moteSpeed * Math.sin(theta) + normal.y * moteSpeed * 0.3;
         p.vz = moteSpeed * Math.sin(phi);
         p.life = 0;
-        p.maxLife = 1.05 + Math.random() * 0.65;
-        p.trailLength = 0.018;
-      } else if (mode === 1) {
-        // Flowing light trail ribbons: smooth sweeping arcs with long luminous tails
-        p.type = 'trail';
-        const trailSpeed = speedBase * (0.45 + Math.random() * 0.65);
-        const side = spawned % 2 === 0 ? 1 : -1;
-        p.vx = trailSpeed * Math.cos(theta) * 0.6 + normal.x * trailSpeed * 0.75 * side;
-        p.vy = trailSpeed * Math.sin(theta) * 0.6 + normal.y * trailSpeed * 0.75 * side;
-        p.vz = trailSpeed * Math.sin(phi) * 0.5;
-        p.life = 0;
-        p.maxLife = 0.75 + Math.random() * 0.55;
-        p.trailLength = 0.075 + velocity * 0.045;
+        p.maxLife = 0.85 + Math.random() * 0.65;
+        p.trailLength = 0.004;
       } else {
-        // Fast explosive laser sparks: high initial impact, crisp motion blur streaks
         p.type = 'spark';
-        const sparkSpeed = speedBase * (0.70 + Math.random() * 0.90);
-        p.vx = sparkSpeed * Math.cos(theta) * Math.cos(phi) + normal.x * sparkSpeed * 0.45;
-        p.vy = sparkSpeed * Math.sin(theta) * Math.cos(phi) + normal.y * sparkSpeed * 0.45 + 0.06;
+        const sparkSpeed = speedBase * (0.45 + Math.random() * 0.85);
+        p.vx = sparkSpeed * Math.cos(theta) * Math.cos(phi);
+        p.vy = sparkSpeed * Math.sin(theta) * Math.cos(phi);
         p.vz = sparkSpeed * Math.sin(phi);
         p.life = 0;
-        p.maxLife = 0.42 + Math.random() * 0.45;
-        p.trailLength = 0.055 + velocity * 0.035;
+        p.maxLife = 0.22 + Math.random() * 0.28;
+        p.trailLength = 0.038 + velocity * 0.025;
       }
 
-      // Blend string color (55%) with chromatic cyan/magenta/purple/blue accent (45%)
-      p.r = Math.min(1.0, this.tempColor.r * 0.65 + this.accentColor.r * 0.65);
-      p.g = Math.min(1.0, this.tempColor.g * 0.65 + this.accentColor.g * 0.65);
-      p.b = Math.min(1.0, this.tempColor.b * 0.65 + this.accentColor.b * 0.65);
+      this.accentColor.setHex(0xff007f);
+      p.r = Math.min(1.0, this.tempColor.r * 0.5 + this.accentColor.r * 0.7);
+      p.g = Math.min(1.0, this.tempColor.g * 0.4 + 0.15);
+      p.b = Math.min(1.0, this.tempColor.b * 0.5 + this.accentColor.b * 0.7);
       p.alpha = 1.0;
       p.phase = Math.random() * Math.PI * 2;
       spawned++;
@@ -189,57 +186,58 @@ export class SparkParticlePool {
   }
 
   /**
-   * Emits dispersed wave-rider particles along the string length to visualize the propagating energy wave
+   * Frame 4 & 6 Wave Shimmer Dust: Fine glittering spectrum dust motes dispersed along the rainbow wave crests
    */
   public emitWaveTrail(
     w1: THREE.Vector3,
     w2: THREE.Vector3,
     normal: THREE.Vector3,
-    hexColor: number,
+    _hexColor: number,
     velocity: number,
     contactRatio: number,
-    count = 18
+    count = this.defaultWaveGlitterCount
   ): void {
-    this.tempColor.setHex(hexColor);
     let spawned = 0;
+    const driftDir = contactRatio <= 0.5 ? 1.0 : -1.0;
 
     for (let i = 0; i < this.maxParticles && spawned < count; i++) {
       const p = this.particles[i];
       if (p.active) continue;
 
-      // Distribute along string on both sides of contactRatio
-      const spread = (Math.random() - 0.5) * 0.85;
-      const u = Math.max(0.04, Math.min(0.96, contactRatio + spread));
+      const u = 0.06 + Math.random() * 0.88;
       this.scratchWavePos.lerpVectors(w1, w2, u);
 
-      const side = spawned % 2 === 0 ? 1 : -1;
-      const distFromPluck = Math.abs(u - contactRatio);
-      const localIntensity = Math.max(0.3, 1.0 - distFromPluck * 0.85) * velocity;
+      const side = (Math.random() - 0.5) * 2.0;
+      const offsetNormal = (Math.random() - 0.5) * 0.035;
 
       p.active = true;
-      p.x = this.scratchWavePos.x + normal.x * (Math.random() - 0.5) * 0.012;
-      p.y = this.scratchWavePos.y + normal.y * (Math.random() - 0.5) * 0.012;
+      p.x = this.scratchWavePos.x + normal.x * offsetNormal;
+      p.y = this.scratchWavePos.y + normal.y * offsetNormal;
       p.z = this.scratchWavePos.z;
       p.prevX = p.x;
       p.prevY = p.y;
       p.prevZ = p.z;
 
-      const speed = (0.16 + Math.random() * 0.28) * (0.5 + localIntensity);
-      p.vx = normal.x * speed * side + (Math.random() - 0.5) * 0.12;
-      p.vy = normal.y * speed * side + 0.03 + Math.random() * 0.08;
-      p.vz = (Math.random() - 0.5) * 0.08;
+      const speed = (0.04 + Math.random() * 0.14) * (0.5 + velocity * 0.5);
+      p.vx = normal.x * speed * side + (Math.random() - 0.5) * 0.06;
+      p.vy = normal.y * speed * side + (Math.random() - 0.5) * 0.06;
+      p.vz = (Math.random() - 0.5) * 0.04;
 
-      const paletteHex = CHROMATIC_SPARK_COLORS[spawned % CHROMATIC_SPARK_COLORS.length];
-      this.accentColor.setHex(paletteHex);
+      const specPos = driftDir > 0 ? u : 1.0 - u;
+      const colorIdx = Math.min(
+        CHROMATIC_SPARK_COLORS.length - 1,
+        Math.floor(specPos * CHROMATIC_SPARK_COLORS.length)
+      );
+      this.accentColor.setHex(CHROMATIC_SPARK_COLORS[colorIdx]);
 
-      p.r = Math.min(1.0, this.tempColor.r * 0.5 + this.accentColor.r * 0.75);
-      p.g = Math.min(1.0, this.tempColor.g * 0.5 + this.accentColor.g * 0.75);
-      p.b = Math.min(1.0, this.tempColor.b * 0.5 + this.accentColor.b * 0.75);
+      p.r = this.accentColor.r;
+      p.g = this.accentColor.g;
+      p.b = this.accentColor.b;
 
-      p.type = spawned % 2 === 0 ? 'trail' : 'mote';
+      p.type = 'mote';
       p.life = 0;
-      p.maxLife = 0.75 + Math.random() * 0.65;
-      p.trailLength = 0.055;
+      p.maxLife = 0.70 + Math.random() * 0.75;
+      p.trailLength = 0.005;
       p.alpha = 1.0;
       p.phase = Math.random() * Math.PI * 2;
       spawned++;
@@ -247,7 +245,7 @@ export class SparkParticlePool {
   }
 
   /**
-   * Updates particle dispersion, flowing light trails, and sparkle modulation (Zero-GC)
+   * Updates particle dispersion, fine glitter shimmer, and radial streaks (Zero-GC)
    */
   public update(delta: number): void {
     let hasActive = false;
@@ -299,35 +297,22 @@ export class SparkParticlePool {
       p.z += p.vz * clampedDelta;
 
       if (p.type === 'mote') {
-        // Swirling ambient motes with subtle harmonic shimmer
-        const swirl = Math.sin(p.life * 7.0 + p.phase) * 0.14;
+        const swirl = Math.sin(p.life * 8.0 + p.phase) * 0.08;
         p.vx += swirl * clampedDelta;
-        p.vy += 0.035 * clampedDelta;
-        p.vx *= 0.965;
-        p.vy *= 0.965;
-        p.vz *= 0.965;
-      } else if (p.type === 'trail') {
-        // Flowing light trail arcs
-        const curl = Math.cos(p.life * 9.0 + p.phase) * 0.22;
-        p.vx += -p.vy * curl * clampedDelta;
-        p.vy += p.vx * curl * clampedDelta;
-        p.vx *= 0.945;
-        p.vy *= 0.945;
-        p.vz *= 0.945;
+        p.vy += Math.cos(p.life * 8.0 + p.phase) * 0.08 * clampedDelta;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        p.vz *= 0.96;
       } else {
-        // Fast sparks with gravity and air drag
-        p.vy -= 0.95 * clampedDelta;
-        p.vx *= 0.935;
-        p.vy *= 0.935;
-        p.vz *= 0.935;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.vz *= 0.92;
       }
 
       const progress = p.life / p.maxLife;
-      // Sparkling scintillation flicker
-      const twinkle = 0.80 + 0.20 * Math.sin(p.life * 28.0 + p.phase);
-      const fade = Math.pow(1.0 - progress, 1.3) * twinkle;
+      const twinkle = 0.75 + 0.25 * Math.sin(p.life * 32.0 + p.phase);
+      const fade = Math.pow(1.0 - progress, 1.35) * twinkle;
 
-      // Update Point core
       this.positionBuffer[idx] = p.x;
       this.positionBuffer[idx + 1] = p.y;
       this.positionBuffer[idx + 2] = p.z;
@@ -336,7 +321,6 @@ export class SparkParticlePool {
       this.colorBuffer[idx + 1] = p.g * fade;
       this.colorBuffer[idx + 2] = p.b * fade;
 
-      // Update Luminous Light Trail Streak (head at current pos, tail stretched opposite to velocity)
       const tailScale = p.trailLength * (1.0 - progress * 0.5);
       const tailX = p.x - p.vx * tailScale;
       const tailY = p.y - p.vy * tailScale;
@@ -349,15 +333,14 @@ export class SparkParticlePool {
       this.trailPositionBuffer[trailIdx + 4] = tailY;
       this.trailPositionBuffer[trailIdx + 5] = tailZ;
 
-      // Head is bright white/chromatic, tail fades into deep purple/blue
-      this.trailColorBuffer[trailIdx] = Math.min(1.0, (p.r + 0.25) * fade);
-      this.trailColorBuffer[trailIdx + 1] = Math.min(1.0, (p.g + 0.25) * fade);
-      this.trailColorBuffer[trailIdx + 2] = Math.min(1.0, (p.b + 0.25) * fade);
+      this.trailColorBuffer[trailIdx] = p.r * fade;
+      this.trailColorBuffer[trailIdx + 1] = p.g * fade;
+      this.trailColorBuffer[trailIdx + 2] = p.b * fade;
 
-      const tailFade = fade * 0.22;
+      const tailFade = fade * 0.15;
       this.trailColorBuffer[trailIdx + 3] = p.r * tailFade;
-      this.trailColorBuffer[trailIdx + 4] = p.g * 0.4 * tailFade;
-      this.trailColorBuffer[trailIdx + 5] = Math.min(1.0, (p.b + 0.4) * tailFade);
+      this.trailColorBuffer[trailIdx + 4] = p.g * tailFade;
+      this.trailColorBuffer[trailIdx + 5] = p.b * tailFade;
     }
 
     if (hasActive) {

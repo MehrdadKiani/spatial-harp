@@ -69,12 +69,28 @@ export class ScaleMapper {
   // Normalized string length bounds for acoustic pitch mapping:
   // Longer strings -> lower bass notes (index 0)
   // Shorter strings -> higher treble notes (index scale.length - 1)
-  private readonly minNormLength = 0.10;
-  private readonly maxNormLength = 0.82;
+  private minNormLength = 0.10;
+  private maxNormLength = 0.82;
 
   constructor(initialScaleId: MusicalScaleId = 'pentatonic') {
     this.scaleId = initialScaleId;
     this.scale = SCALES[initialScaleId].notes;
+  }
+
+  public configure(options: {
+    defaultScale?: MusicalScaleId;
+    minNormLengthForPitch?: number;
+    maxNormLengthForPitch?: number;
+  }): void {
+    if (options.defaultScale && SCALES[options.defaultScale]) {
+      this.setScaleById(options.defaultScale);
+    }
+    if (options.minNormLengthForPitch !== undefined) {
+      this.minNormLength = options.minNormLengthForPitch;
+    }
+    if (options.maxNormLengthForPitch !== undefined) {
+      this.maxNormLength = options.maxNormLengthForPitch;
+    }
   }
 
   /**

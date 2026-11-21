@@ -16,6 +16,13 @@ const STRING_PALETTE = [
   0xe040fb, // Magenta
 ];
 
+interface PendingGrabCandidate {
+  handId: number;
+  stringId: string;
+  endpoint: 'p1' | 'p2';
+  startTimeMs: number;
+}
+
 export class SpatialStringManager {
   private strings: AnchoredString[] = [];
   private sceneManager: SceneManager;
@@ -25,9 +32,19 @@ export class SpatialStringManager {
   private releaseGraceMs: number;
   private cooldownMs: number;
   private grabProximityThreshold: number;
+  private grabPinchDistance: number;
+  private grabDwellMs: number;
+  private maxGrabHandSpeed: number;
+  private palette: number[];
 
   // Active endpoint grabs (handId -> EndpointGrabState)
   private activeGrabs = new Map<number, EndpointGrabState>();
+
+  // Intentional grab verification state (edge-triggered pinch + velocity guard + dwell timer)
+  private pendingGrabs = new Map<number, PendingGrabCandidate>();
+  private wasHandPinching = new Map<number, boolean>();
+  private pinchStartedAwayFromTip = new Map<number, boolean>();
+  private prevHandSamples = new Map<number, { x: number; y: number; z: number; timeMs: number }>();
 
   // Robust anchoring state machine with debounce & flicker suppression
   private isStretching = false;
@@ -45,7 +62,24 @@ export class SpatialStringManager {
     this.minStretchDurationMs = config.minStretchDurationMs ?? 150;
     this.releaseGraceMs = config.releaseGraceMs ?? 120;
     this.cooldownMs = config.cooldownMs ?? 350;
-    this.grabProximityThreshold = config.grabProximityThreshold ?? 0.055;
+    this.grabProximityThreshold = config.grabProximityThreshold ?? 0.045;
+    this.grabPinchDistance = config.grabPinchDistance ?? 0.052;
+    this.grabDwellMs = config.grabDwellMs ?? 35;
+    this.maxGrabHandSpeed = config.maxGrabHandSpeed ?? 1.10;
+    this.palette = config.palette && config.palette.length > 0 ? config.palette : STRING_PALETTE;
+  }
+
+  public configure(config: SpatialStringConfig): void {
+    if (config.maxStrings !== undefined) this.maxStrings = config.maxStrings;
+    if (config.minAnchorDistance !== undefined) this.minAnchorDistance = config.minAnchorDistance;
+    if (config.minStretchDurationMs !== undefined) this.minStretchDurationMs = config.minStretchDurationMs;
+    if (config.releaseGraceMs !== undefined) this.releaseGraceMs = config.releaseGraceMs;
+    if (config.cooldownMs !== undefined) this.cooldownMs = config.cooldownMs;
+    if (config.grabProximityThreshold !== undefined) this.grabProximityThreshold = config.grabProximityThreshold;
+    if (config.grabPinchDistance !== undefined) this.grabPinchDistance = config.grabPinchDistance;
+    if (config.grabDwellMs !== undefined) this.grabDwellMs = config.grabDwellMs;
+    if (config.maxGrabHandSpeed !== undefined) this.maxGrabHandSpeed = config.maxGrabHandSpeed;
+    if (config.palette && config.palette.length > 0) this.palette = config.palette;
   }
 
   public update(
@@ -62,11 +96,10 @@ export class SpatialStringManager {
       const targetString = this.strings.find((s) => s.id === grab.stringId);
 
       if (!gesture || !gesture.pinch.isPinching || !targetString) {
-        // Hand released pinch or string was removed -> end grab
         this.activeGrabs.delete(handId);
+        this.pendingGrabs.delete(handId);
         globalBus.emit('string:reanchored', { stringId: grab.stringId, endpoint: grab.endpoint });
       } else {
-        // Update the grabbed endpoint position in real time
         const pt = gesture.pinch.pinchPoint;
         if (grab.endpoint === 'p1') {
           targetString.point1 = { ...pt };
@@ -84,47 +117,123 @@ export class SpatialStringManager {
       }
     }
 
-    // 2. Check for new endpoint grabs from pinching hands not already grabbing
+    // 2. Check for intentional new endpoint grabs (3-layer anti-snag guard)
+    const seenHandIds = new Set<number>();
+
     gestureStates.forEach((gesture) => {
-      if (gesture.pinch.isPinching && !this.activeGrabs.has(gesture.handId)) {
-        const pinchPt = gesture.pinch.pinchPoint;
-        let closestDist = Infinity;
-        let closestGrab: EndpointGrabState | null = null;
+      const handId = gesture.handId;
+      seenHandIds.add(handId);
 
-        this.strings.forEach((str) => {
-          // Distance to endpoint P1
-          const dx1 = pinchPt.x - str.point1.x;
-          const dy1 = pinchPt.y - str.point1.y;
-          const dz1 = (pinchPt.z - str.point1.z) * 0.5;
-          const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1 + dz1 * dz1);
+      const pinchPt = gesture.pinch.pinchPoint;
+      const isPinching = gesture.pinch.isPinching;
+      const isFirmPinch = isPinching && gesture.pinch.distance <= this.grabPinchDistance;
+      const wasPinching = this.wasHandPinching.get(handId) || false;
 
-          if (dist1 <= this.grabProximityThreshold && dist1 < closestDist) {
-            closestDist = dist1;
-            closestGrab = { handId: gesture.handId, stringId: str.id, endpoint: 'p1' };
+      let handSpeed = 0;
+      const prevSample = this.prevHandSamples.get(handId);
+      if (prevSample) {
+        const dtSec = (nowMs - prevSample.timeMs) * 0.001;
+        if (dtSec > 0.004) {
+          const vx = pinchPt.x - prevSample.x;
+          const vy = pinchPt.y - prevSample.y;
+          const vz = (pinchPt.z - prevSample.z) * 0.5;
+          const dist = Math.sqrt(vx * vx + vy * vy + vz * vz);
+          if (dist > 1e-5) {
+            handSpeed = dist / dtSec;
+            this.prevHandSamples.set(handId, { x: pinchPt.x, y: pinchPt.y, z: pinchPt.z, timeMs: nowMs });
           }
-
-          // Distance to endpoint P2
-          const dx2 = pinchPt.x - str.point2.x;
-          const dy2 = pinchPt.y - str.point2.y;
-          const dz2 = (pinchPt.z - str.point2.z) * 0.5;
-          const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2);
-
-          if (dist2 <= this.grabProximityThreshold && dist2 < closestDist) {
-            closestDist = dist2;
-            closestGrab = { handId: gesture.handId, stringId: str.id, endpoint: 'p2' };
-          }
-        });
-
-        if (closestGrab) {
-          this.activeGrabs.set(gesture.handId, closestGrab);
-          globalBus.emit('string:grabbed', closestGrab);
         }
+      } else {
+        this.prevHandSamples.set(handId, { x: pinchPt.x, y: pinchPt.y, z: pinchPt.z, timeMs: nowMs });
+      }
+
+      let closestDist = Infinity;
+      let minAnyTipDist = Infinity;
+      let closestTarget: { stringId: string; endpoint: 'p1' | 'p2' } | null = null;
+
+      // Measure 2D screen-plane distance to string endpoints (ignoring camera Z depth drift)
+      this.strings.forEach((str) => {
+        const dx1 = pinchPt.x - str.point1.x;
+        const dy1 = pinchPt.y - str.point1.y;
+        const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+        if (dist1 < minAnyTipDist) {
+          minAnyTipDist = dist1;
+        }
+        if (dist1 <= this.grabProximityThreshold && dist1 < closestDist) {
+          closestDist = dist1;
+          closestTarget = { stringId: str.id, endpoint: 'p1' };
+        }
+
+        const dx2 = pinchPt.x - str.point2.x;
+        const dy2 = pinchPt.y - str.point2.y;
+        const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+        if (dist2 < minAnyTipDist) {
+          minAnyTipDist = dist2;
+        }
+        if (dist2 <= this.grabProximityThreshold && dist2 < closestDist) {
+          closestDist = dist2;
+          closestTarget = { stringId: str.id, endpoint: 'p2' };
+        }
+      });
+
+      if (!isPinching) {
+        this.pinchStartedAwayFromTip.set(handId, false);
+        this.pendingGrabs.delete(handId);
+      } else if (!wasPinching && isPinching) {
+        // Only reject if pinch started far away in the middle of the harp (> 2.2x grab radius)
+        const startedNearAnyTip = minAnyTipDist <= Math.max(0.095, this.grabProximityThreshold * 2.2);
+        this.pinchStartedAwayFromTip.set(handId, !startedNearAnyTip);
+      }
+
+      this.wasHandPinching.set(handId, isPinching);
+
+      if (this.activeGrabs.has(handId) || this.pinchStartedAwayFromTip.get(handId)) {
+        this.pendingGrabs.delete(handId);
+        return;
+      }
+
+      if (isFirmPinch && closestTarget && handSpeed <= this.maxGrabHandSpeed) {
+        const target = closestTarget as { stringId: string; endpoint: 'p1' | 'p2' };
+        const existingPending = this.pendingGrabs.get(handId);
+
+        if (
+          existingPending &&
+          existingPending.stringId === target.stringId &&
+          existingPending.endpoint === target.endpoint
+        ) {
+          if (nowMs - existingPending.startTimeMs >= this.grabDwellMs) {
+            const confirmedGrab: EndpointGrabState = {
+              handId,
+              stringId: target.stringId,
+              endpoint: target.endpoint,
+            };
+            this.activeGrabs.set(handId, confirmedGrab);
+            this.pendingGrabs.delete(handId);
+            globalBus.emit('string:grabbed', confirmedGrab);
+          }
+        } else {
+          this.pendingGrabs.set(handId, {
+            handId,
+            stringId: target.stringId,
+            endpoint: target.endpoint,
+            startTimeMs: nowMs,
+          });
+        }
+      } else {
+        this.pendingGrabs.delete(handId);
       }
     });
 
-    // 3. New String Creation State Machine (only active if neither hand is grabbing an endpoint)
-    if (this.activeGrabs.size > 0) {
-      // Disambiguation: Hand is grabbing an endpoint, so cancel new string creation
+    for (const handId of Array.from(this.pendingGrabs.keys())) {
+      if (!seenHandIds.has(handId)) {
+        this.pendingGrabs.delete(handId);
+      }
+    }
+
+    // 3. New String Creation State Machine
+    if (this.activeGrabs.size > 0 || this.pendingGrabs.size > 0) {
       this.isStretching = false;
       this.releaseStartTime = 0;
       this.lastPoint1 = null;
@@ -133,7 +242,6 @@ export class SpatialStringManager {
     }
 
     if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
-      // Motion blur flicker absorbed
       if (this.releaseStartTime > 0) {
         this.releaseStartTime = 0;
       }
@@ -187,7 +295,7 @@ export class SpatialStringManager {
     const worldP2 = this.sceneManager.toWorldCoords(p2.x, p2.y, p2.z, videoAspect);
 
     const length = worldP1.distanceTo(worldP2);
-    const color = STRING_PALETTE[this.strings.length % STRING_PALETTE.length];
+    const color = this.palette[this.strings.length % this.palette.length];
 
     const anchored: AnchoredString = {
       id: `str_${this.nextId++}`,
@@ -201,7 +309,6 @@ export class SpatialStringManager {
       createdAt: nowMs,
     };
 
-    // FIFO replacement if exceeding capacity
     if (this.strings.length >= this.maxStrings) {
       const removed = this.strings.shift();
       if (removed) {
@@ -220,6 +327,10 @@ export class SpatialStringManager {
     const count = this.strings.length;
     this.strings = [];
     this.activeGrabs.clear();
+    this.pendingGrabs.clear();
+    this.wasHandPinching.clear();
+    this.pinchStartedAwayFromTip.clear();
+    this.prevHandSamples.clear();
     this.isStretching = false;
     this.releaseStartTime = 0;
     this.lastPoint1 = null;
@@ -232,10 +343,14 @@ export class SpatialStringManager {
     if (index !== -1) {
       this.strings.splice(index, 1);
       this.strings.forEach((s, idx) => (s.index = idx));
-      // Remove any active grabs on this string
       for (const [handId, grab] of this.activeGrabs.entries()) {
         if (grab.stringId === id) {
           this.activeGrabs.delete(handId);
+        }
+      }
+      for (const [handId, pending] of this.pendingGrabs.entries()) {
+        if (pending.stringId === id) {
+          this.pendingGrabs.delete(handId);
         }
       }
       globalBus.emit('string:removed', { id });

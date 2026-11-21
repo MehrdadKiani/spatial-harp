@@ -1,5 +1,12 @@
 import * as THREE from 'three';
 import { EngineLoop } from './core/loop';
+import {
+  AppConfig,
+  DEFAULT_CONFIG,
+  loadAppConfig,
+  parseHexPalette,
+  saveUserOverride,
+} from './core/config';
 import { CameraManager } from './vision/camera-manager';
 import { HandTracker } from './vision/hand-tracker';
 import { SceneManager } from './render/scene-manager';
@@ -15,11 +22,13 @@ import { StringCollisionDetector } from './gestures/string-collision-detector';
 import { ScaleMapper } from './audio/scale-mapper';
 import { AudioEngine } from './audio/audio-engine';
 import { HUD } from './ui/hud';
+import { NavBar } from './ui/nav-bar';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
 class App {
   private container: HTMLElement;
+  private config: AppConfig = DEFAULT_CONFIG;
   private cameraManager: CameraManager;
   private videoBackground: VideoBackground;
   private handTracker: HandTracker;
@@ -34,6 +43,7 @@ class App {
   private anchoredStringsView: AnchoredStringsView;
   private sparkParticlePool: SparkParticlePool;
   private pluckShockwavePool: PluckShockwavePool;
+  private navBar: NavBar;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
@@ -54,49 +64,66 @@ class App {
     this.videoBackground = new VideoBackground(this.container);
     this.cameraManager = new CameraManager(this.videoBackground.videoElement);
 
-    // 2. Three.js Scene, Post-Processing Bloom & Visual Pools
+    // 2. Three.js Scene & Visual Pools
     this.sceneManager = new SceneManager(this.container);
     this.skeletonView = new SkeletonView(this.sceneManager);
     this.dynamicStringView = new DynamicStringView(this.sceneManager);
-    this.anchoredStringsView = new AnchoredStringsView(this.sceneManager, 12);
+    this.anchoredStringsView = new AnchoredStringsView(
+      this.sceneManager,
+      this.config.strings.maxStrings
+    );
     this.sparkParticlePool = new SparkParticlePool(this.sceneManager.scene);
     this.pluckShockwavePool = new PluckShockwavePool(this.sceneManager.scene);
 
     // 3. Audio & Musical Harmony Subsystems
-    this.scaleMapper = new ScaleMapper();
+    this.scaleMapper = new ScaleMapper(this.config.audio.defaultScale);
     this.audioEngine = new AudioEngine({
-      volume: -4,
-      reverbWet: 0.3,
-      delayWet: 0.12,
-      polyphony: 8,
-      preset: 'harp',
+      volume: this.config.audio.volumeDb,
+      reverbWet: this.config.audio.reverbWet,
+      delayWet: this.config.audio.delayWet,
+      polyphony: this.config.audio.polyphony,
+      preset: this.config.audio.defaultPreset,
     });
     this.collisionDetector = new StringCollisionDetector(this.scaleMapper);
 
     // 4. Instruments Subsystem: Mid-air Spatial String Manager
     this.spatialStringManager = new SpatialStringManager(this.sceneManager, {
-      maxStrings: 12,
-      minAnchorDistance: 0.10,
-      minStretchDurationMs: 150,
-      releaseGraceMs: 120,
-      cooldownMs: 350,
-      grabProximityThreshold: 0.055,
+      maxStrings: this.config.strings.maxStrings,
+      minAnchorDistance: this.config.strings.minAnchorDistance,
+      minStretchDurationMs: this.config.strings.minStretchDurationMs,
+      releaseGraceMs: this.config.strings.releaseGraceMs,
+      cooldownMs: this.config.strings.cooldownMs,
+      grabProximityThreshold: this.config.strings.grabProximityThreshold,
+      grabPinchDistance: this.config.strings.grabPinchDistance,
+      grabDwellMs: this.config.strings.grabDwellMs,
+      maxGrabHandSpeed: this.config.strings.maxGrabHandSpeed,
+      palette: parseHexPalette(this.config.strings.palette),
     });
 
-    // 5. UI HUD & callbacks
+    // 5. UI NavBar & HUD (persisting Preset & Scale selections to localStorage)
+    this.navBar = new NavBar(this.container, (tabId) => {
+      console.log(`[NavBar] Switched to tab: ${tabId}`);
+    });
+
     this.hud = new HUD(
       this.container,
       () => this.spatialStringManager.clearAll(),
       () => this.unlockAudio(),
-      (preset) => this.audioEngine.setPreset(preset),
-      (scale) => this.scaleMapper.setScaleById(scale)
+      (preset) => {
+        this.audioEngine.setPreset(preset);
+        saveUserOverride({ defaultPreset: preset });
+      },
+      (scale) => {
+        this.scaleMapper.setScaleById(scale);
+        saveUserOverride({ defaultScale: scale });
+      }
     );
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {
       this.hud.setLastPluck(event.note, event.velocity);
 
-      // Trigger harmonic wave ripple on the string
+      // Trigger multi-crest sinusoidal rainbow wave on the string
       this.anchoredStringsView.triggerPluck(
         event.stringId,
         event.velocity,
@@ -115,14 +142,14 @@ class App {
         this.sparkDir.subVectors(w2, w1).normalize();
         this.sparkNormal.set(-this.sparkDir.y, this.sparkDir.x, 0).normalize();
 
-        // 6a. Emit intense contact neon flash & dual expanding shockwave ripples
+        // 6a. Emit radial starburst contact rays
         this.pluckShockwavePool.emitShockwave(
           this.sparkOrigin,
           targetStr.color,
           event.velocity
         );
 
-        // 6b. Emit radial spark particle burst, flowing light trails & floating motes at contact point
+        // 6b. Emit radial spark particle burst at contact point
         this.sparkParticlePool.emitBurst(
           this.sparkOrigin,
           this.sparkNormal,
@@ -130,7 +157,7 @@ class App {
           event.velocity
         );
 
-        // 6c. Emit wave-rider particles & luminous trails propagating along the string in both directions
+        // 6c. Emit fine spectrum glitter dust along the rainbow wave crests
         this.sparkParticlePool.emitWaveTrail(
           w1,
           w2,
@@ -145,8 +172,8 @@ class App {
     // 7. Hand tracker, gesture detector & loop ticker
     this.handTracker = new HandTracker();
     this.pinchDetector = new PinchDetector({
-      pinchThreshold: 0.055,
-      releaseThreshold: 0.080,
+      pinchThreshold: this.config.pinch.pinchThreshold,
+      releaseThreshold: this.config.pinch.releaseThreshold,
     });
     this.loop = new EngineLoop();
 
@@ -162,6 +189,45 @@ class App {
     });
   }
 
+  private applyConfig(cfg: AppConfig): void {
+    this.config = cfg;
+
+    // 1. Pinch gesture thresholds
+    this.pinchDetector.configure(cfg.pinch);
+
+    // 2. Spatial strings & 3-layer anti-snag tip grabbing
+    this.spatialStringManager.configure({
+      ...cfg.strings,
+      palette: parseHexPalette(cfg.strings.palette),
+    });
+
+    // 3. Plucking sensitivity & tip dead-zone margins
+    this.collisionDetector.configure(cfg.plucking);
+
+    // 4. Audio engine & scale mapper
+    this.scaleMapper.configure({
+      defaultScale: cfg.audio.defaultScale,
+      minNormLengthForPitch: cfg.audio.minNormLengthForPitch,
+      maxNormLengthForPitch: cfg.audio.maxNormLengthForPitch,
+    });
+    this.audioEngine.configure({
+      volumeDb: cfg.audio.volumeDb,
+      reverbWet: cfg.audio.reverbWet,
+      delayWet: cfg.audio.delayWet,
+      defaultPreset: cfg.audio.defaultPreset,
+    });
+
+    // 5. Visuals, laser beam widths, ruler transparency, rainbow waves & particles
+    this.anchoredStringsView.configure(cfg.visuals);
+    this.dynamicStringView.configure(cfg.visuals);
+    this.pluckShockwavePool.configure(cfg.visuals);
+    this.sparkParticlePool.configure(cfg.visuals);
+
+    // 6. Sync HUD dropdowns with loaded config
+    this.hud.setSelectedPreset(cfg.audio.defaultPreset);
+    this.hud.setSelectedScale(cfg.audio.defaultScale);
+  }
+
   private async unlockAudio(): Promise<void> {
     const success = await this.audioEngine.unlock();
     if (success) {
@@ -170,27 +236,36 @@ class App {
   }
 
   public async start(): Promise<void> {
-    this.hud.setMessage('Requesting camera permission...');
+    this.hud.setMessage('Loading configuration (/config.json)...');
 
     try {
-      // Start camera feed
-      await this.cameraManager.start({ width: 1280, height: 720 });
-      this.hud.setMessage('Loading MediaPipe HandLandmarker model...');
+      // 1. Load external /config.json + localStorage overrides
+      const loadedConfig = await loadAppConfig('/config.json');
+      this.applyConfig(loadedConfig);
 
-      // Initialize hand tracking model (tuned for edge-of-screen / partially visible hands)
+      // 2. Start camera feed
+      this.hud.setMessage('Requesting camera permission...');
+      await this.cameraManager.start({
+        width: this.config.vision.cameraWidth,
+        height: this.config.vision.cameraHeight,
+      });
+
+      // 3. Initialize hand tracking model
+      this.hud.setMessage('Loading MediaPipe HandLandmarker model...');
       await this.handTracker.init({
-        wasmPath: '/wasm',
-        modelAssetPath: '/models/hand_landmarker.task',
-        numHands: 2,
-        minHandDetectionConfidence: 0.30,
-        minHandPresenceConfidence: 0.25,
-        minTrackingConfidence: 0.25,
+        wasmPath: this.config.vision.wasmPath,
+        modelAssetPath: this.config.vision.modelAssetPath,
+        numHands: this.config.vision.numHands,
+        smoothingAlpha: this.config.vision.smoothingAlpha,
+        minHandDetectionConfidence: this.config.vision.minHandDetectionConfidence,
+        minHandPresenceConfidence: this.config.vision.minHandPresenceConfidence,
+        minTrackingConfidence: this.config.vision.minTrackingConfidence,
       });
 
       this.isVisionReady = true;
       this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
 
-      // Start main tick loop
+      // 4. Start main tick loop
       this.loop.add((delta, elapsed) => this.tick(elapsed, delta));
       this.loop.start();
     } catch (err) {
@@ -228,12 +303,12 @@ class App {
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();
     let grabbedStringNote: string | null = null;
+    const postGrabCooldown = this.config.strings.postGrabReleaseCooldownMs;
 
     if (activeGrabs.length > 0) {
       activeGrabs.forEach((grab) => {
         ignoreHandIds.add(grab.handId);
-        // Set a 250ms grace window after releasing the tip so releasing pinch doesn't pluck the string
-        this.handGrabCooldownUntil.set(grab.handId, nowMs + 250);
+        this.handGrabCooldownUntil.set(grab.handId, nowMs + postGrabCooldown);
         const grabbedStr = anchoredStrings.find((s) => s.id === grab.stringId);
         if (grabbedStr) {
           const { note } = this.scaleMapper.getNoteForString(grabbedStr, anchoredStrings);
@@ -259,10 +334,10 @@ class App {
       this.dynamicStringView.setVisible(false);
     }
 
-    // 7. Update anchored spatial strings (fret marks, dual-wave envelopes, resonant ribbons & crosshair reticles)
+    // 7. Update anchored spatial strings (straight baseline, sinusoidal rainbow wave, echo contours & crosshairs)
     this.anchoredStringsView.update(anchoredStrings, activeGrabs, videoAspect, elapsed);
 
-    // 8. Update GPU spark particles & shockwaves physics
+    // 8. Update GPU spark particles & starburst rays physics
     this.sparkParticlePool.update(delta);
     this.pluckShockwavePool.update(delta);
 
@@ -283,8 +358,12 @@ class App {
       grabbedStringNote
     );
 
-    // 10. Render Three.js WebGL scene with UnrealBloom post-processing
+    // 10. Render Three.js WebGL scene
     this.sceneManager.render();
+  }
+
+  public getNavBar(): NavBar {
+    return this.navBar;
   }
 }
 

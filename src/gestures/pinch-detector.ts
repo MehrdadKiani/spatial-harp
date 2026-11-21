@@ -16,6 +16,11 @@ export class PinchDetector {
     this.releaseThreshold = config.releaseThreshold ?? 0.080;
   }
 
+  public configure(config: PinchDetectorConfig): void {
+    if (config.pinchThreshold !== undefined) this.pinchThreshold = config.pinchThreshold;
+    if (config.releaseThreshold !== undefined) this.releaseThreshold = config.releaseThreshold;
+  }
+
   public detectHand(hand: HandPose): HandGestureState {
     const thumb = hand.landmarks[LANDMARK_INDEX.THUMB_TIP];
     const index = hand.landmarks[LANDMARK_INDEX.INDEX_TIP];

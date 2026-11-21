@@ -29,7 +29,7 @@ export class HUD {
 
     Object.assign(this.element.style, {
       position: 'absolute',
-      top: '16px',
+      top: '72px',
       left: '16px',
       zIndex: '10',
       color: '#ffffff',
@@ -243,5 +243,14 @@ export class HUD {
 
   public setMessage(msg: string): void {
     this.statusDisplay.textContent = msg;
+  }
+
+  public setSelectedPreset(presetId: SoundPresetId): void {
+    this.presetSelect.value = presetId;
+    this.updateAudioStatusText();
+  }
+
+  public setSelectedScale(scaleId: MusicalScaleId): void {
+    this.scaleSelect.value = scaleId;
   }
 }
