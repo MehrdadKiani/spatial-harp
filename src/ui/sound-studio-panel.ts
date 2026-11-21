@@ -52,7 +52,7 @@ export class SoundStudioPanel {
     this.element.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">🎛️</span>
+          <span style="font-size: 16px;">🎹</span>
           <span style="font-weight: 700; font-size: 14px; letter-spacing: 0.8px; color: #00f0ff; text-transform: uppercase;">Sound Studio</span>
         </div>
         <button id="studio-close-btn" style="background: transparent; border: none; color: rgba(255, 255, 255, 0.6); font-size: 18px; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; transition: color 0.2s;">✕</button>

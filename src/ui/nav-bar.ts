@@ -62,15 +62,16 @@ export class NavBar {
 
     // 1. Logo & Brand Container
     this.logoContainer = document.createElement('div');
+    this.logoContainer.className = 'navbar-logo-container';
     this.logoContainer.style.display = 'flex';
     this.logoContainer.style.alignItems = 'center';
     this.logoContainer.style.gap = '12px';
     this.logoContainer.style.pointerEvents = 'auto';
     this.logoContainer.style.cursor = 'pointer';
 
-    // Futuristic Neon Spatial Harp SVG Logo with Orbitron font
+    // Futuristic Neon Spatial Harp SVG Logo with JetBrains Mono font
     this.logoContainer.innerHTML = `
-      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 8px #00f0ff);">
+      <svg class="navbar-logo-svg" width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 8px #00f0ff); flex-shrink: 0;">
         <!-- Outer Hex Shield -->
         <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" stroke="#00f0ff" stroke-width="1.8" fill="rgba(0, 240, 255, 0.08)"/>
         <!-- Vertical Harp Strings -->
@@ -80,16 +81,17 @@ export class NavBar {
         <!-- Contact Beam Spark Dot -->
         <circle cx="16" cy="14" r="2.2" fill="#ffffff" style="filter: drop-shadow(0 0 4px #ffffff);" />
       </svg>
-      <div style="display: flex; flex-direction: column; line-height: 1.15;">
-        <span style="font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
-          <span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span> HARP
+      <div class="navbar-brand-text" style="display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap;">
+        <span class="navbar-brand-title" style="font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
+          <span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span><span class="navbar-brand-tail"> HARP</span>
         </span>
-        <span style="font-family: var(--font-primary); font-size: 10px; letter-spacing: 1.8px; color: rgba(255, 255, 255, 0.55); font-weight: 700; text-transform: uppercase;">AR AUDIO-VISUAL LAB</span>
+        <span class="navbar-brand-sub" style="font-family: var(--font-primary); font-size: 10px; letter-spacing: 1.8px; color: rgba(255, 255, 255, 0.55); font-weight: 700; text-transform: uppercase;">AR AUDIO-VISUAL LAB</span>
       </div>
     `;
 
     // 2. Navigation Items / Tabs (Placeholder for future pages)
     this.navItemsContainer = document.createElement('div');
+    this.navItemsContainer.className = 'navbar-items-container';
     Object.assign(this.navItemsContainer.style, {
       display: 'flex',
       alignItems: 'center',
@@ -99,7 +101,7 @@ export class NavBar {
 
     const defaultItems: NavItem[] = [
       { id: 'instrument', label: 'Instrument', icon: '🎸', active: true },
-      { id: 'studio', label: 'Sound Studio', icon: '🎛️' },
+      { id: 'studio', label: 'Sound Studio', icon: '🎹' },
       { id: 'settings', label: 'Settings', icon: '⚙️' },
     ];
 
@@ -110,6 +112,7 @@ export class NavBar {
 
     // 3. Right Container: Diagnostics Toggle Button & Live AR Indicator
     const rightContainer = document.createElement('div');
+    rightContainer.className = 'navbar-right-container';
     rightContainer.style.display = 'flex';
     rightContainer.style.alignItems = 'center';
     rightContainer.style.gap = '10px';
@@ -136,7 +139,7 @@ export class NavBar {
       outline: 'none',
       transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
     });
-    this.diagBtn.innerHTML = `<span>📊</span><span>Diagnostics</span>`;
+    this.diagBtn.innerHTML = `<span>📊</span><span class="navbar-btn-label">Diagnostics</span>`;
 
     this.diagBtn.addEventListener('mouseenter', () => {
       this.diagBtn.style.background = 'rgba(0, 240, 255, 0.22)';
@@ -177,7 +180,7 @@ export class NavBar {
       outline: 'none',
       transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
     });
-    this.clearBtn.innerHTML = `<span>🗑️</span><span>Clear</span>`;
+    this.clearBtn.innerHTML = `<span>🗑️</span><span class="navbar-btn-label">Clear</span>`;
 
     this.clearBtn.addEventListener('mouseenter', () => {
       this.clearBtn.style.background = 'rgba(255, 68, 68, 0.25)';
@@ -198,6 +201,7 @@ export class NavBar {
     });
 
     this.statusBadge = document.createElement('span');
+    this.statusBadge.id = 'navbar-status-badge';
     Object.assign(this.statusBadge.style, {
       display: 'inline-flex',
       alignItems: 'center',
@@ -211,8 +215,9 @@ export class NavBar {
       fontWeight: '700',
       letterSpacing: '1.2px',
       textTransform: 'uppercase',
+      flexShrink: '0',
     });
-    this.statusBadge.innerHTML = `<span style="width: 7px; height: 7px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 8px #00ffaa; animation: pulse 1.8s infinite;"></span>LIVE AR`;
+    this.statusBadge.innerHTML = `<span class="navbar-status-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 8px #00ffaa; animation: pulse 1.8s infinite; flex-shrink: 0;"></span><span class="navbar-status-text">LIVE AR</span>`;
 
     rightContainer.appendChild(this.diagBtn);
     rightContainer.appendChild(this.clearBtn);
@@ -228,7 +233,9 @@ export class NavBar {
 
   private createNavButton(item: NavItem): HTMLButtonElement {
     const btn = document.createElement('button');
+    btn.className = 'navbar-item-btn';
     btn.dataset.tabId = item.id;
+    btn.title = item.label;
 
     const isActive = item.active || item.id === this.activeTabId;
 
@@ -249,9 +256,10 @@ export class NavBar {
       outline: 'none',
       transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
       textShadow: isActive ? '0 0 10px rgba(0, 240, 255, 0.5)' : 'none',
+      whiteSpace: 'nowrap',
     });
 
-    btn.innerHTML = `${item.icon ? `<span style="font-size: 14px;">${item.icon}</span>` : ''}<span>${item.label}</span>`;
+    btn.innerHTML = `${item.icon ? `<span style="font-size: 14px;">${item.icon}</span>` : ''}<span class="navbar-btn-label">${item.label}</span>`;
 
     btn.addEventListener('mouseenter', () => {
       if (btn.dataset.tabId !== this.activeTabId) {

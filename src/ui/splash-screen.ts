@@ -56,7 +56,7 @@ export class SplashScreen {
     const subtitleText = options.subtitle || 'Augmented Reality Audio-Visual Instrument';
 
     this.element.innerHTML = `
-      <div style="
+      <div class="splash-card" style="
         max-width: 640px;
         width: 92%;
         text-align: center;
@@ -83,7 +83,7 @@ export class SplashScreen {
 
         <!-- Typography -->
         <div>
-          <h1 style="
+          <h1 class="splash-title" style="
             font-size: 32px;
             font-weight: 800;
             letter-spacing: 2.5px;
@@ -93,7 +93,7 @@ export class SplashScreen {
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
           ">${titleText}</h1>
-          <p style="
+          <p class="splash-subtitle" style="
             margin: 8px 0 0 0;
             font-size: 15px;
             color: rgba(255, 255, 255, 0.70);
@@ -102,7 +102,7 @@ export class SplashScreen {
         </div>
 
         <!-- Gesture Quick Guide Cards -->
-        <div style="
+        <div class="splash-guide-grid" style="
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 14px;
@@ -110,20 +110,26 @@ export class SplashScreen {
           margin: 4px 0;
           font-size: 13px;
         ">
-          <div style="background: rgba(0, 240, 255, 0.07); border: 1px solid rgba(0, 240, 255, 0.22); border-radius: 14px; padding: 16px 10px;">
-            <div style="font-size: 26px; margin-bottom: 6px;">🤏🤏</div>
-            <div style="font-weight: 700; color: #00f0ff; margin-bottom: 4px; font-size: 14px;">Dual Pinch</div>
-            <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Stretch & anchor strings in 3D air</div>
+          <div class="splash-guide-card" style="background: rgba(0, 240, 255, 0.07); border: 1px solid rgba(0, 240, 255, 0.22); border-radius: 14px; padding: 16px 10px;">
+            <div class="guide-icon" style="font-size: 26px; margin-bottom: 6px;">🤏🤏</div>
+            <div>
+              <div style="font-weight: 700; color: #00f0ff; margin-bottom: 4px; font-size: 14px;">Dual Pinch</div>
+              <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Stretch & anchor strings in 3D air</div>
+            </div>
           </div>
-          <div style="background: rgba(255, 0, 127, 0.07); border: 1px solid rgba(255, 0, 127, 0.22); border-radius: 14px; padding: 16px 10px;">
-            <div style="font-size: 26px; margin-bottom: 6px;">☝️</div>
-            <div style="font-weight: 700; color: #ff007f; margin-bottom: 4px; font-size: 14px;">Touch / Pluck</div>
-            <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Swipe fingertip to synthesize tones</div>
+          <div class="splash-guide-card" style="background: rgba(255, 0, 127, 0.07); border: 1px solid rgba(255, 0, 127, 0.22); border-radius: 14px; padding: 16px 10px;">
+            <div class="guide-icon" style="font-size: 26px; margin-bottom: 6px;">☝️</div>
+            <div>
+              <div style="font-weight: 700; color: #ff007f; margin-bottom: 4px; font-size: 14px;">Touch / Pluck</div>
+              <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Swipe fingertip to synthesize tones</div>
+            </div>
           </div>
-          <div style="background: rgba(56, 239, 125, 0.07); border: 1px solid rgba(56, 239, 125, 0.22); border-radius: 14px; padding: 16px 10px;">
-            <div style="font-size: 26px; margin-bottom: 6px;">⌖</div>
-            <div style="font-weight: 700; color: #38ef7d; margin-bottom: 4px; font-size: 14px;">Re-Grab Tips</div>
-            <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Pinch tip crosshair to move or rotate</div>
+          <div class="splash-guide-card" style="background: rgba(56, 239, 125, 0.07); border: 1px solid rgba(56, 239, 125, 0.22); border-radius: 14px; padding: 16px 10px;">
+            <div class="guide-icon" style="font-size: 26px; margin-bottom: 6px;">⌖</div>
+            <div>
+              <div style="font-weight: 700; color: #38ef7d; margin-bottom: 4px; font-size: 14px;">Re-Grab Tips</div>
+              <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Pinch tip crosshair to move or rotate</div>
+            </div>
           </div>
         </div>
 
@@ -154,7 +160,7 @@ export class SplashScreen {
         </div>
 
         <!-- Privacy & Local-Only Processing Notice -->
-        <div style="
+        <div class="splash-privacy-note" style="
           display: flex;
           align-items: center;
           gap: 10px;
@@ -167,7 +173,7 @@ export class SplashScreen {
           line-height: 1.45;
           text-align: left;
         ">
-          <span style="font-size: 20px;">🔒</span>
+          <span style="font-size: 20px; flex-shrink: 0;">🔒</span>
           <span>
             <strong style="color: #00ffaa; font-weight: 700;">100% Private & On-the-Fly:</strong> 
             Camera frames and hand movements are processed purely in real time inside your browser. No video, images, or personal data are ever recorded, stored, or sent to any server.

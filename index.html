@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Spatial Harp - AR Musical Instrument</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +30,7 @@
         font-family: var(--font-primary);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        touch-action: manipulation;
       }
 
       button, input, select, textarea {
@@ -51,6 +52,263 @@
         height: 100% !important;
         z-index: 1;
         pointer-events: none;
+      }
+
+      /* ==========================================================================
+         Mobile, Tablet & Landscape Responsive Breakpoints
+         ========================================================================== */
+      /* Safe-area default spacing for notched/island displays */
+      #app-navbar {
+        top: max(12px, env(safe-area-inset-top, 12px));
+        left: max(16px, env(safe-area-inset-left, 16px));
+        right: max(16px, env(safe-area-inset-right, 16px));
+      }
+
+      /* Phones & Compact Screens (<= 768px) */
+      @media (max-width: 768px) {
+        #app-navbar {
+          top: max(8px, env(safe-area-inset-top, 8px)) !important;
+          left: max(8px, env(safe-area-inset-left, 8px)) !important;
+          right: max(8px, env(safe-area-inset-right, 8px)) !important;
+          height: 48px !important;
+          padding: 0 10px !important;
+          gap: 6px !important;
+        }
+
+        .navbar-logo-container {
+          gap: 6px !important;
+          flex-shrink: 0 !important;
+        }
+
+        .navbar-brand-sub {
+          display: none !important;
+        }
+
+        .navbar-brand-title {
+          font-size: 13px !important;
+          letter-spacing: 1px !important;
+        }
+
+        .navbar-logo-svg {
+          width: 24px !important;
+          height: 24px !important;
+        }
+
+        .navbar-items-container {
+          gap: 4px !important;
+        }
+
+        .navbar-right-container {
+          gap: 6px !important;
+          flex-shrink: 0 !important;
+        }
+
+        .navbar-btn-label {
+          display: none !important;
+        }
+
+        .navbar-item-btn {
+          padding: 6px 9px !important;
+          font-size: 14px !important;
+          min-width: 34px !important;
+          justify-content: center !important;
+        }
+
+        #navbar-diag-btn,
+        #navbar-clear-btn {
+          padding: 6px 9px !important;
+          font-size: 13px !important;
+          min-width: 32px !important;
+          justify-content: center !important;
+        }
+
+        .navbar-status-text {
+          display: none !important;
+        }
+
+        #navbar-status-badge {
+          padding: 6px 8px !important;
+          gap: 0 !important;
+        }
+
+        /* Splash Screen Mobile Optimizations */
+        .splash-card {
+          padding: 24px 18px !important;
+          max-height: 92vh !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+          gap: 16px !important;
+          border-radius: 18px !important;
+          width: calc(100vw - 24px) !important;
+        }
+
+        .splash-title {
+          font-size: 22px !important;
+          letter-spacing: 1.5px !important;
+        }
+
+        .splash-subtitle {
+          font-size: 12px !important;
+        }
+
+        .splash-guide-grid {
+          grid-template-columns: 1fr !important;
+          gap: 8px !important;
+        }
+
+        .splash-guide-card {
+          padding: 10px 12px !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          text-align: left !important;
+        }
+
+        .splash-guide-card .guide-icon {
+          font-size: 20px !important;
+          margin-bottom: 0 !important;
+        }
+
+        .splash-privacy-note {
+          font-size: 11px !important;
+          padding: 8px 12px !important;
+        }
+
+        /* Sound Studio & HUD drawer on mobile */
+        #sound-studio-panel {
+          width: auto !important;
+          max-width: calc(100vw - 16px) !important;
+          right: max(8px, env(safe-area-inset-right, 8px)) !important;
+          left: max(8px, env(safe-area-inset-left, 8px)) !important;
+          top: calc(max(8px, env(safe-area-inset-top, 8px)) + 54px) !important;
+          max-height: calc(100vh - 70px) !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+          padding: 14px 16px !important;
+        }
+
+        #hud-overlay {
+          top: calc(max(8px, env(safe-area-inset-top, 8px)) + 54px) !important;
+          left: max(8px, env(safe-area-inset-left, 8px)) !important;
+          right: max(8px, env(safe-area-inset-right, 8px)) !important;
+        }
+
+        #hud-card {
+          width: auto !important;
+          min-width: 0 !important;
+          max-width: calc(100vw - 16px) !important;
+          max-height: calc(100vh - 70px) !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+      }
+
+      /* Compact / Narrow Smartphones (<= 420px, e.g. iPhone SE, Galaxy S, Pixel) */
+      @media (max-width: 420px) {
+        #app-navbar {
+          padding: 0 6px !important;
+          gap: 4px !important;
+        }
+
+        .navbar-brand-tail {
+          display: none !important;
+        }
+
+        .navbar-brand-title {
+          font-size: 11px !important;
+          letter-spacing: 0.8px !important;
+        }
+
+        .navbar-items-container {
+          gap: 2px !important;
+        }
+
+        .navbar-right-container {
+          gap: 4px !important;
+        }
+
+        .navbar-item-btn {
+          padding: 5px 6px !important;
+          min-width: 30px !important;
+          font-size: 13px !important;
+        }
+
+        #navbar-diag-btn,
+        #navbar-clear-btn {
+          padding: 5px 6px !important;
+          min-width: 28px !important;
+          font-size: 12px !important;
+        }
+
+        #navbar-status-badge {
+          padding: 5px 6px !important;
+        }
+      }
+
+      /* Tablets & Foldables (769px to 1024px) */
+      @media (min-width: 769px) and (max-width: 1024px) {
+        #app-navbar {
+          left: max(12px, env(safe-area-inset-left, 12px)) !important;
+          right: max(12px, env(safe-area-inset-right, 12px)) !important;
+          top: max(10px, env(safe-area-inset-top, 10px)) !important;
+          padding: 0 14px !important;
+          gap: 8px !important;
+        }
+
+        .navbar-brand-sub {
+          display: none !important;
+        }
+
+        .navbar-item-btn {
+          padding: 6px 10px !important;
+          font-size: 12px !important;
+        }
+
+        #navbar-diag-btn,
+        #navbar-clear-btn {
+          padding: 6px 10px !important;
+          font-size: 12px !important;
+        }
+
+        #sound-studio-panel {
+          width: 310px !important;
+          top: calc(max(10px, env(safe-area-inset-top, 10px)) + 58px) !important;
+          right: 12px !important;
+        }
+
+        #hud-overlay {
+          top: calc(max(10px, env(safe-area-inset-top, 10px)) + 58px) !important;
+          left: 12px !important;
+        }
+      }
+
+      /* Mobile Landscape Orientation (short vertical viewports <= 500px) */
+      @media (max-height: 500px) {
+        #app-navbar {
+          height: 42px !important;
+          top: 4px !important;
+        }
+
+        .splash-card {
+          max-height: 94vh !important;
+          padding: 16px 20px !important;
+          gap: 10px !important;
+        }
+
+        .splash-guide-grid {
+          grid-template-columns: repeat(3, 1fr) !important;
+          gap: 6px !important;
+        }
+
+        .splash-guide-card {
+          padding: 6px 8px !important;
+          font-size: 10px !important;
+        }
+
+        #sound-studio-panel,
+        #hud-card {
+          max-height: calc(100vh - 50px) !important;
+        }
       }
     </style>
   </head>
