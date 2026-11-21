@@ -11,5 +11,15 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-three': ['three'],
+          'vendor-tone': ['tone'],
+          'vendor-mediapipe': ['@mediapipe/tasks-vision'],
+        },
+      },
+    },
   },
 });
