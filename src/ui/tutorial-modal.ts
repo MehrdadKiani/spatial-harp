@@ -20,45 +20,46 @@ export interface TutorialSlide {
 export const TUTORIAL_SLIDES: TutorialSlide[] = [
   {
     step: 1,
-    badge: 'STEP 1 OF 4 • CALIBRATION',
+    badge: 'CALIBRATION',
     badgeColor: '#38ef7d',
-    title: 'Calibrate Hand Tracking',
+    title: 'Calibrate Hands',
     imageSrc: '/assets/tutorial/step01.gif',
-    description: 'Hold your open palm toward the camera for a moment. Once your hands are detected, the system calibrates 21 tracking joint landmarks in real-time 3D space.',
-    tip: 'Ensure your hands are within the camera frame with good lighting.',
+    description: 'Show your open palms to the camera to initialize 3D tracking.',
+    tip: 'Keep hands in frame under good light.',
   },
   {
     step: 2,
-    badge: 'STEP 2 OF 4 • CREATE STRINGS',
+    badge: 'CREATE STRINGS',
     badgeColor: '#00f0ff',
-    title: 'Pinch & Anchor in Mid-Air',
+    title: 'Pinch & Anchor String',
     imageSrc: '/assets/tutorial/step02.gif',
-    description: 'Pinch your thumb and index finger together on both hands. Pull them apart horizontally to stretch an elastic laser string, then release your pinch to lock the string in space.',
-    tip: 'Create multiple strings at different angles and lengths to build your custom harp!',
+    description: 'Pinch thumb and index on both hands, stretch apart, then release to lock in air.',
+    tip: 'Create multiple strings to build your harp.',
   },
   {
     step: 3,
-    badge: 'STEP 3 OF 4 • PLAY MUSIC',
+    badge: 'PLAY MUSIC',
     badgeColor: '#ff007f',
-    title: 'Pluck with Your Index Finger',
+    title: 'Pluck to Play',
     imageSrc: '/assets/tutorial/step03.gif',
-    description: 'Swipe your index finger across any anchored string to synthesize rich polyphonic notes. Swipe velocity controls volume intensity, and string length dictates the musical pitch.',
-    tip: 'Shorter strings produce higher notes; longer strings resonate deeper bass.',
+    description: 'Swipe an index finger across any string to play notes. Speed controls volume.',
+    tip: 'Shorter strings = higher notes.',
   },
   {
     step: 4,
-    badge: 'STEP 4 OF 4 • PRO TIP ⚡',
+    badge: 'PRO TIP ⚡',
     badgeColor: '#ffaa00',
-    title: 'Pro Tip: Live Re-Grab & Modulate',
+    title: 'Re-Grab & Modulate',
     imageSrc: '/assets/tutorial/step04.gif',
-    description: 'Pinch either endpoint reticle [⌖] to re-grab and drag an active string in 3D space. You can continuously stretch and modulate pitch with one hand while plucking with the other!',
-    tip: 'Switch synthesizers and scales anytime using the 🎹 Sound Studio panel.',
+    description: 'Pinch a string tip [⌖] to resize and bend pitch while plucking with your other hand.',
+    tip: 'Change presets anytime in 🎹 Sound Studio.',
   },
 ];
 
 export class TutorialModal {
   private overlay: HTMLDivElement;
   private card: HTMLDivElement;
+  private headerStepEl: HTMLSpanElement;
   private imageEl: HTMLImageElement;
   private badgeEl: HTMLSpanElement;
   private titleEl: HTMLHeadingElement;
@@ -67,7 +68,6 @@ export class TutorialModal {
   private prevBtn: HTMLButtonElement;
   private nextBtn: HTMLButtonElement;
   private dotsContainer: HTMLDivElement;
-  private skipBtn: HTMLButtonElement;
   private closeBtn: HTMLButtonElement;
 
   private currentSlideIndex = 0;
@@ -122,14 +122,30 @@ export class TutorialModal {
 
     this.card.innerHTML = `
       <!-- Top Header -->
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px; gap: 12px;">
+        <!-- Left: Icon & Step Title -->
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 18px;">📖</span>
           <span style="font-weight: 800; font-size: 13px; letter-spacing: 1.5px; color: #ffffff; text-transform: uppercase;">
-            HOW TO PLAY <span style="color: #00f0ff;">• TUTORIAL</span>
+            HOW TO PLAY <span id="tut-header-step" style="color: #00f0ff;">• STEP 1 OF 4</span>
           </span>
         </div>
-        <button id="tut-close-btn" style="background: transparent; border: none; color: rgba(255, 255, 255, 0.6); font-size: 20px; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; transition: color 0.2s;">✕</button>
+        <!-- Right: Badge Sticking to Right & Close Button -->
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="tut-badge" style="
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            padding: 3px 9px;
+            border-radius: 6px;
+            background: rgba(56, 239, 125, 0.15);
+            color: #38ef7d;
+            border: 1px solid rgba(56, 239, 125, 0.35);
+            white-space: nowrap;
+          ">${TUTORIAL_SLIDES[0].badge}</span>
+          <button id="tut-close-btn" style="background: transparent; border: none; color: rgba(255, 255, 255, 0.6); font-size: 20px; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; transition: color 0.2s;" title="Close">✕</button>
+        </div>
       </div>
 
       <!-- Slide Image Showcase Viewport -->
@@ -150,21 +166,6 @@ export class TutorialModal {
 
       <!-- Slide Content -->
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span id="tut-badge" style="
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 1.2px;
-            text-transform: uppercase;
-            padding: 3px 8px;
-            border-radius: 6px;
-            background: rgba(56, 239, 125, 0.15);
-            color: #38ef7d;
-            border: 1px solid rgba(56, 239, 125, 0.35);
-          ">${TUTORIAL_SLIDES[0].badge}</span>
-          <button id="tut-skip-btn" style="background: transparent; border: none; color: rgba(255, 255, 255, 0.5); font-size: 11px; cursor: pointer; text-decoration: underline; font-family: inherit;">Skip Tutorial</button>
-        </div>
-
         <h3 id="tut-title" style="margin: 0; font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.8px;">${TUTORIAL_SLIDES[0].title}</h3>
         <p id="tut-desc" style="margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.80); line-height: 1.5;">${TUTORIAL_SLIDES[0].description}</p>
         
@@ -216,6 +217,7 @@ export class TutorialModal {
     container.appendChild(this.overlay);
 
     // Query elements
+    this.headerStepEl = this.card.querySelector('#tut-header-step')!;
     this.imageEl = this.card.querySelector('#tut-slide-img')!;
     this.badgeEl = this.card.querySelector('#tut-badge')!;
     this.titleEl = this.card.querySelector('#tut-title')!;
@@ -224,7 +226,6 @@ export class TutorialModal {
     this.prevBtn = this.card.querySelector('#tut-prev-btn')!;
     this.nextBtn = this.card.querySelector('#tut-next-btn')!;
     this.dotsContainer = this.card.querySelector('#tut-dots')!;
-    this.skipBtn = this.card.querySelector('#tut-skip-btn')!;
     this.closeBtn = this.card.querySelector('#tut-close-btn')!;
 
     // Build Step Dots
@@ -233,7 +234,6 @@ export class TutorialModal {
     // Event Listeners
     this.prevBtn.addEventListener('click', () => this.previousSlide());
     this.nextBtn.addEventListener('click', () => this.nextSlide());
-    this.skipBtn.addEventListener('click', () => this.close());
     this.closeBtn.addEventListener('click', () => this.close());
 
     this.overlay.addEventListener('click', (e) => {
@@ -282,6 +282,9 @@ export class TutorialModal {
       this.imageEl.src = slide.imageSrc;
       this.imageEl.style.opacity = '1';
     }, 120);
+
+    // Update header step count
+    this.headerStepEl.textContent = `• STEP ${index + 1} OF ${TUTORIAL_SLIDES.length}`;
 
     // Update text
     this.badgeEl.textContent = slide.badge;
