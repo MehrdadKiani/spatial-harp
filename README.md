@@ -8,7 +8,7 @@
 
 # 🎵 Spatial Harp
 
-[![Version](https://img.shields.io/badge/version-0.1.4-0891b2.svg?style=flat-square)](./package.json)
+[![Version](https://img.shields.io/github/package-json/v/MehrdadKiani/spatial-harp?color=0891b2&style=flat-square)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-38ef7d.svg?style=flat-square)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black.svg?style=flat-square)](https://threejs.org/)
@@ -113,7 +113,7 @@ When ready to ship changes from `main` to production:
 
 ```bash
 # 1. Bump version
-npm version patch -m "⟰ bump version to v%s"
+npm version patch -m "Bump version to v%s"
 
 # 2. Merge main into release and push
 git checkout release
