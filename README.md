@@ -8,7 +8,6 @@
 
 # 🎵 Spatial Harp
 
-[![Version](https://img.shields.io/github/package-json/v/MehrdadKiani/spatial-harp?color=0891b2&style=flat-square)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-38ef7d.svg?style=flat-square)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black.svg?style=flat-square)](https://threejs.org/)
