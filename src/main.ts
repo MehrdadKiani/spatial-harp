@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 import { EngineLoop } from './core/loop';
 import {
   AppConfig,
@@ -30,8 +31,9 @@ import { TutorialModal } from './ui/tutorial-modal';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
-// Initialize Vercel Web Analytics
+// Initialize Vercel Web Analytics and Speed Insights
 inject();
+injectSpeedInsights();
 
 class App {
   private container: HTMLElement;

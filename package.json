@@ -30,6 +30,7 @@
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.18",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.1.0",
     "three": "^0.170.0",
     "tone": "^15.0.4"
   },
