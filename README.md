@@ -8,7 +8,7 @@
 
 # 🎵 Spatial Harp
 
-[![Version](https://img.shields.io/badge/version-0.1.0-0891b2.svg?style=flat-square)](./package.json)
+[![Version](https://img.shields.io/badge/version-0.1.3-0891b2.svg?style=flat-square)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-38ef7d.svg?style=flat-square)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black.svg?style=flat-square)](https://threejs.org/)
@@ -107,15 +107,32 @@ npm run build
 npm run preview
 ```
 
+### 🏷️ Deploying to Production & Releasing
+
+When ready to ship changes from `main` to production:
+
+```bash
+# 1. Bump version
+npm version patch -m "chore(release): v%s"
+
+# 2. Merge main into release and push
+git checkout release
+git pull
+git merge main
+git push
+```
+
+Pushes to `release` automatically trigger:
+- **Vercel Production Deployment**: Rebuilds and updates the live site.
+- **GitHub Actions Tag & Release**: Tests the build, creates the `v*` Git tag, and publishes the official GitHub Release with auto-generated release notes.
+
 ---
 
 ## 📚 Documentation
 
 Detailed documentation and architectural guides are maintained in the `docs/` directory:
-- 🚀 **[docs/development-and-deployment.md](./docs/development-and-deployment.md)** — Solo developer workflow, manual merge to main, and automated GitHub Releases.
 - 📖 **[docs/documentation.md](./docs/documentation.md)** — Comprehensive architecture, subsystem design, and milestone implementation history.
 - 🧠 **[docs/mindmap.md](./docs/mindmap.md)** — Codebase-to-functionality matrix and per-frame sequence diagrams.
-- 🏷️ **[docs/versioning-guide.md](./docs/versioning-guide.md)** — SemVer guidelines, release commands, and Vercel setup.
 
 ---
 

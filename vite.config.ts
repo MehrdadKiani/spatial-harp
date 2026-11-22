@@ -1,14 +1,10 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
-import fs from 'node:fs';
-
-const appVersion = fs.existsSync(new URL('./VERSION', import.meta.url))
-  ? fs.readFileSync(new URL('./VERSION', import.meta.url), 'utf-8').trim()
-  : '0.1.2';
+import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   test: {
     globals: true,
