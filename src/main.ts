@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { inject } from '@vercel/analytics';
 import { EngineLoop } from './core/loop';
 import {
   AppConfig,
@@ -28,6 +29,9 @@ import { SoundStudioPanel } from './ui/sound-studio-panel';
 import { TutorialModal } from './ui/tutorial-modal';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
+
+// Initialize Vercel Web Analytics
+inject();
 
 class App {
   private container: HTMLElement;
