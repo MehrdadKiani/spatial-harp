@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./public/spatial-harp-icon-transparent.png" width="140" alt="Spatial Harp Logo" />
+</p>
+
 # 🎵 Spatial Harp
 
 [![Version](https://img.shields.io/badge/version-0.1.0-00f0ff.svg?style=flat-square)](./package.json)

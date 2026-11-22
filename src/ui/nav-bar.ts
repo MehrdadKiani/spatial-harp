@@ -13,6 +13,7 @@ export interface NavItem {
 export interface NavBarOptions {
   onTabChange?: (tabId: string) => void;
   onToggleDiagnostics?: () => void;
+  onOpenTutorial?: () => void;
   onClearStrings?: () => void;
 }
 
@@ -20,6 +21,7 @@ export class NavBar {
   private element: HTMLElement;
   private logoContainer: HTMLDivElement;
   private navItemsContainer: HTMLDivElement;
+  private tutorialBtn: HTMLButtonElement;
   private diagBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
   private statusBadge: HTMLSpanElement;
@@ -27,11 +29,13 @@ export class NavBar {
   private isDiagActive = false;
   private onTabChange?: (tabId: string) => void;
   private onToggleDiagnostics?: () => void;
+  private onOpenTutorial?: () => void;
   private onClearStrings?: () => void;
 
   constructor(container: HTMLElement, options: NavBarOptions = {}) {
     this.onTabChange = options.onTabChange;
     this.onToggleDiagnostics = options.onToggleDiagnostics;
+    this.onOpenTutorial = options.onOpenTutorial;
     this.onClearStrings = options.onClearStrings;
 
     this.element = document.createElement('header');
@@ -69,22 +73,12 @@ export class NavBar {
     this.logoContainer.style.pointerEvents = 'auto';
     this.logoContainer.style.cursor = 'pointer';
 
-    // Futuristic Neon Spatial Harp SVG Logo with JetBrains Mono font
+    // Futuristic Neon Spatial Harp Logo with JetBrains Mono font
     this.logoContainer.innerHTML = `
-      <svg class="navbar-logo-svg" width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 8px #00f0ff); flex-shrink: 0;">
-        <!-- Outer Hex Shield -->
-        <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" stroke="#00f0ff" stroke-width="1.8" fill="rgba(0, 240, 255, 0.08)"/>
-        <!-- Vertical Harp Strings -->
-        <line x1="11" y1="8" x2="11" y2="24" stroke="#ff007f" stroke-width="1.5" stroke-linecap="round" />
-        <line x1="16" y1="5" x2="16" y2="27" stroke="#00f0ff" stroke-width="1.8" stroke-linecap="round" />
-        <line x1="21" y1="8" x2="21" y2="24" stroke="#38ef7d" stroke-width="1.5" stroke-linecap="round" />
-        <!-- Contact Beam Spark Dot -->
-        <circle cx="16" cy="14" r="2.2" fill="#ffffff" style="filter: drop-shadow(0 0 4px #ffffff);" />
-      </svg>
+      <img class="navbar-logo-svg" src="/favicon.svg" width="30" height="30" alt="Spatial Harp Logo" style="filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.75)); flex-shrink: 0; object-fit: contain;" />
       <div class="navbar-brand-text" style="display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap;">
-        <span class="navbar-brand-title" style="display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
-          <span><span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span><span class="navbar-brand-tail"> HARP</span></span>
-          <span class="navbar-version-badge" style="font-family: var(--font-primary); font-size: 9px; font-weight: 700; color: #00f0ff; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 4px; padding: 1px 5px; letter-spacing: 0.5px; line-height: 1.2;">v${__APP_VERSION__}</span>
+        <span class="navbar-brand-title" style="font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
+          <span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span><span class="navbar-brand-tail"> HARP</span>
         </span>
         <span class="navbar-brand-sub" style="font-family: var(--font-primary); font-size: 10px; letter-spacing: 1.8px; color: rgba(255, 255, 255, 0.55); font-weight: 700; text-transform: uppercase;">AR AUDIO-VISUAL LAB</span>
       </div>
@@ -103,7 +97,6 @@ export class NavBar {
     const defaultItems: NavItem[] = [
       { id: 'instrument', label: 'Instrument', icon: '🎸', active: true },
       { id: 'studio', label: 'Sound Studio', icon: '🎹' },
-      { id: 'tutorial', label: 'Tutorial', icon: '📖' },
       { id: 'settings', label: 'Settings', icon: '⚙️' },
     ];
 
@@ -112,13 +105,52 @@ export class NavBar {
       this.navItemsContainer.appendChild(btn);
     });
 
-    // 3. Right Container: Diagnostics Toggle Button & Live AR Indicator
+    // 3. Right Container: Tutorial, Diagnostics, Clear & Live AR Indicator
     const rightContainer = document.createElement('div');
     rightContainer.className = 'navbar-right-container';
     rightContainer.style.display = 'flex';
     rightContainer.style.alignItems = 'center';
     rightContainer.style.gap = '10px';
     rightContainer.style.pointerEvents = 'auto';
+
+    // Tutorial Button in NavBar (beside Diagnostics)
+    this.tutorialBtn = document.createElement('button');
+    this.tutorialBtn.id = 'navbar-tutorial-btn';
+    this.tutorialBtn.title = 'Open Step-by-Step Interactive Tutorial';
+    Object.assign(this.tutorialBtn.style, {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      background: 'rgba(255, 170, 0, 0.08)',
+      border: '1px solid rgba(255, 170, 0, 0.35)',
+      color: '#ffbb33',
+      borderRadius: '8px',
+      padding: '6px 14px',
+      fontSize: '13px',
+      fontWeight: '700',
+      letterSpacing: '0.8px',
+      textTransform: 'uppercase',
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+    });
+    this.tutorialBtn.innerHTML = `<span>📖</span><span class="navbar-btn-label">Tutorial</span>`;
+
+    this.tutorialBtn.addEventListener('mouseenter', () => {
+      this.tutorialBtn.style.background = 'rgba(255, 170, 0, 0.22)';
+      this.tutorialBtn.style.boxShadow = '0 0 14px rgba(255, 170, 0, 0.4)';
+      this.tutorialBtn.style.transform = 'translateY(-1px)';
+    });
+    this.tutorialBtn.addEventListener('mouseleave', () => {
+      this.tutorialBtn.style.background = 'rgba(255, 170, 0, 0.08)';
+      this.tutorialBtn.style.boxShadow = 'none';
+      this.tutorialBtn.style.transform = 'translateY(0)';
+    });
+    this.tutorialBtn.addEventListener('click', () => {
+      if (this.onOpenTutorial) {
+        this.onOpenTutorial();
+      }
+    });
 
     // Diagnostics Button in NavBar (clean, fancy font styling)
     this.diagBtn = document.createElement('button');
@@ -221,6 +253,7 @@ export class NavBar {
     });
     this.statusBadge.innerHTML = `<span class="navbar-status-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 8px #00ffaa; animation: pulse 1.8s infinite; flex-shrink: 0;"></span><span class="navbar-status-text">LIVE AR</span>`;
 
+    rightContainer.appendChild(this.tutorialBtn);
     rightContainer.appendChild(this.diagBtn);
     rightContainer.appendChild(this.clearBtn);
     rightContainer.appendChild(this.statusBadge);

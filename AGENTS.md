@@ -56,6 +56,11 @@ src/
 - **Immediate Documentation Sync**: After ANY code changes are applied (new features, refactors, bug fixes, or advancing milestones), Antigravity **MUST immediately update** [`docs/documentation.md`](./docs/documentation.md) to reflect the exact state of the project.
 - **Strict Code-Doc Consistency Verification**: Antigravity MUST actively verify that all file paths, class/interface signatures, directory trees, and milestone progress tables in `docs/` match the codebase with 100% fidelity. Never allow the documentation to drift out of sync with actual code.
 
+### 7. Zero Auto-Commit Rule (Never Commit Automatically)
+- **NEVER** execute `git commit` or `git push` automatically.
+- All modifications, new files, and refactors MUST remain uncommitted in the working tree so the user can inspect diffs, review changes in their editor/IDE, and have full control over the Git history.
+- The agent may run tests, type checks, and verification builds (`npm run build`), but MUST NOT run `git commit` unless the user explicitly instructs it in their request (e.g. "commit these changes").
+
 ---
 
 ## 🚦 Phased Delivery & Verification Protocol

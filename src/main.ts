@@ -130,17 +130,15 @@ class App {
       onTabChange: (tabId) => {
         if (tabId === 'studio') {
           this.soundStudioPanel.open();
-          this.tutorialModal.close();
-        } else if (tabId === 'tutorial') {
-          this.tutorialModal.open();
-          this.soundStudioPanel.close();
         } else {
           this.soundStudioPanel.close();
-          this.tutorialModal.close();
         }
       },
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
+      },
+      onOpenTutorial: () => {
+        this.tutorialModal.open();
       },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
@@ -163,6 +161,32 @@ class App {
         this.tutorialModal.open();
       },
     });
+
+    // Persistent sticky bottom-right version badge
+    const versionBadge = document.createElement('div');
+    versionBadge.id = 'app-version-badge';
+    versionBadge.textContent = `v${__APP_VERSION__}`;
+    Object.assign(versionBadge.style, {
+      position: 'fixed',
+      bottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
+      right: 'max(14px, env(safe-area-inset-right, 14px))',
+      zIndex: '20',
+      fontFamily: 'var(--font-primary)',
+      fontSize: '11px',
+      fontWeight: '600',
+      letterSpacing: '0.8px',
+      color: 'rgba(0, 240, 255, 0.70)',
+      background: 'rgba(8, 12, 22, 0.65)',
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      border: '1px solid rgba(0, 240, 255, 0.22)',
+      borderRadius: '6px',
+      padding: '3px 8px',
+      pointerEvents: 'none',
+      userSelect: 'none',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+    });
+    this.container.appendChild(versionBadge);
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {

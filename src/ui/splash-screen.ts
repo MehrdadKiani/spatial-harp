@@ -70,15 +70,9 @@ export class SplashScreen {
         align-items: center;
         gap: 24px;
       ">
-        <!-- Brand Emblem SVG -->
-        <div style="filter: drop-shadow(0 0 16px #00f0ff); margin-bottom: 2px;">
-          <svg width="80" height="80" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" stroke="#00f0ff" stroke-width="1.8" fill="rgba(0, 240, 255, 0.1)"/>
-            <line x1="11" y1="8" x2="11" y2="24" stroke="#ff007f" stroke-width="1.6" stroke-linecap="round" />
-            <line x1="16" y1="5" x2="16" y2="27" stroke="#00f0ff" stroke-width="2.0" stroke-linecap="round" />
-            <line x1="21" y1="8" x2="21" y2="24" stroke="#38ef7d" stroke-width="1.6" stroke-linecap="round" />
-            <circle cx="16" cy="14" r="2.4" fill="#ffffff" style="filter: drop-shadow(0 0 5px #ffffff);" />
-          </svg>
+        <!-- Brand Emblem -->
+        <div style="filter: drop-shadow(0 0 24px rgba(0, 240, 255, 0.75)); margin-bottom: 2px;">
+          <img src="/icon-128.png" width="84" height="84" alt="Spatial Harp Logo" style="display: block; object-fit: contain;" />
         </div>
 
         <!-- Typography -->
