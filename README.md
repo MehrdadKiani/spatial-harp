@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="./public/spatial-harp-icon-transparent.png" width="140" alt="Spatial Harp Logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/spatial-harp-icon-transparent.png">
+    <source media="(prefers-color-scheme: light)" srcset="./public/spatial-harp-logo-card.png">
+    <img src="./public/spatial-harp-logo-card.png" width="140" alt="Spatial Harp Logo" />
+  </picture>
 </p>
 
 # 🎵 Spatial Harp
