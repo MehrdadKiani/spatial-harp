@@ -59,6 +59,7 @@ class App {
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
+  private isLoopInitialized = false;
   private currentElapsed = 0;
 
   // Reusable scratch vectors for spark burst calculations (zero-GC)
@@ -159,12 +160,10 @@ class App {
       }
     );
 
-    // Initial Splash Screen: clicking START automatically unlocks Web Audio & pops up 4-step tutorial
+    // Initial Splash Screen: clicking START explicitly requests camera, unlocks Web Audio & opens tutorial
     this.splashScreen = new SplashScreen(this.container, {
       onStart: async () => {
-        await this.unlockAudio();
-        // Automatically open the 4-step tutorial popup when the user enters the app
-        this.tutorialModal.open();
+        await this.startExperience();
       },
     });
 
@@ -311,27 +310,18 @@ class App {
   }
 
   public async start(): Promise<void> {
-    this.splashScreen.setProgress(0.10, 'Loading configuration (/config.json)...');
+    this.splashScreen.setProgress(0.15, 'Loading configuration (/config.json)...');
     this.hud.setMessage('Loading configuration (/config.json)...');
 
     try {
       // 1. Load external /config.json + localStorage overrides
       const loadedConfig = await loadAppConfig('/config.json');
       this.applyConfig(loadedConfig);
-      this.splashScreen.setProgress(0.30, 'Configuration loaded.');
+      this.splashScreen.setProgress(0.40, 'Configuration loaded.');
 
-      // 2. Start camera feed
-      this.splashScreen.setProgress(0.40, 'Requesting camera stream...');
-      this.hud.setMessage('Requesting camera permission...');
-      await this.cameraManager.start({
-        width: this.config.vision.cameraWidth,
-        height: this.config.vision.cameraHeight,
-      });
-      this.splashScreen.setProgress(0.65, 'Camera feed connected.');
-
-      // 3. Initialize hand tracking model
-      this.splashScreen.setProgress(0.75, 'Loading MediaPipe HandLandmarker...');
-      this.hud.setMessage('Loading MediaPipe HandLandmarker model...');
+      // 2. Preload MediaPipe HandLandmarker assets (WASM & weights) in background (NO camera prompt)
+      this.splashScreen.setProgress(0.65, 'Preloading MediaPipe HandLandmarker...');
+      this.hud.setMessage('Preloading MediaPipe HandLandmarker model...');
       await this.handTracker.init({
         wasmPath: this.config.vision.wasmPath,
         modelAssetPath: this.config.vision.modelAssetPath,
@@ -342,20 +332,68 @@ class App {
         minTrackingConfidence: this.config.vision.minTrackingConfidence,
       });
 
-      this.isVisionReady = true;
-      this.splashScreen.setProgress(1.0, 'All systems ready!');
-      this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
-
-      // 4. Start main tick loop
-      this.loop.add((delta, elapsed) => this.tick(elapsed, delta));
-      this.loop.start();
+      // 3. Mark preloading complete and enable Start Experience button (camera requested on click)
+      this.splashScreen.setProgress(1.0, 'Ready! Click START EXPERIENCE to begin.');
+      this.hud.setMessage('Ready. Click START EXPERIENCE on the splash screen to begin.');
     } catch (err) {
       console.error('Initialization failed:', err);
       const errMsg = (err as Error).message;
-      this.splashScreen.setError(`Error: ${errMsg}`, () => {
+      this.splashScreen.setError(`Error loading resources: ${errMsg}`, () => {
         this.start();
       });
       this.hud.setMessage(`Error: ${errMsg}`);
+    }
+  }
+
+  private async startExperience(): Promise<void> {
+    this.splashScreen.setLoading('Requesting camera stream & unlocking audio...');
+    this.hud.setMessage('Requesting camera permission...');
+
+    try {
+      // 1. Unlock Web Audio Context upon intentional user gesture
+      await this.unlockAudio();
+
+      // 2. Request and start camera feed now (upon explicit user click)
+      await this.cameraManager.start({
+        width: this.config.vision.cameraWidth,
+        height: this.config.vision.cameraHeight,
+      });
+
+      // 3. Ensure HandTracker is initialized
+      if (!this.handTracker.isReady) {
+        this.splashScreen.setLoading('Finalizing vision model...');
+        await this.handTracker.init({
+          wasmPath: this.config.vision.wasmPath,
+          modelAssetPath: this.config.vision.modelAssetPath,
+          numHands: this.config.vision.numHands,
+          smoothingAlpha: this.config.vision.smoothingAlpha,
+          minHandDetectionConfidence: this.config.vision.minHandDetectionConfidence,
+          minHandPresenceConfidence: this.config.vision.minHandPresenceConfidence,
+          minTrackingConfidence: this.config.vision.minTrackingConfidence,
+        });
+      }
+
+      this.isVisionReady = true;
+      this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
+
+      // 4. Start main RAF tick loop
+      if (!this.isLoopInitialized) {
+        this.loop.add((delta, elapsed) => this.tick(elapsed, delta));
+        this.isLoopInitialized = true;
+      }
+      this.loop.start();
+
+      // 5. Open the 4-step tutorial popup
+      this.tutorialModal.open();
+    } catch (err) {
+      console.error('Failed to start experience:', err);
+      const errMsg = (err as Error).message;
+      this.splashScreen.setError(
+        `Camera permission error: ${errMsg}. Please grant camera access to use hand tracking.`,
+        () => this.startExperience()
+      );
+      this.hud.setMessage(`Camera error: ${errMsg}`);
+      throw err; // Re-throw to prevent splash screen dismissal
     }
   }
 

@@ -200,9 +200,14 @@ export class SplashScreen {
     this.container.appendChild(this.element);
   }
 
+  private handleStartClick = async () => {
+    if (!this.isReady || this.isDismissed) return;
+    await this.dismiss();
+  };
+
   private setupListeners(): void {
     this.startBtn.addEventListener('mouseenter', () => {
-      if (this.isReady) {
+      if (this.isReady && !this.startBtn.disabled) {
         this.startBtn.style.transform = 'translateY(-2px)';
         this.startBtn.style.boxShadow = '0 6px 28px rgba(0, 240, 255, 0.65)';
         this.startBtn.style.filter = 'brightness(1.08)';
@@ -210,17 +215,14 @@ export class SplashScreen {
     });
 
     this.startBtn.addEventListener('mouseleave', () => {
-      if (this.isReady) {
+      if (this.isReady && !this.startBtn.disabled) {
         this.startBtn.style.transform = 'translateY(0)';
         this.startBtn.style.boxShadow = '0 4px 20px rgba(0, 240, 255, 0.45)';
         this.startBtn.style.filter = 'none';
       }
     });
 
-    this.startBtn.addEventListener('click', async () => {
-      if (!this.isReady) return;
-      await this.dismiss();
-    });
+    this.startBtn.addEventListener('click', this.handleStartClick);
   }
 
   /**
@@ -240,10 +242,25 @@ export class SplashScreen {
   }
 
   /**
+   * Puts the Start button and loading section into a waiting/connecting state
+   * while camera stream permission is being negotiated with the browser.
+   */
+  public setLoading(status: string): void {
+    this.startBtn.disabled = true;
+    this.startBtn.style.cursor = 'wait';
+    this.startBtn.style.opacity = '0.85';
+    this.startBtn.style.transform = 'none';
+    this.startBtn.textContent = 'CONNECTING CAMERA...';
+    this.progressLabel.textContent = status;
+    this.progressLabel.style.color = 'rgba(255, 255, 255, 0.9)';
+  }
+
+  /**
    * Displays a prominent error state on the splash screen with a retry button
    */
-  public setError(status: string, onRetry?: () => void): void {
+  public setError(status: string, onRetry?: () => void | Promise<void>): void {
     this.isReady = false;
+    this.isDismissed = false;
     this.progressBar.style.width = '100%';
     this.progressBar.style.background = 'linear-gradient(90deg, #ff0055, #ff5500)';
     this.progressBar.style.boxShadow = '0 0 12px #ff0055';
@@ -255,53 +272,66 @@ export class SplashScreen {
     if (onRetry) {
       this.startBtn.disabled = false;
       this.startBtn.style.cursor = 'pointer';
+      this.startBtn.style.opacity = '1';
       this.startBtn.style.background = 'linear-gradient(135deg, #ff0055 0%, #ff5500 100%)';
       this.startBtn.style.border = 'none';
       this.startBtn.style.color = '#ffffff';
       this.startBtn.style.boxShadow = '0 6px 24px rgba(255, 0, 85, 0.45)';
-      this.startBtn.textContent = 'RETRY CONNECTION';
-      this.startBtn.onclick = () => {
-        this.startBtn.disabled = true;
-        this.startBtn.textContent = 'CONNECTING...';
-        this.progressBar.style.background = 'linear-gradient(90deg, #00f0ff, #38ef7d)';
-        this.progressBar.style.boxShadow = '0 0 12px #00f0ff';
-        this.progressPercent.style.color = '#00f0ff';
-        this.progressLabel.style.color = 'rgba(255, 255, 255, 0.75)';
-        onRetry();
+      this.startBtn.textContent = 'GRANT PERMISSION & RETRY';
+      this.startBtn.onclick = async (e) => {
+        e.stopPropagation();
+        this.setLoading('Retrying camera connection...');
+        try {
+          await onRetry();
+        } catch (err) {
+          console.error('[SplashScreen] Retry failed:', err);
+        }
       };
     }
   }
 
   /**
-   * Enables the Start button with glowing neon styles once everything has finished loading
+   * Enables the Start button with glowing neon styles once assets are preloaded
    */
   public setReady(): void {
     this.isReady = true;
+    this.isDismissed = false;
     this.startBtn.disabled = false;
     this.startBtn.style.cursor = 'pointer';
+    this.startBtn.style.opacity = '1';
     this.startBtn.style.background = 'linear-gradient(135deg, #00f0ff 0%, #00b4d8 100%)';
     this.startBtn.style.border = 'none';
     this.startBtn.style.color = '#070d1a';
     this.startBtn.style.boxShadow = '0 6px 24px rgba(0, 240, 255, 0.45)';
     this.startBtn.textContent = this.buttonLabel;
-    this.progressLabel.textContent = 'All systems ready!';
+    this.progressLabel.textContent = 'Ready to enter!';
+    this.progressLabel.style.color = 'rgba(255, 255, 255, 0.75)';
+    this.progressBar.style.background = 'linear-gradient(90deg, #00f0ff, #38ef7d)';
+    this.progressBar.style.boxShadow = '0 0 12px #00f0ff';
+    this.progressPercent.textContent = '100%';
+    this.progressPercent.style.color = '#00f0ff';
+    this.startBtn.onclick = this.handleStartClick;
   }
 
   public async dismiss(): Promise<void> {
     if (this.isDismissed) return;
-    this.isDismissed = true;
 
     this.startBtn.disabled = true;
-    this.startBtn.style.opacity = '0.7';
-    this.startBtn.innerText = 'INITIALIZING...';
+    this.startBtn.style.cursor = 'wait';
+    this.startBtn.style.opacity = '0.85';
+    this.startBtn.textContent = 'CONNECTING CAMERA...';
 
     if (this.onStart) {
       try {
         await this.onStart();
       } catch (err) {
         console.error('[SplashScreen] Error during onStart:', err);
+        // Do NOT dismiss or unmount the splash overlay if onStart threw an error!
+        return;
       }
     }
+
+    this.isDismissed = true;
 
     // Smooth fade & scale out transition
     this.element.style.opacity = '0';

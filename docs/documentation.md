@@ -301,10 +301,11 @@ graph TD
    - Extracted audio preset and scale selectors out of the HUD into an atmospheric drawer panel accessible via the `Sound Studio` tab in the navigation bar.
    - Seamlessly integrates with `AudioEngine` preset loading and `ScaleMapper` spatial pitch tuning.
 
-3. **Real Progress Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`)**:
-   - Scalable glassmorphic modal with real `0% -> 100%` asset loading progress bar tracking camera, MediaPipe WASM, and vision models.
-   - Clear privacy guarantee stating camera video and hand landmark tracking are processed 100% locally on-the-fly and never stored or transmitted.
-   - Web Audio unlock bound to the "Start Experience" button click.
+3. **User-Intent Permission Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
+   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user intentionally clicks `"START EXPERIENCE"`.
+   - **Compliant with Mobile & Desktop Browsers**: Adheres strictly to browser user-gesture requirements (iOS Safari, Android Chrome, desktop browsers), preventing unprompted camera popups or autoplay audio blocks.
+   - **Real Progress Bar & Graceful Error Recovery**: Displays real `0% -> 100%` loading progress. If camera access is denied, the splash screen remains active and gracefully presents a helpful error message with an interactive `"GRANT PERMISSION & RETRY"` action.
+   - **Local-Only Privacy Guarantee**: High-visibility notice reassuring users that all camera frames and hand landmarks are processed 100% locally in-browser in real time with zero recording, storage, or transmission.
 
 4. **Centralized JetBrains Mono Typography (`index.html`)**:
    - Global design tokens `--font-primary` and `--font-display` pointing to `JetBrains Mono, monospace`.
