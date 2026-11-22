@@ -76,6 +76,10 @@ export class HandTracker {
     }
   }
 
+  public get isReady(): boolean {
+    return this.landmarker !== null;
+  }
+
   public detect(video: HTMLVideoElement, timestamp: number): HandPose[] {
     if (!this.landmarker || video.readyState < 2) {
       return [];
