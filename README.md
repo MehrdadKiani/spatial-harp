@@ -15,6 +15,15 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 
 ---
 
+## 🧘 Built for Vibe Coding & Flow State
+
+Spatial Harp turns your workstation into a cybernetic, ambient playground. Whether you are **vibe coding** late into the night, exploring generative ideas, or relaxing in deep flow state:
+- **Zero Physical Instruments Required**: Play polyphonic soundscapes directly through your webcam in mid-air space without touching a keyboard or mouse.
+- **Harmonic Consonance**: The pentatonic and Hirajōshi tunings are mathematically mapped so that **every single pluck sounds consonant and harmonious**—making it impossible to play a wrong note.
+- **Ambient Focus**: Designed to seamlessly complement deep coding sessions with soothing Karplus-Strong physical modeling strings, atmospheric chimes, and retro synthesizer textures.
+
+---
+
 ## ✨ Features
 
 - **Mirrored Low-Latency AR Tracking**: Processes 21 3D hand landmarks in real time with local WebAssembly (WASM) and SIMD acceleration.
@@ -92,6 +101,9 @@ npm install
 
 # Start local development server (http://localhost:3000)
 npm run dev
+
+# Run automated unit test suite
+npm test
 
 # Run TypeScript checks and production build
 npm run build

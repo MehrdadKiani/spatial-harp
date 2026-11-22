@@ -96,7 +96,7 @@ export interface AppConfig {
   visuals: VisualsConfigGroup;
 }
 
-const LOCAL_STORAGE_KEY = 'spatial_laser_harp_overrides_v1';
+const LOCAL_STORAGE_KEY = 'spatial_harp_overrides_v1';
 
 export const DEFAULT_CONFIG: AppConfig = {
   vision: {

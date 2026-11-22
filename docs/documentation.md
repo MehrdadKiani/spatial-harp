@@ -90,6 +90,10 @@ graph TD
 │   ├── documentation.md        # Consolidated architecture, roadmap & walkthrough
 │   ├── mindmap.md              # Codebase ↔ App Functionality mindmap & matrix
 │   └── versioning-guide.md     # SemVer, npm versioning workflow & Vercel deployment guide
+├── tests/
+│   ├── audio/                  # ScaleMapper & Mersenne's Law acoustic pitch tests
+│   ├── gestures/               # PinchDetector hysteresis & string collision tests
+│   └── core/                   # EventBus & AppConfig integrity tests
 └── src/
     ├── main.ts                 # Application bootstrapper & loop wiring
     ├── types/
@@ -316,6 +320,11 @@ graph TD
      3. `step03.gif`: **Pluck to Play** — Swipe index finger across any string to play notes. Speed controls volume.
      4. `step04.gif`: **Re-Grab & Modulate** — Pinch string tip [⌖] to resize/bend pitch while plucking with other hand.
    - **On-Demand Access**: Re-open anytime via the `📖 Tutorial` tab in the top navigation bar.
+
+7. **Unified Brand Identity & Cross-Browser Favicon Suite**:
+   - **Unified Brand Icon (`public/icon-128.png`)**: Both the Splash Screen (`src/ui/splash-screen.ts`) and Top Navigation Bar (`src/ui/nav-bar.ts`) consistently reference the official brand emblem from the `public/` directory with transparent background and neon glow styling.
+   - **Cross-Browser Favicon Suite (`public/`)**: Official multi-resolution suite (`favicon.ico`, `favicon.svg`, `icon-16.png` through `icon-512.png`).
+   - **Chrome Cache-Busting (`index.html`)**: Linked with `?v=2` query parameter on all favicon tags to bypass aggressive browser caching.
 
 ---
 

@@ -75,7 +75,7 @@ export class NavBar {
 
     // Futuristic Neon Spatial Harp Logo with JetBrains Mono font
     this.logoContainer.innerHTML = `
-      <img class="navbar-logo-svg" src="/favicon.svg" width="30" height="30" alt="Spatial Harp Logo" style="filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.75)); flex-shrink: 0; object-fit: contain;" />
+      <img class="navbar-logo-svg" src="/icon-128.png" width="38" height="38" alt="Spatial Harp Logo" style="filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.85)); flex-shrink: 0; object-fit: contain;" />
       <div class="navbar-brand-text" style="display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap;">
         <span class="navbar-brand-title" style="font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: 2.2px; color: #ffffff; text-transform: uppercase;">
           <span style="color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.75);">SPATIAL</span><span class="navbar-brand-tail"> HARP</span>
