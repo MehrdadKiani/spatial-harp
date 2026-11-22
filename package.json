@@ -25,7 +25,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "version": "node -e \"const fs=require('fs'); const v = require('./package.json').version.trim(); fs.writeFileSync('VERSION', (v.startsWith('v') ? v : 'v' + v) + '\\n');\" && git add VERSION"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.18",

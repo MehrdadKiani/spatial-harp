@@ -112,6 +112,7 @@ npm run preview
 ## 📚 Documentation
 
 Detailed documentation and architectural guides are maintained in the `docs/` directory:
+- 🚀 **[docs/development-and-deployment.md](./docs/development-and-deployment.md)** — Solo developer workflow, manual merge to main, and automated GitHub Releases.
 - 📖 **[docs/documentation.md](./docs/documentation.md)** — Comprehensive architecture, subsystem design, and milestone implementation history.
 - 🧠 **[docs/mindmap.md](./docs/mindmap.md)** — Codebase-to-functionality matrix and per-frame sequence diagrams.
 - 🏷️ **[docs/versioning-guide.md](./docs/versioning-guide.md)** — SemVer guidelines, release commands, and Vercel setup.

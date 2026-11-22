@@ -73,9 +73,14 @@ graph TD
 
 ```
 02-hand/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # CI test suite & production build check on push/PR
+│       └── release.yml         # Automated GitHub Release publisher on version tags (v*)
 ├── AGENTS.md                   # Strict guidelines & architectural rules for AI agents
 ├── README.md                   # Root project overview & quickstart
 ├── package.json                # Dependencies: three, @mediapipe/tasks-vision, tone
+├── VERSION                     # Single source of truth for semantic application version
 ├── tsconfig.json               # Strict TypeScript configuration
 ├── vite.config.ts              # Vite dev server & build settings (injects __APP_VERSION__)
 ├── vercel.json                 # Vercel SPA rewrites & WASM/model caching headers

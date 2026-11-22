@@ -10,8 +10,8 @@ The application follows strict **Semantic Versioning** ([SemVer](https://semver.
 
 $$\text{v}\underbrace{\text{MAJOR}}_{\text{Breaking/Milestone}}.\underbrace{\text{MINOR}}_{\text{New Features}}.\underbrace{\text{PATCH}}_{\text{Fixes/Tweaks}}$$
 
-The version string lives exclusively in one file:
-- **[`package.json`](file:///home/mk/Files/JS/02-hand/package.json)** $\rightarrow$ `"version": "0.1.0"`
+The version string lives exclusively in the root **`VERSION`** file:
+- **[`VERSION`](file:///home/mk/Files/JS/02-hand/VERSION)** $\rightarrow$ `v0.1.2`
 
 Never manually edit version strings inside HTML, CSS, or TypeScript files.
 
@@ -19,16 +19,18 @@ Never manually edit version strings inside HTML, CSS, or TypeScript files.
 
 ## ⚙️ How It Propagates to the UI (Compile-Time Injection)
 
-During development and production builds, [vite.config.ts](file:///home/mk/Files/JS/02-hand/vite.config.ts) extracts the version directly from `package.json` and embeds it as a global compile-time constant:
+During development and production builds, [vite.config.ts](file:///home/mk/Files/JS/02-hand/vite.config.ts) extracts the version directly from the root `VERSION` file and embeds it as a global compile-time constant:
 
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
-import pkg from './package.json' with { type: 'json' };
+import fs from 'node:fs';
+
+const appVersion = fs.readFileSync(new URL('./VERSION', import.meta.url), 'utf-8').trim();
 
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_VERSION__: JSON.stringify(appVersion),
   },
   // ...
 });
