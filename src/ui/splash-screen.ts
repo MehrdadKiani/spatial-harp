@@ -18,7 +18,6 @@ export class SplashScreen {
   private progressBar: HTMLDivElement;
   private progressLabel: HTMLSpanElement;
   private progressPercent: HTMLSpanElement;
-  private audioNotice: HTMLDivElement;
   private isDismissed = false;
   private isReady = false;
   private buttonLabel: string;
@@ -189,38 +188,6 @@ export class SplashScreen {
           box-shadow: none;
           transition: all 0.3s ease;
         ">LOADING SYSTEM...</button>
-
-        <!-- Audio unlock notice (Appears under Start button only when loading completes) -->
-        <div id="splash-audio-notice" style="
-          display: none;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-size: 13px;
-          color: rgba(255, 170, 0, 0.95);
-          background: rgba(255, 170, 0, 0.12);
-          border: 1px solid rgba(255, 170, 0, 0.28);
-          border-radius: 10px;
-          padding: 8px 16px;
-          width: 100%;
-          opacity: 0;
-          transition: opacity 0.4s ease;
-        ">
-          <span style="font-size: 16px;">🔊</span>
-          <span>Clicking start will activate Web Audio and start the camera feed</span>
-        </div>
-
-        <!-- App Version & Engine Footer -->
-        <div style="
-          font-family: var(--font-primary);
-          font-size: 10px;
-          color: rgba(255, 255, 255, 0.40);
-          letter-spacing: 1.2px;
-          margin-top: 2px;
-          text-transform: uppercase;
-        ">
-          SPATIAL HARP · <span style="color: rgba(0, 240, 255, 0.85); font-weight: 700;">v${__APP_VERSION__}</span> · OFFLINE AR ENGINE
-        </div>
       </div>
     `;
 
@@ -228,7 +195,6 @@ export class SplashScreen {
     this.progressBar = this.element.querySelector('#splash-progress-bar') as HTMLDivElement;
     this.progressLabel = this.element.querySelector('#splash-progress-label') as HTMLSpanElement;
     this.progressPercent = this.element.querySelector('#splash-progress-percent') as HTMLSpanElement;
-    this.audioNotice = this.element.querySelector('#splash-audio-notice') as HTMLDivElement;
 
     this.setupListeners();
     this.container.appendChild(this.element);
@@ -318,10 +284,6 @@ export class SplashScreen {
     this.startBtn.style.color = '#070d1a';
     this.startBtn.style.boxShadow = '0 6px 24px rgba(0, 240, 255, 0.45)';
     this.startBtn.textContent = this.buttonLabel;
-    this.audioNotice.style.display = 'flex';
-    requestAnimationFrame(() => {
-      this.audioNotice.style.opacity = '1';
-    });
     this.progressLabel.textContent = 'All systems ready!';
   }
 

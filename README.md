@@ -4,7 +4,7 @@
 
 # 🎵 Spatial Harp
 
-[![Version](https://img.shields.io/badge/version-0.1.0-00f0ff.svg?style=flat-square)](./package.json)
+[![Version](https://img.shields.io/badge/version-0.1.0-0891b2.svg?style=flat-square)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-38ef7d.svg?style=flat-square)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black.svg?style=flat-square)](https://threejs.org/)
@@ -12,15 +12,6 @@
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-HandLandmarker-blueviolet.svg?style=flat-square)](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker)
 
 A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instrument** powered by webcam hand tracking, Three.js WebGL rendering, and Web Audio/Tone.js synthesis. Built in pure **TypeScript** using a strictly modular, decoupled, zero-GC architecture.
-
----
-
-## 🧘 Built for Vibe Coding & Flow State
-
-Spatial Harp turns your workstation into a cybernetic, ambient playground. Whether you are **vibe coding** late into the night, exploring generative ideas, or relaxing in deep flow state:
-- **Zero Physical Instruments Required**: Play polyphonic soundscapes directly through your webcam in mid-air space without touching a keyboard or mouse.
-- **Harmonic Consonance**: The pentatonic and Hirajōshi tunings are mathematically mapped so that **every single pluck sounds consonant and harmonious**—making it impossible to play a wrong note.
-- **Ambient Focus**: Designed to seamlessly complement deep coding sessions with soothing Karplus-Strong physical modeling strings, atmospheric chimes, and retro synthesizer textures.
 
 ---
 
@@ -111,14 +102,6 @@ npm run build
 # Preview production build locally
 npm run preview
 ```
-
----
-
-## 🏷️ Versioning
-
-Spatial Harp follows [Semantic Versioning](https://semver.org/). The version is managed in `package.json` and automatically injected into the client bundle and UI at build time.
-
-For release procedures and Vercel continuous deployment instructions, see **[docs/versioning-guide.md](./docs/versioning-guide.md)**.
 
 ---
 
