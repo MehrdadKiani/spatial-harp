@@ -113,7 +113,7 @@ When ready to ship changes from `main` to production:
 
 ```bash
 # 1. Bump version
-npm version patch -m "bump version: v%s"
+npm version patch -m "⟰ bump version to v%s"
 
 # 2. Merge main into release and push
 git checkout release
