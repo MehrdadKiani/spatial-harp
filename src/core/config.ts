@@ -61,6 +61,13 @@ export interface AudioConfigGroup {
 
 export interface VisualsConfigGroup {
   _comment?: string;
+  skeletonShowBones: boolean;
+  skeletonFingertipsOnly: boolean;
+  skeletonJointRadius: number;
+  skeletonFingertipScale: number;
+  skeletonReferencePalmSpan: number;
+  skeletonMinJointScale: number;
+  skeletonMaxJointScale: number;
   baselineGlowHalfWidth: number;
   waveCoreHalfWidth: number;
   waveGlowHalfWidth: number;
@@ -158,6 +165,13 @@ export const DEFAULT_CONFIG: AppConfig = {
     maxNormLengthForPitch: 0.82,
   },
   visuals: {
+    skeletonShowBones: false,
+    skeletonFingertipsOnly: true,
+    skeletonJointRadius: 0.0045,
+    skeletonFingertipScale: 1.28,
+    skeletonReferencePalmSpan: 0.18,
+    skeletonMinJointScale: 0.42,
+    skeletonMaxJointScale: 1.15,
     baselineGlowHalfWidth: 0.0022,
     waveCoreHalfWidth: 0.0014,
     waveGlowHalfWidth: 0.0038,

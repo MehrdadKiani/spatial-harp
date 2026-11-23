@@ -151,7 +151,7 @@ graph TD
 2. **Rendering Layer**:
    - `video-background.ts`: Renders the mirrored webcam feed directly beneath the WebGL canvas with zero GPU copy overhead.
    - `scene-manager.ts`: Orthographic normalized Three.js scene aligning WebGL coordinates 1:1 with screen video pixels.
-   - `skeleton-view.ts`: Pre-allocated joint/bone pool rendering the 21 landmarks (red nodes) and connecting bones (green lines), with distinct highlight rings on the index and thumb fingertips.
+   - `skeleton-view.ts`: Pre-allocated zero-GC joint/bone pool rendering hand landmarks (fingertips-only by default via `visuals.skeletonFingertipsOnly`, or full 21-node skeleton) and optional connecting bones (`visuals.skeletonShowBones`), with palm-span-proportional joint scaling (configurable via `visuals.skeleton*` in `public/config.json`) and highlighted index/thumb fingertips.
 
 3. **Core Engine & UI**:
    - `loop.ts`: High-precision `requestAnimationFrame` ticker with delta time and FPS tracking.

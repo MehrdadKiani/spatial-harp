@@ -291,7 +291,8 @@ class App {
       defaultPreset: cfg.audio.defaultPreset,
     });
 
-    // 5. Visuals, laser beam widths, ruler transparency, rainbow waves & particles
+    // 5. Visuals, hand skeleton sizing, laser beam widths, ruler transparency, rainbow waves & particles
+    this.skeletonView.configure(cfg.visuals);
     this.anchoredStringsView.configure(cfg.visuals);
     this.dynamicStringView.configure(cfg.visuals);
     this.pluckShockwavePool.configure(cfg.visuals);
