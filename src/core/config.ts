@@ -93,6 +93,11 @@ export interface VisualsConfigGroup {
   waveGlitterParticleCount: number;
 }
 
+export interface UiConfigGroup {
+  _comment?: string;
+  showTutorialOnStart: boolean;
+}
+
 export interface AppConfig {
   _comment?: string;
   vision: VisionConfigGroup;
@@ -101,6 +106,7 @@ export interface AppConfig {
   plucking: PluckingConfigGroup;
   audio: AudioConfigGroup;
   visuals: VisualsConfigGroup;
+  ui: UiConfigGroup;
 }
 
 const LOCAL_STORAGE_KEY = 'spatial_harp_overrides_v1';
@@ -196,6 +202,9 @@ export const DEFAULT_CONFIG: AppConfig = {
     contactSparkBurstCount: 40,
     waveGlitterParticleCount: 32,
   },
+  ui: {
+    showTutorialOnStart: false,
+  },
 };
 
 /**
@@ -266,6 +275,7 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
     plucking: { ...DEFAULT_CONFIG.plucking, pluckingFingers: [...DEFAULT_CONFIG.plucking.pluckingFingers] },
     audio: { ...DEFAULT_CONFIG.audio },
     visuals: { ...DEFAULT_CONFIG.visuals },
+    ui: { ...DEFAULT_CONFIG.ui },
   };
 
   try {
@@ -280,6 +290,7 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
       if (json.plucking) Object.assign(merged.plucking, json.plucking);
       if (json.audio) Object.assign(merged.audio, json.audio);
       if (json.visuals) Object.assign(merged.visuals, json.visuals);
+      if (json.ui) Object.assign(merged.ui, json.ui);
     }
   } catch (err) {
     console.warn('Could not load /config.json, using typed DEFAULT_CONFIG fallback:', err);

@@ -84,7 +84,7 @@ graph TD
 ├── vite.config.ts              # Vite dev server (LAN host + basic-ssl HTTPS) & build settings (injects __APP_VERSION__)
 ├── vercel.json                 # Vercel SPA rewrites & WASM/model caching headers
 ├── public/
-│   ├── config.json             # External grouped runtime configuration (vision, pinch, strings, plucking, audio, visuals)
+│   ├── config.json             # External grouped runtime configuration (vision, pinch, strings, plucking, audio, visuals, ui)
 │   ├── models/                 # Offline MediaPipe hand_landmarker.task (7.8 MB)
 │   └── wasm/                   # Offline vision_wasm binaries
 ├── files/                  # Local reference media (git-ignored, personal reference)

@@ -101,5 +101,10 @@
     "sparkPointSize": 0.009,
     "contactSparkBurstCount": 40,
     "waveGlitterParticleCount": 32
+  },
+
+  "ui": {
+    "_comment": "UI behavior toggles (e.g. whether to automatically open the 4-step tutorial modal when starting the experience).",
+    "showTutorialOnStart": false
   }
 }

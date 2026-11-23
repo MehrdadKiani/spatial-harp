@@ -384,8 +384,10 @@ class App {
       }
       this.loop.start();
 
-      // 5. Open the 4-step tutorial popup
-      this.tutorialModal.open();
+      // 5. Open the 4-step tutorial popup if enabled in config
+      if (this.config.ui.showTutorialOnStart) {
+        this.tutorialModal.open();
+      }
     } catch (err) {
       console.error('Failed to start experience:', err);
       const errMsg = (err as Error).message;
