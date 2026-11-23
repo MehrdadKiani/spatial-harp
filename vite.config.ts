@@ -1,8 +1,10 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
+  plugins: [basicSsl()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
@@ -11,6 +13,7 @@ export default defineConfig({
     environment: 'node',
   },
   server: {
+    host: true,
     port: 3000,
     open: true,
   },
