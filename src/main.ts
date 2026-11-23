@@ -170,7 +170,7 @@ class App {
     // Persistent sticky bottom-right version badge
     const versionBadge = document.createElement('div');
     versionBadge.id = 'app-version-badge';
-    versionBadge.textContent = __APP_VERSION__.startsWith('v') ? __APP_VERSION__ : `v${__APP_VERSION__}`;
+    versionBadge.textContent = `v${__APP_VERSION__}`;
     Object.assign(versionBadge.style, {
       position: 'fixed',
       bottom: 'max(10px, env(safe-area-inset-bottom, 10px))',

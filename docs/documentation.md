@@ -75,12 +75,11 @@ graph TD
 02-hand/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml              # CI test suite & production build check on push/PR
-│       └── release.yml         # Automated GitHub Release publisher on version tags (v*)
+│       ├── ci.yml              # CI test suite & production build check on push/PR to main
+│       └── release.yml         # Automated GitHub Release publisher & tagger on push to release
 ├── AGENTS.md                   # Strict guidelines & architectural rules for AI agents
 ├── README.md                   # Root project overview & quickstart
 ├── package.json                # Dependencies: three, @mediapipe/tasks-vision, tone
-├── VERSION                     # Single source of truth for semantic application version
 ├── tsconfig.json               # Strict TypeScript configuration
 ├── vite.config.ts              # Vite dev server & build settings (injects __APP_VERSION__)
 ├── vercel.json                 # Vercel SPA rewrites & WASM/model caching headers
@@ -93,8 +92,7 @@ graph TD
 │   └── steps/                  # Step tutorial graphics source
 ├── docs/
 │   ├── documentation.md        # Consolidated architecture, roadmap & walkthrough
-│   ├── mindmap.md              # Codebase ↔ App Functionality mindmap & matrix
-│   └── versioning-guide.md     # SemVer, npm versioning workflow & Vercel deployment guide
+│   └── mindmap.md              # Codebase ↔ App Functionality mindmap & matrix
 ├── tests/
 │   ├── audio/                  # ScaleMapper & Mersenne's Law acoustic pitch tests
 │   ├── gestures/               # PinchDetector hysteresis & string collision tests
@@ -331,6 +329,10 @@ graph TD
    - **Unified Brand Icon (`public/icon-128.png`)**: Both the Splash Screen (`src/ui/splash-screen.ts`) and Top Navigation Bar (`src/ui/nav-bar.ts`) consistently reference the official brand emblem from the `public/` directory with transparent background and neon glow styling.
    - **Cross-Browser Favicon Suite (`public/`)**: Official multi-resolution suite (`favicon.ico`, `favicon.svg`, `icon-16.png` through `icon-512.png`).
    - **Chrome Cache-Busting (`index.html`)**: Linked with `?v=2` query parameter on all favicon tags to bypass aggressive browser caching.
+
+8. **Automated Continuous Delivery Pipeline (`.github/workflows/`)**:
+   - **`ci.yml`**: Triggers on pushes to `main`, validating unit tests and production build. Feature branches remain silent.
+   - **`release.yml`**: Triggers on pushes to `release`, verifying tests/builds, automatically creating the `v*` Git tag from `package.json`, and publishing the official GitHub Release with auto-compiled changelogs.
 
 ---
 

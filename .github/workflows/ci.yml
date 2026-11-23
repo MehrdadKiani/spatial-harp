@@ -2,12 +2,11 @@ name: CI Build Check
 
 on:
   push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
+    branches: [ main ]
 
 jobs:
   build:
+    name: Test and Build Verification
     runs-on: ubuntu-latest
 
     steps:

@@ -2,19 +2,21 @@ name: Publish GitHub Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - release
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Test, Build & Create GitHub Release
+    name: Test, Build, Tag & Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,12 +30,17 @@ jobs:
       - name: Run automated tests & production build
         run: npm test && npm run build
 
-      - name: Create GitHub Release
+      - name: Extract package.json version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release and Tag
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Release ${{ steps.get_version.outputs.version }}
           generate_release_notes: true
           draft: false
           prerelease: false
-
