@@ -28,7 +28,7 @@ export class SplashScreen {
   constructor(container: HTMLElement, options: SplashScreenOptions = {}) {
     this.container = container;
     this.onStart = options.onStart;
-    this.buttonLabel = options.buttonLabel || 'START EXPERIENCE';
+    this.buttonLabel = options.buttonLabel || 'START & SHOW BOTH HANDS TO CAMERA';
 
     this.element = document.createElement('div');
     this.element.id = 'app-splash-screen';
@@ -179,10 +179,11 @@ export class SplashScreen {
           background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(0, 240, 255, 0.25);
           color: rgba(255, 255, 255, 0.88);
-          font-size: 16px;
+          font-size: clamp(13px, 3.6vw, 15.5px);
           font-weight: 800;
-          letter-spacing: 1.8px;
-          padding: 16px 28px;
+          letter-spacing: 1.2px;
+          line-height: 1.35;
+          padding: 16px 22px;
           border-radius: 14px;
           cursor: not-allowed;
           box-shadow: none;

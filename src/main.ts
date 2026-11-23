@@ -28,6 +28,7 @@ import { NavBar } from './ui/nav-bar';
 import { SplashScreen } from './ui/splash-screen';
 import { SoundStudioPanel } from './ui/sound-studio-panel';
 import { TutorialModal } from './ui/tutorial-modal';
+import { HandPrompt } from './ui/hand-prompt';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
@@ -56,6 +57,7 @@ class App {
   private soundStudioPanel: SoundStudioPanel;
   private tutorialModal: TutorialModal;
   private splashScreen: SplashScreen;
+  private handPrompt: HandPrompt;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
@@ -132,6 +134,7 @@ class App {
     this.tutorialModal = new TutorialModal(this.container, () => {
       this.navBar.setActiveTab('instrument');
     });
+    this.handPrompt = new HandPrompt(this.container);
 
     this.navBar = new NavBar(this.container, {
       onTabChange: (tabId) => {
@@ -383,6 +386,7 @@ class App {
         this.isLoopInitialized = true;
       }
       this.loop.start();
+      this.handPrompt.activate();
 
       // 5. Open the 4-step tutorial popup if enabled in config
       if (this.config.ui.showTutorialOnStart) {
@@ -414,6 +418,7 @@ class App {
 
     // 1. Detect hands (21 3D landmarks)
     const hands = this.handTracker.detect(video, nowMs);
+    this.handPrompt.update(hands.length, nowMs);
 
     // 2. Update skeleton overlay
     this.skeletonView.update(hands, videoAspect);

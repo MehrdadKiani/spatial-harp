@@ -134,6 +134,8 @@ graph TD
         ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
         ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
         ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales)
+        ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
+        ├── hand-prompt.ts      # Live empty-state floating pill ("Show both hands to the camera") when 0 hands are detected
         └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with integrated button progress/spinner loader, gesture cards & compact privacy notice
 ```
 
