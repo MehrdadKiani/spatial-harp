@@ -81,10 +81,10 @@ graph TD
 ├── README.md                   # Root project overview & quickstart
 ├── package.json                # Dependencies: three, @mediapipe/tasks-vision, tone
 ├── tsconfig.json               # Strict TypeScript configuration
-├── vite.config.ts              # Vite dev server & build settings (injects __APP_VERSION__)
+├── vite.config.ts              # Vite dev server (LAN host + basic-ssl HTTPS) & build settings (injects __APP_VERSION__)
 ├── vercel.json                 # Vercel SPA rewrites & WASM/model caching headers
 ├── public/
-│   ├── config.json             # External grouped runtime configuration (vision, pinch, strings, plucking, audio, visuals)
+│   ├── config.json             # External grouped runtime configuration (vision, pinch, strings, plucking, audio, visuals, ui)
 │   ├── models/                 # Offline MediaPipe hand_landmarker.task (7.8 MB)
 │   └── wasm/                   # Offline vision_wasm binaries
 ├── files/                  # Local reference media (git-ignored, personal reference)
@@ -134,7 +134,9 @@ graph TD
         ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
         ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
         ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales)
-        └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with real loading progress bar, gesture cards & 1-click audio unlock
+        ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
+        ├── hand-prompt.ts      # Live step-by-step hand coach pill (show hands -> pinch -> release -> pluck, toggled via ui.showLiveHints)
+        └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with integrated button progress/spinner loader, gesture cards & compact privacy notice
 ```
 
 ---
@@ -151,7 +153,7 @@ graph TD
 2. **Rendering Layer**:
    - `video-background.ts`: Renders the mirrored webcam feed directly beneath the WebGL canvas with zero GPU copy overhead.
    - `scene-manager.ts`: Orthographic normalized Three.js scene aligning WebGL coordinates 1:1 with screen video pixels.
-   - `skeleton-view.ts`: Pre-allocated joint/bone pool rendering the 21 landmarks (red nodes) and connecting bones (green lines), with distinct highlight rings on the index and thumb fingertips.
+   - `skeleton-view.ts`: Pre-allocated zero-GC joint/bone pool rendering hand landmarks (fingertips-only by default via `visuals.skeletonFingertipsOnly`, or full 21-node skeleton) and optional connecting bones (`visuals.skeletonShowBones`), with palm-span-proportional joint scaling (configurable via `visuals.skeleton*` in `public/config.json`) and highlighted index/thumb fingertips.
 
 3. **Core Engine & UI**:
    - `loop.ts`: High-precision `requestAnimationFrame` ticker with delta time and FPS tracking.
@@ -302,15 +304,15 @@ graph TD
 3. **User-Intent Permission Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
    - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user intentionally clicks `"START EXPERIENCE"`.
    - **Compliant with Mobile & Desktop Browsers**: Adheres strictly to browser user-gesture requirements (iOS Safari, Android Chrome, desktop browsers), preventing unprompted camera popups or autoplay audio blocks.
-   - **Real Progress Bar & Graceful Error Recovery**: Displays real `0% -> 100%` loading progress. If camera access is denied, the splash screen remains active and gracefully presents a helpful error message with an interactive `"GRANT PERMISSION & RETRY"` action.
-   - **Local-Only Privacy Guarantee**: High-visibility notice reassuring users that all camera frames and hand landmarks are processed 100% locally in-browser in real time with zero recording, storage, or transmission.
+   - **Integrated Start Button Loader & Graceful Error Recovery**: Preloading progress (`0% -> 100%`) fills directly inside the Start button, and clicking `"START EXPERIENCE"` activates an inline CSS spinner and shimmer animation while negotiating camera access and audio unlock. If camera access is denied, a compact inline error banner appears with an interactive `"GRANT PERMISSION & RETRY"` button.
+   - **Compact Local-Only Privacy Notice**: Concise single-line notice reassuring users that everything is processed locally in-browser with zero recording or server transmission.
 
 4. **Centralized JetBrains Mono Typography (`index.html`)**:
    - Global design tokens `--font-primary` and `--font-display` pointing to `JetBrains Mono, monospace`.
    - All HUD labels, navbar buttons, modals, and metric readouts inherit the centralized font family.
 
 5. **Cross-Device Mobile & Tablet Responsiveness (`index.html`, `src/ui/nav-bar.ts`)**:
-   - **Safe-Area Insets**: Full support for iPhone notch / Dynamic Island and mobile gesture bars using `env(safe-area-inset-*)`.
+   - **Safe-Area Insets & Dynamic Viewport (`100dvh`)**: Full support for iPhone notch / Dynamic Island and mobile browser toolbars using `100dvh` and `env(safe-area-inset-*)`, with `#app-splash-screen` acting as a full-screen `pan-y` touch scroll container and `.splash-card` centered via `margin: auto 0` so it never clips or locks scrolling on short screens.
    - **Compact Breakpoints ($\le 768\text{px}$ & $\le 420\text{px}$)**: Collapses button text labels into streamlined icon touch targets with `min-width: 32px-34px`, compresses header padding, condenses status badges to glowing live indicators, and automatically collapses splash guide cards into vertical rows.
    - **Full-Width Drawers**: Sound Studio and Diagnostics panels automatically adapt to full viewport width (`calc(100vw - 16px)`) with smooth touch scrolling (`-webkit-overflow-scrolling: touch`).
    - **Landscape Adaptation**: Short vertical viewports ($\le 500\text{px}$) automatically compress header height to $42\text{px}$ and enable vertical scroll containers so controls remain 100% accessible.

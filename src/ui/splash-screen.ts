@@ -15,9 +15,11 @@ export class SplashScreen {
   private element: HTMLDivElement;
   private container: HTMLElement;
   private startBtn: HTMLButtonElement;
-  private progressBar: HTMLDivElement;
-  private progressLabel: HTMLSpanElement;
-  private progressPercent: HTMLSpanElement;
+  private btnProgressFill: HTMLDivElement;
+  private btnShimmer: HTMLDivElement;
+  private btnSpinner: HTMLSpanElement;
+  private btnText: HTMLSpanElement;
+  private errorBanner: HTMLDivElement;
   private isDismissed = false;
   private isReady = false;
   private buttonLabel: string;
@@ -26,21 +28,25 @@ export class SplashScreen {
   constructor(container: HTMLElement, options: SplashScreenOptions = {}) {
     this.container = container;
     this.onStart = options.onStart;
-    this.buttonLabel = options.buttonLabel || 'START EXPERIENCE';
+    this.buttonLabel = options.buttonLabel || 'START & SHOW BOTH HANDS TO CAMERA';
 
     this.element = document.createElement('div');
     this.element.id = 'app-splash-screen';
 
     Object.assign(this.element.style, {
-      position: 'absolute',
-      top: '0',
-      left: '0',
+      position: 'fixed',
+      inset: '0',
       width: '100%',
-      height: '100%',
+      height: '100dvh',
       zIndex: '100',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      overscrollBehavior: 'contain',
+      touchAction: 'pan-y',
+      padding: 'max(16px, env(safe-area-inset-top, 16px)) 16px max(16px, env(safe-area-inset-bottom, 16px)) 16px',
       background: 'radial-gradient(circle at center, rgba(14, 22, 42, 0.88) 0%, rgba(6, 8, 16, 0.96) 100%)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
@@ -50,6 +56,8 @@ export class SplashScreen {
       opacity: '1',
       transition: 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
     });
+    // Enable smooth iOS momentum scrolling on the overlay container
+    (this.element.style as CSSStyleDeclaration & { webkitOverflowScrolling?: string }).webkitOverflowScrolling = 'touch';
 
     const titleText = options.title || 'SPATIAL HARP';
     const subtitleText = options.subtitle || 'Augmented Reality Audio-Visual Instrument';
@@ -58,6 +66,9 @@ export class SplashScreen {
       <div class="splash-card" style="
         max-width: 640px;
         width: 92%;
+        margin: auto 0;
+        flex-shrink: 0;
+        touch-action: pan-y;
         text-align: center;
         background: rgba(12, 18, 34, 0.75);
         border: 1px solid rgba(0, 240, 255, 0.32);
@@ -126,75 +137,92 @@ export class SplashScreen {
           </div>
         </div>
 
-        <!-- Live Loading Bar Section -->
-        <div id="splash-loading-section" style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
-          <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(255, 255, 255, 0.75); font-weight: 600;">
-            <span id="splash-progress-label">Initializing application...</span>
-            <span id="splash-progress-percent" style="color: #00f0ff;">0%</span>
-          </div>
-          <div id="splash-progress-track" style="
-            width: 100%;
-            height: 8px;
-            background: rgba(0, 240, 255, 0.12);
-            border: 1px solid rgba(0, 240, 255, 0.25);
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-          ">
-            <div id="splash-progress-bar" style="
-              width: 0%;
-              height: 100%;
-              background: linear-gradient(90deg, #00f0ff, #38ef7d);
-              box-shadow: 0 0 12px #00f0ff;
-              border-radius: 10px;
-              transition: width 0.35s ease-out;
-            "></div>
-          </div>
-        </div>
-
-        <!-- Privacy & Local-Only Processing Notice -->
+        <!-- Compact Privacy Notice -->
         <div class="splash-privacy-note" style="
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 10px;
-          font-size: 13px;
+          justify-content: center;
+          gap: 8px;
+          font-size: 12px;
           color: rgba(255, 255, 255, 0.72);
           background: rgba(0, 255, 170, 0.06);
-          border: 1px solid rgba(0, 255, 170, 0.24);
-          border-radius: 12px;
-          padding: 10px 16px;
-          line-height: 1.45;
-          text-align: left;
+          border: 1px solid rgba(0, 255, 170, 0.22);
+          border-radius: 10px;
+          padding: 8px 14px;
+          line-height: 1.3;
+          text-align: center;
         ">
-          <span style="font-size: 20px; flex-shrink: 0;">🔒</span>
-          <span>
-            <strong style="color: #00ffaa; font-weight: 700;">100% Private & On-the-Fly:</strong> 
-            Camera frames and hand movements are processed purely in real time inside your browser. No video, images, or personal data are ever recorded, stored, or sent to any server.
-          </span>
+          <span style="font-size: 14px; flex-shrink: 0;">🔒</span>
+          <span><strong style="color: #00ffaa; font-weight: 700;">100% Private:</strong> Runs locally in your browser — never recorded or sent.</span>
         </div>
 
-        <!-- Primary Start Button (Disabled until loading reaches 100%) -->
-        <button id="splash-start-btn" disabled style="
+        <!-- Inline Error Banner (hidden unless an error occurs) -->
+        <div id="splash-error-banner" style="
+          display: none;
           width: 100%;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: rgba(255, 255, 255, 0.45);
-          font-size: 16px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #ff6688;
+          background: rgba(255, 0, 85, 0.10);
+          border: 1px solid rgba(255, 0, 85, 0.35);
+          border-radius: 10px;
+          padding: 10px 14px;
+          line-height: 1.4;
+          text-align: center;
+        "></div>
+
+        <!-- Primary Start Button with Integrated Progress Fill & Active Loader -->
+        <button id="splash-start-btn" disabled style="
+          position: relative;
+          overflow: hidden;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(0, 240, 255, 0.25);
+          color: rgba(255, 255, 255, 0.88);
+          font-size: clamp(13px, 3.6vw, 15.5px);
           font-weight: 800;
-          letter-spacing: 1.8px;
-          padding: 16px 28px;
+          letter-spacing: 1.2px;
+          line-height: 1.35;
+          padding: 16px 22px;
           border-radius: 14px;
           cursor: not-allowed;
           box-shadow: none;
-          transition: all 0.3s ease;
-        ">LOADING SYSTEM...</button>
+          transition: transform 0.25s ease, box-shadow 0.3s ease, border-color 0.3s ease, color 0.3s ease, background 0.3s ease, opacity 0.25s ease;
+        ">
+          <div id="splash-btn-progress" style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(0, 240, 255, 0.45), rgba(56, 239, 125, 0.45));
+            box-shadow: 0 0 18px rgba(0, 240, 255, 0.4);
+            transition: width 0.35s ease-out, background 0.35s ease;
+            pointer-events: none;
+            z-index: 0;
+          "></div>
+          <div id="splash-btn-shimmer" class="splash-btn-shimmer" style="display: none;"></div>
+          <span id="splash-btn-content" style="
+            position: relative;
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+          ">
+            <span id="splash-btn-spinner" class="splash-spinner" style="display: none;"></span>
+            <span id="splash-btn-text">LOADING... 0%</span>
+          </span>
+        </button>
       </div>
     `;
 
     this.startBtn = this.element.querySelector('#splash-start-btn') as HTMLButtonElement;
-    this.progressBar = this.element.querySelector('#splash-progress-bar') as HTMLDivElement;
-    this.progressLabel = this.element.querySelector('#splash-progress-label') as HTMLSpanElement;
-    this.progressPercent = this.element.querySelector('#splash-progress-percent') as HTMLSpanElement;
+    this.btnProgressFill = this.element.querySelector('#splash-btn-progress') as HTMLDivElement;
+    this.btnShimmer = this.element.querySelector('#splash-btn-shimmer') as HTMLDivElement;
+    this.btnSpinner = this.element.querySelector('#splash-btn-spinner') as HTMLSpanElement;
+    this.btnText = this.element.querySelector('#splash-btn-text') as HTMLSpanElement;
+    this.errorBanner = this.element.querySelector('#splash-error-banner') as HTMLDivElement;
 
     this.setupListeners();
     this.container.appendChild(this.element);
@@ -222,19 +250,21 @@ export class SplashScreen {
       }
     });
 
-    this.startBtn.addEventListener('click', this.handleStartClick);
+    this.startBtn.onclick = this.handleStartClick;
   }
 
   /**
-   * Updates loading progress dynamically from the application bootstrapper
+   * Updates loading progress dynamically inside the Start button
    * @param progress Normalized 0.0 to 1.0 (or percentage 0 to 100)
-   * @param status Descriptive text for current loading phase
+   * @param _status Descriptive text for current loading phase
    */
-  public setProgress(progress: number, status: string): void {
+  public setProgress(progress: number, _status: string): void {
     const pct = Math.min(100, Math.max(0, progress <= 1.0 ? Math.round(progress * 100) : Math.round(progress)));
-    this.progressBar.style.width = `${pct}%`;
-    this.progressPercent.textContent = `${pct}%`;
-    this.progressLabel.textContent = status;
+    this.errorBanner.style.display = 'none';
+    this.btnSpinner.style.display = 'none';
+    this.btnShimmer.style.display = 'none';
+    this.btnProgressFill.style.width = `${pct}%`;
+    this.btnText.textContent = `LOADING... ${pct}%`;
 
     if (pct >= 100 && !this.isReady) {
       this.setReady();
@@ -242,17 +272,24 @@ export class SplashScreen {
   }
 
   /**
-   * Puts the Start button and loading section into a waiting/connecting state
+   * Puts the Start button into an active loading state with spinner & shimmer
    * while camera stream permission is being negotiated with the browser.
    */
   public setLoading(status: string): void {
+    this.errorBanner.style.display = 'none';
     this.startBtn.disabled = true;
     this.startBtn.style.cursor = 'wait';
-    this.startBtn.style.opacity = '0.85';
+    this.startBtn.style.opacity = '0.92';
     this.startBtn.style.transform = 'none';
-    this.startBtn.textContent = 'CONNECTING CAMERA...';
-    this.progressLabel.textContent = status;
-    this.progressLabel.style.color = 'rgba(255, 255, 255, 0.9)';
+    this.startBtn.style.filter = 'none';
+    this.btnProgressFill.style.width = '100%';
+    this.btnProgressFill.style.background = 'linear-gradient(135deg, #00f0ff 0%, #00b4d8 100%)';
+    this.startBtn.style.color = '#070d1a';
+    this.btnSpinner.style.display = 'inline-block';
+    this.btnShimmer.style.display = 'block';
+    this.btnText.textContent = status.toLowerCase().includes('vision')
+      ? 'FINALIZING VISION...'
+      : 'CONNECTING CAMERA...';
   }
 
   /**
@@ -261,13 +298,13 @@ export class SplashScreen {
   public setError(status: string, onRetry?: () => void | Promise<void>): void {
     this.isReady = false;
     this.isDismissed = false;
-    this.progressBar.style.width = '100%';
-    this.progressBar.style.background = 'linear-gradient(90deg, #ff0055, #ff5500)';
-    this.progressBar.style.boxShadow = '0 0 12px #ff0055';
-    this.progressPercent.textContent = '!';
-    this.progressPercent.style.color = '#ff4466';
-    this.progressLabel.textContent = status;
-    this.progressLabel.style.color = '#ff6688';
+    this.btnSpinner.style.display = 'none';
+    this.btnShimmer.style.display = 'none';
+    this.errorBanner.textContent = status;
+    this.errorBanner.style.display = 'block';
+
+    this.btnProgressFill.style.width = '100%';
+    this.btnProgressFill.style.background = 'linear-gradient(135deg, #ff0055 0%, #ff5500 100%)';
 
     if (onRetry) {
       this.startBtn.disabled = false;
@@ -277,7 +314,7 @@ export class SplashScreen {
       this.startBtn.style.border = 'none';
       this.startBtn.style.color = '#ffffff';
       this.startBtn.style.boxShadow = '0 6px 24px rgba(255, 0, 85, 0.45)';
-      this.startBtn.textContent = 'GRANT PERMISSION & RETRY';
+      this.btnText.textContent = 'GRANT PERMISSION & RETRY';
       this.startBtn.onclick = async (e) => {
         e.stopPropagation();
         this.setLoading('Retrying camera connection...');
@@ -296,6 +333,11 @@ export class SplashScreen {
   public setReady(): void {
     this.isReady = true;
     this.isDismissed = false;
+    this.errorBanner.style.display = 'none';
+    this.btnSpinner.style.display = 'none';
+    this.btnShimmer.style.display = 'none';
+    this.btnProgressFill.style.width = '100%';
+    this.btnProgressFill.style.background = 'linear-gradient(135deg, #00f0ff 0%, #00b4d8 100%)';
     this.startBtn.disabled = false;
     this.startBtn.style.cursor = 'pointer';
     this.startBtn.style.opacity = '1';
@@ -303,23 +345,14 @@ export class SplashScreen {
     this.startBtn.style.border = 'none';
     this.startBtn.style.color = '#070d1a';
     this.startBtn.style.boxShadow = '0 6px 24px rgba(0, 240, 255, 0.45)';
-    this.startBtn.textContent = this.buttonLabel;
-    this.progressLabel.textContent = 'Ready to enter!';
-    this.progressLabel.style.color = 'rgba(255, 255, 255, 0.75)';
-    this.progressBar.style.background = 'linear-gradient(90deg, #00f0ff, #38ef7d)';
-    this.progressBar.style.boxShadow = '0 0 12px #00f0ff';
-    this.progressPercent.textContent = '100%';
-    this.progressPercent.style.color = '#00f0ff';
+    this.btnText.textContent = this.buttonLabel;
     this.startBtn.onclick = this.handleStartClick;
   }
 
   public async dismiss(): Promise<void> {
     if (this.isDismissed) return;
 
-    this.startBtn.disabled = true;
-    this.startBtn.style.cursor = 'wait';
-    this.startBtn.style.opacity = '0.85';
-    this.startBtn.textContent = 'CONNECTING CAMERA...';
+    this.setLoading('CONNECTING CAMERA...');
 
     if (this.onStart) {
       try {

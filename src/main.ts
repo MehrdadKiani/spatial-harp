@@ -28,6 +28,7 @@ import { NavBar } from './ui/nav-bar';
 import { SplashScreen } from './ui/splash-screen';
 import { SoundStudioPanel } from './ui/sound-studio-panel';
 import { TutorialModal } from './ui/tutorial-modal';
+import { HandPrompt } from './ui/hand-prompt';
 import { PluckEvent } from './types/audio';
 import { globalBus } from './core/event-bus';
 
@@ -56,6 +57,7 @@ class App {
   private soundStudioPanel: SoundStudioPanel;
   private tutorialModal: TutorialModal;
   private splashScreen: SplashScreen;
+  private handPrompt: HandPrompt;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
@@ -132,6 +134,7 @@ class App {
     this.tutorialModal = new TutorialModal(this.container, () => {
       this.navBar.setActiveTab('instrument');
     });
+    this.handPrompt = new HandPrompt(this.container);
 
     this.navBar = new NavBar(this.container, {
       onTabChange: (tabId) => {
@@ -143,9 +146,6 @@ class App {
       },
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
-      },
-      onOpenTutorial: () => {
-        this.tutorialModal.open();
       },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
@@ -195,6 +195,7 @@ class App {
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {
+      this.handPrompt.markPlucked();
       this.hud.setLastPluck(event.note, event.velocity);
 
       // Trigger multi-crest sinusoidal rainbow wave on the string
@@ -291,15 +292,17 @@ class App {
       defaultPreset: cfg.audio.defaultPreset,
     });
 
-    // 5. Visuals, laser beam widths, ruler transparency, rainbow waves & particles
+    // 5. Visuals, hand skeleton sizing, laser beam widths, ruler transparency, rainbow waves & particles
+    this.skeletonView.configure(cfg.visuals);
     this.anchoredStringsView.configure(cfg.visuals);
     this.dynamicStringView.configure(cfg.visuals);
     this.pluckShockwavePool.configure(cfg.visuals);
     this.sparkParticlePool.configure(cfg.visuals);
 
-    // 6. Sync Sound Studio dropdowns with loaded config
+    // 6. Sync Sound Studio dropdowns & UI hints with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
     this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
+    this.handPrompt.configure(cfg.ui.showLiveHints);
   }
 
   private async unlockAudio(): Promise<void> {
@@ -382,9 +385,12 @@ class App {
         this.isLoopInitialized = true;
       }
       this.loop.start();
+      this.handPrompt.activate();
 
-      // 5. Open the 4-step tutorial popup
-      this.tutorialModal.open();
+      // 5. Open the 4-step tutorial popup if enabled in config
+      if (this.config.ui.showTutorialOnStart) {
+        this.tutorialModal.open();
+      }
     } catch (err) {
       console.error('Failed to start experience:', err);
       const errMsg = (err as Error).message;
@@ -422,6 +428,9 @@ class App {
     this.spatialStringManager.update(gestureStates, dualPinch, videoAspect, nowMs);
     const anchoredStrings = this.spatialStringManager.getStrings();
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
+
+    // Update live step-by-step hand coaching pill (zero-GC)
+    this.handPrompt.update(hands.length, dualPinch.isDualPinch, anchoredStrings.length, nowMs);
 
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();

@@ -1,7 +1,7 @@
 {
   "name": "spatial-harp",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.1.11",
   "type": "module",
   "description": "Real-time Augmented Reality Spatial Harp & Audio-Visual Instrument built with TypeScript, Three.js WebGL, MediaPipe HandLandmarker, and Tone.js",
   "author": "Mehrdad Kiani",
@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@types/three": "^0.170.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.1",
     "vitest": "^5.1.1"

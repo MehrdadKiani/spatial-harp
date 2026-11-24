@@ -13,7 +13,6 @@ export interface NavItem {
 export interface NavBarOptions {
   onTabChange?: (tabId: string) => void;
   onToggleDiagnostics?: () => void;
-  onOpenTutorial?: () => void;
   onClearStrings?: () => void;
 }
 
@@ -21,21 +20,17 @@ export class NavBar {
   private element: HTMLElement;
   private logoContainer: HTMLDivElement;
   private navItemsContainer: HTMLDivElement;
-  private tutorialBtn: HTMLButtonElement;
   private diagBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
-  private statusBadge: HTMLSpanElement;
   private activeTabId: string = 'instrument';
   private isDiagActive = false;
   private onTabChange?: (tabId: string) => void;
   private onToggleDiagnostics?: () => void;
-  private onOpenTutorial?: () => void;
   private onClearStrings?: () => void;
 
   constructor(container: HTMLElement, options: NavBarOptions = {}) {
     this.onTabChange = options.onTabChange;
     this.onToggleDiagnostics = options.onToggleDiagnostics;
-    this.onOpenTutorial = options.onOpenTutorial;
     this.onClearStrings = options.onClearStrings;
 
     this.element = document.createElement('header');
@@ -105,52 +100,13 @@ export class NavBar {
       this.navItemsContainer.appendChild(btn);
     });
 
-    // 3. Right Container: Tutorial, Diagnostics, Clear & Live AR Indicator
+    // 3. Right Container: Diagnostics & Clear Strings
     const rightContainer = document.createElement('div');
     rightContainer.className = 'navbar-right-container';
     rightContainer.style.display = 'flex';
     rightContainer.style.alignItems = 'center';
     rightContainer.style.gap = '10px';
     rightContainer.style.pointerEvents = 'auto';
-
-    // Tutorial Button in NavBar (beside Diagnostics)
-    this.tutorialBtn = document.createElement('button');
-    this.tutorialBtn.id = 'navbar-tutorial-btn';
-    this.tutorialBtn.title = 'Open Step-by-Step Interactive Tutorial';
-    Object.assign(this.tutorialBtn.style, {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '6px',
-      background: 'rgba(255, 170, 0, 0.08)',
-      border: '1px solid rgba(255, 170, 0, 0.35)',
-      color: '#ffbb33',
-      borderRadius: '8px',
-      padding: '6px 14px',
-      fontSize: '13px',
-      fontWeight: '700',
-      letterSpacing: '0.8px',
-      textTransform: 'uppercase',
-      cursor: 'pointer',
-      outline: 'none',
-      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-    });
-    this.tutorialBtn.innerHTML = `<span>📖</span><span class="navbar-btn-label">Tutorial</span>`;
-
-    this.tutorialBtn.addEventListener('mouseenter', () => {
-      this.tutorialBtn.style.background = 'rgba(255, 170, 0, 0.22)';
-      this.tutorialBtn.style.boxShadow = '0 0 14px rgba(255, 170, 0, 0.4)';
-      this.tutorialBtn.style.transform = 'translateY(-1px)';
-    });
-    this.tutorialBtn.addEventListener('mouseleave', () => {
-      this.tutorialBtn.style.background = 'rgba(255, 170, 0, 0.08)';
-      this.tutorialBtn.style.boxShadow = 'none';
-      this.tutorialBtn.style.transform = 'translateY(0)';
-    });
-    this.tutorialBtn.addEventListener('click', () => {
-      if (this.onOpenTutorial) {
-        this.onOpenTutorial();
-      }
-    });
 
     // Diagnostics Button in NavBar (clean, fancy font styling)
     this.diagBtn = document.createElement('button');
@@ -234,29 +190,8 @@ export class NavBar {
       }
     });
 
-    this.statusBadge = document.createElement('span');
-    this.statusBadge.id = 'navbar-status-badge';
-    Object.assign(this.statusBadge.style, {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '7px',
-      background: 'rgba(0, 255, 170, 0.12)',
-      border: '1px solid rgba(0, 255, 170, 0.35)',
-      color: '#00ffaa',
-      borderRadius: '20px',
-      padding: '4px 12px',
-      fontSize: '12px',
-      fontWeight: '700',
-      letterSpacing: '1.2px',
-      textTransform: 'uppercase',
-      flexShrink: '0',
-    });
-    this.statusBadge.innerHTML = `<span class="navbar-status-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #00ffaa; box-shadow: 0 0 8px #00ffaa; animation: pulse 1.8s infinite; flex-shrink: 0;"></span><span class="navbar-status-text">LIVE AR</span>`;
-
-    rightContainer.appendChild(this.tutorialBtn);
     rightContainer.appendChild(this.diagBtn);
     rightContainer.appendChild(this.clearBtn);
-    rightContainer.appendChild(this.statusBadge);
 
     // Assemble components into element
     this.element.appendChild(this.logoContainer);
