@@ -92,11 +92,11 @@
     "previewRulerTickOpacity": 0.18,
     "majorTickHeight": 0.010,
     "minorTickHeight": 0.005,
-    "waveAmplitude": 0.042,
-    "waveFrequency": 26.0,
-    "waveSpeed": 1.65,
-    "waveDamping": 2.05,
-    "waveDurationSec": 1.75,
+    "waveAmplitude": 0.016,
+    "waveFrequency": 58.0,
+    "waveSpeed": 2.6,
+    "waveDamping": 2.85,
+    "waveDurationSec": 1.35,
     "waveCycles": 3.5,
     "numEchoContours": 5,
     "contactStarburstRays": 18,
@@ -109,8 +109,9 @@
   },
 
   "ui": {
-    "_comment": "UI behavior toggles (tutorial popup on start & live step-by-step hand coaching hints).",
+    "_comment": "UI behavior toggles (tutorial popup on start, live coaching hints & performance profile: 'auto' | 'mobile' | 'high').",
     "showTutorialOnStart": false,
-    "showLiveHints": true
+    "showLiveHints": true,
+    "performanceMode": "auto"
   }
 }

@@ -135,6 +135,20 @@
       /* ==========================================================================
          Mobile, Tablet & Landscape Responsive Breakpoints
          ========================================================================== */
+      /* Mobile / iOS WebKit High-FPS Compositor Bypass:
+         Disabling backdrop-filter over live <video> + WebGL <canvas> avoids per-frame GPU blur readbacks */
+      body.perf-mobile #app-navbar,
+      body.perf-mobile #hud-card,
+      body.perf-mobile #app-version-badge,
+      body.perf-mobile #hand-prompt,
+      body.perf-mobile #settings-panel,
+      body.perf-mobile #sound-studio-panel,
+      body.perf-mobile #tutorial-modal,
+      body.perf-mobile #app-splash-screen {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
       /* Safe-area default spacing for notched/island displays */
       #app-navbar {
         top: max(12px, env(safe-area-inset-top, 12px));

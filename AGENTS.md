@@ -61,6 +61,28 @@ src/
 - All modifications, new files, and refactors MUST remain uncommitted in the working tree so the user can inspect diffs, review changes in their editor/IDE, and have full control over the Git history.
 - The agent may run tests, type checks, and verification builds (`npm run build`), but MUST NOT run `git commit` unless the user explicitly instructs it in their request (e.g. "commit these changes").
 
+### 8. Accessibility-First Interaction Design (One-Hand Default)
+- **One-Hand First**: Every new gesture or instrument capability MUST work with **one hand by default** (`handMode: 'one-hand'`). Two-hand gestures may be offered as an optional mode (`handMode: 'two-hand'`), never as the sole way to use core features.
+- **Mode-Matched Pitch Defaults**: Default to **Fretted Pitch Mode** (`pitchMode: 'fretted'`, position-based notes oriented low → high regardless of draw direction) in One-Hand Mode and **Classic Length Mode** (`pitchMode: 'length'`) in Two-Hand Mode, while allowing independent switching in `SettingsPanel` (`⚙️ Settings`) persisted via `localStorage`.
+- **No-Dead-End Auto-Fallback**: Preserve the `3s + 3-2-1` single-hand auto-switch countdown in `HandPrompt` when Two-Hand Mode is active with 0 strings.
+
+### 9. Intentional Gesture Safeguards & Play Lock
+- **Charge / Dwell + Stillness Guards**: Never trigger string creation or destructive edits on a single stray frame of pinch/contact. Require configurable dwell/charge + low-movement guards (`chargeDurationMs` / `maxChargeMoveDistance`, `grabDwellMs` / `maxGrabHandSpeed`) with unmistakable visual/audio confirmation (growing charge orb → pop burst + tactile audio chirp).
+- **Respect Harp Lock (`[L]`)**: All creation and editing gestures MUST check `SpatialStringManager.getIsLocked()` and no-op while locked in Play Mode.
+- **Suppress Stray Plucks**: Any hand actively charging, drawing, or grabbing MUST be added to `ignoreHandIds` (plus `postGrabReleaseCooldownMs`) before `StringCollisionDetector.update(...)`.
+
+### 10. Mobile & Cross-Device High-FPS Guardrails (`PerformanceProfile`)
+- **Respect `PerformanceProfile` (`src/core/performance.ts`)**: All camera, WebGL, string tessellation, particle, and audio subsystems MUST honor `resolvePerformanceProfile()` (`Auto` detects iOS/Android/coarse-touch devices automatically; overridable in `⚙️ Settings`).
+- **No Unbounded `backdrop-filter` on Mobile**: Any new glassmorphic UI overlay added over live `<video>` + WebGL `<canvas>` MUST be included in the `body.perf-mobile` CSS `backdrop-filter: none !important` override in `index.html` to prevent iOS WebKit and Android compositor re-blur FPS drops.
+- **Zero-GC Coordinates, Hoisted Math & Idle Caching**:
+  - Inside `requestAnimationFrame` ticks, always pass a pre-allocated scratch `THREE.Vector3` to `SceneManager.toWorldCoords(..., target)`.
+  - Hoist per-string trig/exp invariants outside vertex loops, skip `.needsUpdate = true` GPU buffer uploads for idle unchanged strings, and early-return in O(1) when particle pools have `0` active particles.
+  - Keep `EffectComposer` / `UnrealBloomPass` lazily allocated (only when bloom is enabled) and sync `HandTracker.setNumHands(1)` in mobile One-Hand Mode.
+
+### 11. Realistic Taut-String Visual Physics
+- Plucked string visuals MUST follow physical $1/n^2$ standing-wave harmonics (dominant fundamental, rapidly damped 2nd/3rd overtones) with **length-aware amplitude and oscillation frequency** (shorter strings deflect less and vibrate faster).
+- Avoid slow rubbery oscillations or large-amplitude multi-crest traveling sine ripples; keep traveling energy pulses primarily as luminous color/glow waves with only a brief, subtle localized pluck-release transient.
+
 ---
 
 ## 🚦 Phased Delivery & Verification Protocol
@@ -74,8 +96,10 @@ Development proceeds strictly in progressive milestones from basic to advanced:
 | **Step 3** | **Mid-Air Spatial String Anchoring** | ✅ Completed | Releasing pinch locks 3D strings with fret/ruler tick marks in space; build multi-string harp. |
 | **Step 4** | **Real-Time Audio Synthesis & Plucking Engine** | ✅ Completed | Finger-string collision solver, velocity-sensitive plucking, Karplus-Strong string synthesis. |
 | **Step 5** | **Visual Physics, Wave Oscillation & Sparks** | ✅ Completed | Damped harmonic wave equations on plucked strings, GPU spark particle burst, UnrealBloom glow. |
-| **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ Completed | Runtime sound preset selector (Plucked Harp, Laser Synth, Ambient Chime, Retro 8-Bit) and musical scales (Pentatonic, Minor, Hirajōshi, Major, Blues). |
+| **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ Completed | Runtime sound preset selector (Plucked Harp, Laser Synth, Ambient Chime, Retro 8-Bit), musical scales (Pentatonic, Minor, Hirajōshi, Major, Blues), zero-leak voice pools & live Reverb/Delay FX rack. |
 | **Step 7** | **Advanced Plucking Visual Effects & Wave Envelopes** | ✅ Completed | Resonant dual-wave envelope sheath (spindle oscillation), contact shockwaves, streak sparks, crosshair anchor reticles. |
+| **Step 8** | **Glassmorphic UI Suite & Mobile/Tablet Responsiveness** | ✅ Completed | Navigation bar, Sound Studio drawer, real progress splash screen, JetBrains Mono typography, safe-area & cross-device responsive layout. |
+| **Step 9** | **One-Hand Accessibility Mode, Charge-to-Pop, Fretted Pitch & Harp Lock** | ✅ Completed | Default One-Hand Mode with Hold-to-Charge → Pop → Drag → Release, Fretted Pitch Mode (5 position-based notes per string), `⚙️ Settings` drawer & Splash toggle, `3s + 3-2-1` auto-fallback, and `🔒 Lock` Play Mode (`[L]`). |
 
 ### Milestone Protocol:
 1. Focus only on the active step. Do not jump ahead without user alignment.
@@ -90,6 +114,9 @@ Development proceeds strictly in progressive milestones from basic to advanced:
 ```bash
 # Start local dev server (default port 3001 if 3000 occupied)
 npm run dev
+
+# Run automated unit test suite (Vitest)
+npm test
 
 # Run TypeScript type check & production build
 npm run build

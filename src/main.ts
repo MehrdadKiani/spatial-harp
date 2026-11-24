@@ -8,10 +8,16 @@ import {
   clearPresetFxOverride,
   getPresetFxOverride,
   loadAppConfig,
+  loadUserOverrides,
   parseHexPalette,
   savePresetFxOverride,
   saveUserOverride,
 } from './core/config';
+import {
+  PerformanceMode,
+  PerformanceProfile,
+  resolvePerformanceProfile,
+} from './core/performance';
 import { CameraManager } from './vision/camera-manager';
 import { HandTracker } from './vision/hand-tracker';
 import { SceneManager } from './render/scene-manager';
@@ -44,6 +50,7 @@ injectSpeedInsights();
 class App {
   private container: HTMLElement;
   private config: AppConfig = DEFAULT_CONFIG;
+  private perfProfile: PerformanceProfile;
   private cameraManager: CameraManager;
   private videoBackground: VideoBackground;
   private handTracker: HandTracker;
@@ -74,6 +81,8 @@ class App {
   private sparkOrigin = new THREE.Vector3();
   private sparkNormal = new THREE.Vector3();
   private sparkDir = new THREE.Vector3();
+  private sparkW1 = new THREE.Vector3();
+  private sparkW2 = new THREE.Vector3();
 
   // Short post-grab cooldown per handId so releasing a string tip doesn't accidentally pluck it
   private handGrabCooldownUntil = new Map<number, number>();
@@ -81,19 +90,36 @@ class App {
   constructor() {
     this.container = document.getElementById('app') || document.body;
 
+    // 0. Resolve device performance profile before instantiating WebGL, pools, and audio
+    const initialPerfMode: PerformanceMode =
+      loadUserOverrides().performanceMode ?? this.config.ui.performanceMode;
+    this.perfProfile = resolvePerformanceProfile(initialPerfMode);
+    document.body.classList.toggle('perf-mobile', this.perfProfile.disableBackdropBlur);
+
     // 1. Video background (mirrored video element)
     this.videoBackground = new VideoBackground(this.container);
     this.cameraManager = new CameraManager(this.videoBackground.videoElement);
 
     // 2. Three.js Scene & Visual Pools
-    this.sceneManager = new SceneManager(this.container);
+    this.sceneManager = new SceneManager(this.container, {
+      maxPixelRatio: this.perfProfile.maxPixelRatio,
+      antialias: this.perfProfile.antialias,
+    });
     this.skeletonView = new SkeletonView(this.sceneManager);
     this.dynamicStringView = new DynamicStringView(this.sceneManager);
     this.anchoredStringsView = new AnchoredStringsView(
       this.sceneManager,
-      this.config.strings.maxStrings
+      this.config.strings.maxStrings,
+      {
+        segmentsPerString: this.perfProfile.stringSegments,
+        renderCenterLine: this.perfProfile.renderWaveCenterLine,
+        renderGhostTrail: this.perfProfile.renderGhostTrail,
+      }
     );
-    this.sparkParticlePool = new SparkParticlePool(this.sceneManager.scene);
+    this.sparkParticlePool = new SparkParticlePool(
+      this.sceneManager.scene,
+      this.perfProfile.maxParticles
+    );
     this.pluckShockwavePool = new PluckShockwavePool(this.sceneManager.scene);
 
     // 3. Audio & Musical Harmony Subsystems
@@ -101,8 +127,9 @@ class App {
     this.audioEngine = new AudioEngine({
       volume: this.config.audio.volumeDb,
       reverbWet: this.config.audio.reverbWet,
+      reverbDecay: this.perfProfile.reverbDecaySec,
       delayWet: this.config.audio.delayWet,
-      polyphony: this.config.audio.polyphony,
+      polyphony: this.perfProfile.audioPolyphony,
       preset: this.config.audio.defaultPreset,
     });
     this.collisionDetector = new StringCollisionDetector(this.scaleMapper);
@@ -157,12 +184,20 @@ class App {
     this.settingsPanel = new SettingsPanel(this.container, {
       initialHandMode: this.config.strings.handMode,
       initialPitchMode: this.config.audio.pitchMode,
+      initialPerformanceMode: this.perfProfile.mode,
+      activePerformanceTier: this.perfProfile.tier,
       initialShowLiveHints: this.config.ui.showLiveHints,
       onHandModeChange: (mode) => {
         this.setHandMode(mode, true);
       },
       onPitchModeChange: (pitchMode) => {
         this.setPitchMode(pitchMode, true);
+      },
+      onPerformanceModeChange: (perfMode) => {
+        this.config.ui.performanceMode = perfMode;
+        saveUserOverride({ performanceMode: perfMode });
+        const nextProfile = resolvePerformanceProfile(perfMode);
+        document.body.classList.toggle('perf-mobile', nextProfile.disableBackdropBlur);
       },
       onShowLiveHintsChange: (enabled) => {
         this.config.ui.showLiveHints = enabled;
@@ -270,8 +305,8 @@ class App {
       const targetStr = this.spatialStringManager.getStrings().find((s) => s.id === event.stringId);
       if (targetStr) {
         const videoAspect = this.cameraManager.aspectRatio;
-        const w1 = this.sceneManager.toWorldCoords(targetStr.point1.x, targetStr.point1.y, targetStr.point1.z, videoAspect);
-        const w2 = this.sceneManager.toWorldCoords(targetStr.point2.x, targetStr.point2.y, targetStr.point2.z, videoAspect);
+        const w1 = this.sceneManager.toWorldCoords(targetStr.point1.x, targetStr.point1.y, targetStr.point1.z, videoAspect, this.sparkW1);
+        const w2 = this.sceneManager.toWorldCoords(targetStr.point2.x, targetStr.point2.y, targetStr.point2.z, videoAspect, this.sparkW2);
 
         this.sparkOrigin.lerpVectors(w1, w2, event.contactRatio);
         this.sparkDir.subVectors(w2, w1).normalize();
@@ -308,8 +343,7 @@ class App {
     globalBus.on<ChargePopEvent>('string:charge_pop', (event) => {
       const videoAspect = this.cameraManager.aspectRatio;
       const emitPopAt = (pt: { x: number; y: number; z: number }) => {
-        const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
-        this.sparkOrigin.copy(worldPos);
+        this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect, this.sparkOrigin);
         this.sparkNormal.set(0, 1, 0);
         this.pluckShockwavePool.emitShockwave(this.sparkOrigin, 0x38ef7d, 0.9);
         this.sparkParticlePool.emitBurst(this.sparkOrigin, this.sparkNormal, 0x00f0ff, 0.85);
@@ -381,7 +415,15 @@ class App {
     this.anchoredStringsView.configure(cfg.visuals);
     this.dynamicStringView.configure(cfg.visuals);
     this.pluckShockwavePool.configure(cfg.visuals);
-    this.sparkParticlePool.configure(cfg.visuals);
+    this.sparkParticlePool.configure(
+      this.perfProfile.tier === 'mobile'
+        ? {
+            ...cfg.visuals,
+            contactSparkBurstCount: Math.min(cfg.visuals.contactSparkBurstCount, this.perfProfile.sparkBurstCount),
+            waveGlitterParticleCount: Math.min(cfg.visuals.waveGlitterParticleCount, this.perfProfile.waveGlitterCount),
+          }
+        : cfg.visuals
+    );
 
     // 6. Sync Sound Studio dropdowns, FX sliders, Settings, Splash & UI hints with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
@@ -389,6 +431,7 @@ class App {
     this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
     this.settingsPanel.setHandMode(cfg.strings.handMode);
     this.settingsPanel.setPitchMode(cfg.audio.pitchMode);
+    this.settingsPanel.setPerformanceMode(cfg.ui.performanceMode, this.perfProfile.tier);
     this.settingsPanel.setShowLiveHints(cfg.ui.showLiveHints);
     this.splashScreen.setHandMode(cfg.strings.handMode);
     this.handPrompt.setHandMode(cfg.strings.handMode);
@@ -414,6 +457,9 @@ class App {
     // Default to Fretted Pitch Mode in One-Hand Mode and Classic Length Mode in Two-Hand Mode
     const defaultPitchForHandMode: PitchMode = mode === 'one-hand' ? 'fretted' : 'length';
     this.setPitchMode(defaultPitchForHandMode, persist);
+
+    // On mobile, track 1 hand in One-Hand Mode to nearly halve MediaPipe inference cost
+    void this.handTracker.setNumHands(this.getTargetNumHands(mode));
 
     if (persist) {
       saveUserOverride({ handMode: mode });
@@ -452,6 +498,13 @@ class App {
     }
   }
 
+  private getTargetNumHands(handMode: HandInteractionMode = this.config.strings.handMode): number {
+    if (this.perfProfile.tier === 'mobile' && handMode === 'one-hand') {
+      return 1;
+    }
+    return this.config.vision.numHands;
+  }
+
   public async start(): Promise<void> {
     this.splashScreen.setProgress(0.15, 'Loading configuration (/config.json)...');
     this.hud.setMessage('Loading configuration (/config.json)...');
@@ -468,7 +521,7 @@ class App {
       await this.handTracker.init({
         wasmPath: this.config.vision.wasmPath,
         modelAssetPath: this.config.vision.modelAssetPath,
-        numHands: this.config.vision.numHands,
+        numHands: this.getTargetNumHands(),
         smoothingAlpha: this.config.vision.smoothingAlpha,
         minHandDetectionConfidence: this.config.vision.minHandDetectionConfidence,
         minHandPresenceConfidence: this.config.vision.minHandPresenceConfidence,
@@ -497,9 +550,17 @@ class App {
       await this.unlockAudio();
 
       // 2. Request and start camera feed now (upon explicit user click)
+      const camWidth =
+        this.perfProfile.tier === 'mobile'
+          ? Math.min(this.config.vision.cameraWidth, this.perfProfile.cameraWidth)
+          : this.config.vision.cameraWidth;
+      const camHeight =
+        this.perfProfile.tier === 'mobile'
+          ? Math.min(this.config.vision.cameraHeight, this.perfProfile.cameraHeight)
+          : this.config.vision.cameraHeight;
       await this.cameraManager.start({
-        width: this.config.vision.cameraWidth,
-        height: this.config.vision.cameraHeight,
+        width: camWidth,
+        height: camHeight,
       });
 
       // 3. Ensure HandTracker is initialized
@@ -508,7 +569,7 @@ class App {
         await this.handTracker.init({
           wasmPath: this.config.vision.wasmPath,
           modelAssetPath: this.config.vision.modelAssetPath,
-          numHands: this.config.vision.numHands,
+          numHands: this.getTargetNumHands(),
           smoothingAlpha: this.config.vision.smoothingAlpha,
           minHandDetectionConfidence: this.config.vision.minHandDetectionConfidence,
           minHandPresenceConfidence: this.config.vision.minHandPresenceConfidence,
@@ -612,6 +673,7 @@ class App {
 
     // 6. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
     if (!this.spatialStringManager.isAnyEndpointGrabbed) {
+      this.dynamicStringView.setVisible(true);
       this.dynamicStringView.update(gestureStates, previewState, videoAspect, elapsed);
     } else {
       this.dynamicStringView.setVisible(false);

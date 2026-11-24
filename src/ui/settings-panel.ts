@@ -1,12 +1,16 @@
 import { HandInteractionMode } from '../types/instruments';
 import { PitchMode } from '../types/audio';
+import { PerformanceMode, PerformanceTier } from '../core/performance';
 
 export interface SettingsPanelOptions {
   initialHandMode?: HandInteractionMode;
   initialPitchMode?: PitchMode;
+  initialPerformanceMode?: PerformanceMode;
+  activePerformanceTier?: PerformanceTier;
   initialShowLiveHints?: boolean;
   onHandModeChange?: (mode: HandInteractionMode) => void;
   onPitchModeChange?: (mode: PitchMode) => void;
+  onPerformanceModeChange?: (mode: PerformanceMode) => void;
   onShowLiveHintsChange?: (enabled: boolean) => void;
   onClose?: () => void;
 }
@@ -19,15 +23,24 @@ export class SettingsPanel {
   private frettedBtn: HTMLButtonElement;
   private classicBtn: HTMLButtonElement;
   private pitchDescEl: HTMLDivElement;
+  private perfAutoBtn: HTMLButtonElement;
+  private perfMobileBtn: HTMLButtonElement;
+  private perfHighBtn: HTMLButtonElement;
+  private perfDescEl: HTMLDivElement;
   private hintsCheckbox: HTMLInputElement;
   private closeBtn: HTMLButtonElement;
   private currentMode: HandInteractionMode;
   private currentPitchMode: PitchMode;
+  private currentPerformanceMode: PerformanceMode;
+  private activePerformanceTier: PerformanceTier;
+  private perfReloadRequired = false;
   private isOpen = false;
 
   constructor(container: HTMLElement, options: SettingsPanelOptions = {}) {
     this.currentMode = options.initialHandMode ?? 'one-hand';
     this.currentPitchMode = options.initialPitchMode ?? (this.currentMode === 'one-hand' ? 'fretted' : 'length');
+    this.currentPerformanceMode = options.initialPerformanceMode ?? 'auto';
+    this.activePerformanceTier = options.activePerformanceTier ?? 'high';
 
     this.element = document.createElement('div');
     this.element.id = 'settings-panel';
@@ -96,6 +109,25 @@ export class SettingsPanel {
           <div id="settings-pitch-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 9px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
         </div>
 
+        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px;">
+          <label style="color: #00f0ff; font-weight: 600; display: flex; justify-content: space-between;">
+            <span>Performance Profile</span>
+            <span style="color: rgba(255,255,255,0.45); font-size: 11px;">FPS / Graphics</span>
+          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+            <button id="settings-perf-auto" type="button" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border-radius: 9px; font-family: var(--font-primary); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
+              <span>Auto</span>
+            </button>
+            <button id="settings-perf-mobile" type="button" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border-radius: 9px; font-family: var(--font-primary); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
+              <span>⚡ Fast</span>
+            </button>
+            <button id="settings-perf-high" type="button" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border-radius: 9px; font-family: var(--font-primary); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
+              <span>✨ High</span>
+            </button>
+          </div>
+          <div id="settings-perf-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 8px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
+        </div>
+
         <label style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 9px; cursor: pointer;">
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <span style="font-weight: 600; color: #ffffff; font-size: 12px;">Live Coaching Hints</span>
@@ -114,12 +146,17 @@ export class SettingsPanel {
     this.frettedBtn = this.element.querySelector('#settings-pitch-fretted') as HTMLButtonElement;
     this.classicBtn = this.element.querySelector('#settings-pitch-length') as HTMLButtonElement;
     this.pitchDescEl = this.element.querySelector('#settings-pitch-desc') as HTMLDivElement;
+    this.perfAutoBtn = this.element.querySelector('#settings-perf-auto') as HTMLButtonElement;
+    this.perfMobileBtn = this.element.querySelector('#settings-perf-mobile') as HTMLButtonElement;
+    this.perfHighBtn = this.element.querySelector('#settings-perf-high') as HTMLButtonElement;
+    this.perfDescEl = this.element.querySelector('#settings-perf-desc') as HTMLDivElement;
     this.hintsCheckbox = this.element.querySelector('#settings-hints-toggle') as HTMLInputElement;
     this.closeBtn = this.element.querySelector('#settings-close-btn') as HTMLButtonElement;
 
     this.hintsCheckbox.checked = options.initialShowLiveHints ?? true;
     this.renderModeSelection();
     this.renderPitchSelection();
+    this.renderPerformanceSelection();
 
     this.closeBtn.addEventListener('mouseenter', () => {
       this.closeBtn.style.color = '#ffffff';
@@ -160,6 +197,18 @@ export class SettingsPanel {
       }
     });
 
+    const handlePerfClick = (mode: PerformanceMode) => {
+      if (this.currentPerformanceMode !== mode) {
+        this.currentPerformanceMode = mode;
+        this.perfReloadRequired = true;
+        this.renderPerformanceSelection();
+        if (options.onPerformanceModeChange) options.onPerformanceModeChange(mode);
+      }
+    };
+    this.perfAutoBtn.addEventListener('click', () => handlePerfClick('auto'));
+    this.perfMobileBtn.addEventListener('click', () => handlePerfClick('mobile'));
+    this.perfHighBtn.addEventListener('click', () => handlePerfClick('high'));
+
     this.hintsCheckbox.addEventListener('change', () => {
       if (options.onShowLiveHintsChange) {
         options.onShowLiveHintsChange(this.hintsCheckbox.checked);
@@ -179,6 +228,31 @@ export class SettingsPanel {
 
   public setShowLiveHints(enabled: boolean): void {
     this.hintsCheckbox.checked = enabled;
+  }
+
+  public setPerformanceMode(mode: PerformanceMode, activeTier?: PerformanceTier): void {
+    this.currentPerformanceMode = mode;
+    if (activeTier) this.activePerformanceTier = activeTier;
+    this.renderPerformanceSelection();
+  }
+
+  private renderPerformanceSelection(): void {
+    this.applyToggleStyle(this.perfAutoBtn, this.currentPerformanceMode === 'auto');
+    this.applyToggleStyle(this.perfMobileBtn, this.currentPerformanceMode === 'mobile');
+    this.applyToggleStyle(this.perfHighBtn, this.currentPerformanceMode === 'high');
+
+    const activeLabel = this.activePerformanceTier === 'mobile' ? 'Fast (Mobile)' : 'High Quality';
+    const reloadHint = this.perfReloadRequired
+      ? ' Refresh page to apply full camera & WebGL changes.'
+      : '';
+
+    if (this.currentPerformanceMode === 'auto') {
+      this.perfDescEl.textContent = `Auto detected: ${activeLabel}. Optimizes camera, string segments & effects for smooth 30–60 FPS.${reloadHint}`;
+    } else if (this.currentPerformanceMode === 'mobile') {
+      this.perfDescEl.textContent = `⚡ Fast Mode: 640×480 camera, 32-seg strings, lighter particles & no blur overhead for high mobile FPS.${reloadHint}`;
+    } else {
+      this.perfDescEl.textContent = `✨ High Quality: 720p camera, 64-seg strings, full particle trails & glassmorphic blur.${reloadHint}`;
+    }
   }
 
   private applyToggleStyle(btn: HTMLButtonElement, active: boolean): void {

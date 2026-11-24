@@ -109,6 +109,7 @@ export class AudioEngine {
     this.currentPresetId = config.preset ?? 'harp';
     const volumeDb = config.volume ?? -4;
     const reverbWet = config.reverbWet ?? 0.3;
+    const reverbDecay = config.reverbDecay ?? 2.8;
     const delayWet = config.delayWet ?? 0.12;
 
     // 1. Master Output FX Chain
@@ -119,7 +120,7 @@ export class AudioEngine {
       wet: delayWet,
     });
     this.reverb = new Tone.Reverb({
-      decay: 2.8,
+      decay: reverbDecay,
       preDelay: 0.01,
       wet: reverbWet,
     });

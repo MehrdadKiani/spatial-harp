@@ -41,7 +41,8 @@ export interface AudioFxParams {
 export interface AudioEngineConfig {
   volume?: number;       // Master volume in dB (default: -4 dB)
   reverbWet?: number;    // Reverb mix 0..1 (default: 0.3)
+  reverbDecay?: number;  // Reverb tail decay in seconds (default: 2.8; lighter on mobile)
   delayWet?: number;     // Delay mix 0..1 (default: 0.12)
-  polyphony?: number;    // Simultaneous voices (default: 8)
+  polyphony?: number;    // Simultaneous voices (default: 12; lighter on mobile)
   preset?: SoundPresetId;
 }

@@ -1,5 +1,6 @@
 import { AudioFxParams, MusicalScaleId, PitchMode, SoundPresetId } from '../types/audio';
 import { HandInteractionMode } from '../types/instruments';
+import { PerformanceMode } from './performance';
 
 export interface VisionConfigGroup {
   _comment?: string;
@@ -103,6 +104,7 @@ export interface UiConfigGroup {
   _comment?: string;
   showTutorialOnStart: boolean;
   showLiveHints: boolean;
+  performanceMode: PerformanceMode;
 }
 
 export interface AppConfig {
@@ -199,11 +201,11 @@ export const DEFAULT_CONFIG: AppConfig = {
     previewRulerTickOpacity: 0.18,
     majorTickHeight: 0.010,
     minorTickHeight: 0.005,
-    waveAmplitude: 0.042,
-    waveFrequency: 26.0,
-    waveSpeed: 1.65,
-    waveDamping: 2.05,
-    waveDurationSec: 1.75,
+    waveAmplitude: 0.016,
+    waveFrequency: 58.0,
+    waveSpeed: 2.6,
+    waveDamping: 2.85,
+    waveDurationSec: 1.35,
     waveCycles: 3.5,
     numEchoContours: 5,
     contactStarburstRays: 18,
@@ -217,6 +219,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   ui: {
     showTutorialOnStart: false,
     showLiveHints: true,
+    performanceMode: 'auto',
   },
 };
 
@@ -250,6 +253,7 @@ export interface StoredUserOverrides {
   pitchMode?: PitchMode;
   handMode?: HandInteractionMode;
   showLiveHints?: boolean;
+  performanceMode?: PerformanceMode;
   presetFxOverrides?: Partial<Record<SoundPresetId, Partial<AudioFxParams>>>;
 }
 
@@ -353,6 +357,13 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
   }
   if (typeof overrides.showLiveHints === 'boolean') {
     merged.ui.showLiveHints = overrides.showLiveHints;
+  }
+  if (
+    overrides.performanceMode === 'auto' ||
+    overrides.performanceMode === 'high' ||
+    overrides.performanceMode === 'mobile'
+  ) {
+    merged.ui.performanceMode = overrides.performanceMode;
   }
 
   return merged;

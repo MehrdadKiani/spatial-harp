@@ -126,11 +126,10 @@ export class SkeletonView {
       const hand = hands[handIdx];
       const count = Math.min(hand.landmarks.length, 21);
 
-      // Compute world positions for all landmarks first
+      // Compute world positions for all landmarks first (zero-GC target write)
       for (let lmIdx = 0; lmIdx < count; lmIdx++) {
         const pt = hand.landmarks[lmIdx];
-        const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
-        this.handWorldPositions[lmIdx].copy(worldPos);
+        this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect, this.handWorldPositions[lmIdx]);
       }
 
       // Scale joint dots proportionally to apparent hand size (wrist 0 -> middle MCP 9)

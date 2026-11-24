@@ -4,6 +4,11 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
+export interface SceneManagerOptions {
+  maxPixelRatio?: number;
+  antialias?: boolean;
+}
+
 export class SceneManager {
   public renderer: THREE.WebGLRenderer;
   public scene: THREE.Scene;
@@ -11,21 +16,25 @@ export class SceneManager {
   public width = window.innerWidth;
   public height = window.innerHeight;
   public aspect = window.innerWidth / window.innerHeight;
+  private maxPixelRatio: number;
 
-  // Post-processing UnrealBloom pipeline (disabled by default to maintain 100% transparent video background)
-  public composer: EffectComposer;
-  public bloomPass: UnrealBloomPass;
+  // Post-processing UnrealBloom pipeline (lazily allocated only if enabled to save mobile GPU VRAM)
+  public composer: EffectComposer | null = null;
+  public bloomPass: UnrealBloomPass | null = null;
   public isBloomEnabled = false;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: SceneManagerOptions = {}) {
+    this.maxPixelRatio = options.maxPixelRatio ?? 2;
+    const antialias = options.antialias ?? true;
+
     // WebGL Renderer with Alpha transparency for camera video visibility
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias,
       alpha: true,
       powerPreference: 'high-performance',
     });
     this.renderer.setSize(this.width, this.height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.maxPixelRatio));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
     container.appendChild(this.renderer.domElement);
@@ -52,31 +61,34 @@ export class SceneManager {
     dirLight.position.set(0, 0, 5);
     this.scene.add(dirLight);
 
-    // Post-Processing Pipeline: EffectComposer with HalfFloat RGBA RenderTarget
-    const renderTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
-      type: THREE.HalfFloatType,
-      format: THREE.RGBAFormat,
-      samples: 2,
-    });
-    this.composer = new EffectComposer(this.renderer, renderTarget);
-
-    const renderPass = new RenderPass(this.scene, this.camera);
-    renderPass.clearAlpha = 0;
-    this.composer.addPass(renderPass);
-
-    // Neon UnrealBloom Pass (tuned for laser aesthetics and transparent alpha preservation)
-    this.bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(this.width, this.height),
-      1.25, // strength
-      0.45, // radius
-      0.16  // threshold
-    );
-    this.composer.addPass(this.bloomPass);
-
-    const outputPass = new OutputPass();
-    this.composer.addPass(outputPass);
-
     window.addEventListener('resize', () => this.handleResize());
+  }
+
+  public setBloomEnabled(enabled: boolean): void {
+    this.isBloomEnabled = enabled;
+    if (enabled && !this.composer) {
+      const renderTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
+        type: THREE.HalfFloatType,
+        format: THREE.RGBAFormat,
+        samples: 2,
+      });
+      this.composer = new EffectComposer(this.renderer, renderTarget);
+
+      const renderPass = new RenderPass(this.scene, this.camera);
+      renderPass.clearAlpha = 0;
+      this.composer.addPass(renderPass);
+
+      this.bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(this.width, this.height),
+        1.25,
+        0.45,
+        0.16
+      );
+      this.composer.addPass(this.bloomPass);
+
+      const outputPass = new OutputPass();
+      this.composer.addPass(outputPass);
+    }
   }
 
   public handleResize(): void {
@@ -91,14 +103,23 @@ export class SceneManager {
     this.camera.updateProjectionMatrix();
 
     this.renderer.setSize(this.width, this.height);
-    this.composer.setSize(this.width, this.height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.maxPixelRatio));
+    if (this.composer) {
+      this.composer.setSize(this.width, this.height);
+    }
   }
 
   /**
    * Converts normalized 2D/3D camera coords (0..1, 0..1) to Three.js world coordinates
-   * respecting video aspect fit/cover.
+   * respecting video aspect fit/cover. Pass `target` to avoid per-frame Vector3 allocations.
    */
-  public toWorldCoords(normX: number, normY: number, normZ = 0, videoAspect = 16 / 9): THREE.Vector3 {
+  public toWorldCoords(
+    normX: number,
+    normY: number,
+    normZ = 0,
+    videoAspect = 16 / 9,
+    target?: THREE.Vector3
+  ): THREE.Vector3 {
     const screenAspect = this.aspect;
     let renderW = screenAspect;
     let renderH = 1.0;
@@ -115,11 +136,14 @@ export class SceneManager {
     const worldY = (0.5 - normY) * renderH;
     const worldZ = -normZ * 0.5;
 
+    if (target) {
+      return target.set(worldX, worldY, worldZ);
+    }
     return new THREE.Vector3(worldX, worldY, worldZ);
   }
 
   public render(): void {
-    if (this.isBloomEnabled) {
+    if (this.isBloomEnabled && this.composer) {
       this.composer.render();
     } else {
       this.renderer.render(this.scene, this.camera);

@@ -73,6 +73,7 @@ export class DynamicStringView {
       side: THREE.DoubleSide,
     });
     this.outerHaloMesh = new THREE.Mesh(outerHaloGeom, outerHaloMat);
+    this.outerHaloMesh.frustumCulled = false;
     this.outerHaloMesh.visible = false;
     this.group.add(this.outerHaloMesh);
 
@@ -89,6 +90,7 @@ export class DynamicStringView {
       side: THREE.DoubleSide,
     });
     this.coreBeamMesh = new THREE.Mesh(coreBeamGeom, coreBeamMat);
+    this.coreBeamMesh.frustumCulled = false;
     this.coreBeamMesh.visible = false;
     this.group.add(this.coreBeamMesh);
 
@@ -105,6 +107,7 @@ export class DynamicStringView {
     const lineGeom = new THREE.BufferGeometry();
     lineGeom.setAttribute('position', new THREE.BufferAttribute(this.linePositions, 3));
     this.lineMesh = new THREE.Line(lineGeom, this.stringMaterial);
+    this.lineMesh.frustumCulled = false;
     this.lineMesh.visible = false;
     this.group.add(this.lineMesh);
 
@@ -122,6 +125,7 @@ export class DynamicStringView {
     const tickGeom = new THREE.BufferGeometry();
     tickGeom.setAttribute('position', new THREE.BufferAttribute(this.tickPositions, 3));
     this.tickLines = new THREE.LineSegments(tickGeom, this.tickMaterial);
+    this.tickLines.frustumCulled = false;
     this.tickLines.visible = false;
     this.group.add(this.tickLines);
 
@@ -201,6 +205,7 @@ export class DynamicStringView {
     videoAspect: number,
     elapsed: number
   ): void {
+    this.group.visible = true;
     this.anchorRings.forEach((r) => (r.visible = false));
     this.anchorGlowRings.forEach((r) => (r.visible = false));
     this.chargeCoreOrbs.forEach((o) => (o.visible = false));
@@ -220,7 +225,8 @@ export class DynamicStringView {
         preview.chargePoint1.x,
         preview.chargePoint1.y,
         preview.chargePoint1.z,
-        videoAspect
+        videoAspect,
+        this.scratchP1
       );
       this.chargeCoreOrbs[0].position.copy(c1);
       this.chargeCoreOrbs[0].scale.setScalar(coreScale);
@@ -236,7 +242,8 @@ export class DynamicStringView {
           preview.chargePoint2.x,
           preview.chargePoint2.y,
           preview.chargePoint2.z,
-          videoAspect
+          videoAspect,
+          this.scratchP2
         );
         this.chargeCoreOrbs[1].position.copy(c2);
         this.chargeCoreOrbs[1].scale.setScalar(coreScale);
@@ -253,13 +260,15 @@ export class DynamicStringView {
         preview.point1.x,
         preview.point1.y,
         preview.point1.z,
-        videoAspect
+        videoAspect,
+        this.scratchP1
       );
       const w2 = this.sceneManager.toWorldCoords(
         preview.point2.x,
         preview.point2.y,
         preview.point2.z,
-        videoAspect
+        videoAspect,
+        this.scratchP2
       );
 
       this.anchorRings[0].position.copy(w1);
@@ -281,7 +290,7 @@ export class DynamicStringView {
 
         if (gesture.pinch.isPinching) {
           const pt = gesture.pinch.pinchPoint;
-          const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
+          const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect, this.scratchP1);
 
           const ring = this.anchorRings[idx];
           const glow = this.anchorGlowRings[idx];
@@ -299,21 +308,20 @@ export class DynamicStringView {
     }
 
     if (preview.isActive && preview.point1 && preview.point2) {
-      const w1 = this.sceneManager.toWorldCoords(
+      const p1 = this.sceneManager.toWorldCoords(
         preview.point1.x,
         preview.point1.y,
         preview.point1.z,
-        videoAspect
+        videoAspect,
+        this.scratchP1
       );
-      const w2 = this.sceneManager.toWorldCoords(
+      const p2 = this.sceneManager.toWorldCoords(
         preview.point2.x,
         preview.point2.y,
         preview.point2.z,
-        videoAspect
+        videoAspect,
+        this.scratchP2
       );
-
-      const p1 = this.scratchP1.copy(w1);
-      const p2 = this.scratchP2.copy(w2);
 
       const dir = this.scratchDir.subVectors(p2, p1);
       const length = dir.length();

@@ -111,7 +111,8 @@ graph TD
     ├── core/
     │   ├── config.ts           # Typed AppConfig defaults, /config.json loader & localStorage overrides
     │   ├── event-bus.ts        # Typed pub/sub event bus
-    │   └── loop.ts             # High-precision RAF ticker with delta time
+    │   ├── loop.ts             # High-precision RAF ticker with delta time
+    │   └── performance.ts      # Device/iOS performance profile resolver (Auto / Fast Mobile / High Quality)
     ├── vision/
     │   ├── camera-manager.ts   # Webcam capture, mirroring, aspect handling
     │   ├── hand-tracker.ts     # MediaPipe HandLandmarker wrapper
@@ -125,18 +126,18 @@ graph TD
     │   ├── scale-mapper.ts     # Spatial harp string sorting and 5 musical scale definitions
     │   └── audio-engine.ts     # Multi-engine synthesizer (Karplus-Strong, Laser Synth, FM Chime, Retro 8-Bit) & FX chain
     ├── render/
-    │   ├── scene-manager.ts    # WebGLRenderer, Camera, EffectComposer & UnrealBloomPass
+    │   ├── scene-manager.ts    # WebGLRenderer, Camera, lazy EffectComposer/Bloom & zero-GC toWorldCoords
     │   ├── video-background.ts # Mirrored video feed container
     │   ├── skeleton-view.ts    # 21-node hand skeleton visualizer
     │   ├── dynamic-string-view.ts # Elastic string preview, frets & anchor reticles
-    │   ├── anchored-strings-view.ts # Persistent harp strings, dual-wave envelopes & precision crosshairs
+    │   ├── anchored-strings-view.ts # Persistent harp strings, hoisted harmonic waves, idle-string caching & crosshairs
     │   ├── pluck-shockwave-pool.ts # Zero-GC expanding 3D contact shockwave ripple pool
-    │   └── spark-particle-pool.ts # Zero-GC GPU multi-form spark & floating mote pool (256 Points)
+    │   └── spark-particle-pool.ts # Zero-GC GPU multi-form spark & floating mote pool (adaptive 140/420 cap, O(1) idle skip)
     └── ui/
         ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
         ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
         ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales, live Reverb/Delay FX rack)
-        ├── settings-panel.ts   # Glassmorphic Settings & Accessibility drawer (One-Hand / Two-Hand Mode toggle, live hints toggle)
+        ├── settings-panel.ts   # Glassmorphic Settings & Accessibility drawer (Hand Mode, Pitch Mode, Performance Profile, live hints)
         ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
         ├── hand-prompt.ts      # Live step-by-step hand coach pill with 3s + 3-2-1 single-hand auto-switch countdown
         └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with Hand Mode quick toggle, integrated button progress/spinner loader, gesture cards & compact privacy notice
@@ -281,8 +282,8 @@ graph TD
 
 1. **Multi-Layered Glowing Laser Beam & Bi-Directional Propagating Energy Waves** (`anchored-strings-view.ts`, `dynamic-string-view.ts`):
    - **3-Layer Additive Laser Beam Assembly**: Each string renders (1) a blazing white-hot plasma core ribbon ($\alpha = 0.96$), (2) an intense saturated neon inner glow beam ($\alpha = 0.65\text{–}0.78$), and (3) a wide soft outer bloom halo ($\alpha = 0.25\text{–}0.58$), while keeping graduated ruler/fret ticks subtle and highly transparent ($\alpha = 0.16\text{–}0.18$).
-   - On pluck at `contactRatio` ($u_0$), launches two counter-propagating Gaussian wave packets ($u_0 \pm c t$) that travel outward toward both anchors and reflect off the boundaries, coupled with 1st, 2nd, and 3rd guitar string harmonics weighted by $\sin(n\pi u_0)$ and a phase-lagged motion-blur ghost trail line.
-   - Dynamic per-vertex chromatic gradients transition across **Cyan (`#00f0ff`), Electric Blue (`#38bdf8`), Neon Magenta (`#ff007f`), and Vivid Purple (`#a855f7`)**, with a white-hot flash at the contact point and wavefront peaks, smoothly dissipating over $\sim 1.75\text{ s}$ back to the straight idle state.
+   - On pluck at `contactRatio` ($u_0$), launches two counter-propagating Gaussian energy pulses ($u_0 \pm c t$) that travel outward toward both anchors and reflect off the boundaries, coupled with length-aware, $1/n^2$-weighted 1st, 2nd, and 3rd standing string harmonics ($\sin(n\pi u_0)$, faster overtone damping, brief pluck-release transient) and a subtle high-speed motion-blur trail line.
+   - Dynamic per-vertex chromatic gradients transition across **Cyan (`#00f0ff`), Electric Blue (`#38bdf8`), Neon Magenta (`#ff007f`), and Vivid Purple (`#a855f7`)**, with a white-hot flash at the contact point and wavefront peaks, smoothly dissipating over $\sim 1.35\text{ s}$ back to the straight idle state.
 
 2. **Expanding Circular Contact Shockwave Ripples** (`pluck-shockwave-pool.ts`):
    - Pre-allocated pool of 10 subtle, transparent concentric circular ring shockwaves (`THREE.RingGeometry`, `opacity: 0.28`, `maxRadius: 0.036`) that expand delicately from the fingertip contact point on pluck over `240 ms`.

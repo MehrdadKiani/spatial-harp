@@ -18,6 +18,7 @@ export class PluckShockwavePool {
 
   private nextIndex = 0;
   private tempColor = new THREE.Color();
+  private whiteColor = new THREE.Color(0xffffff);
 
   constructor(scene: THREE.Scene) {
     this.group = new THREE.Group();
@@ -116,7 +117,7 @@ export class PluckShockwavePool {
 
     innerMesh.position.set(sw.x, sw.y, sw.z + 0.0025);
     innerMesh.scale.set(sw.radius * 0.65, sw.radius * 0.65, 1);
-    innerMat.color.copy(this.tempColor).lerp(new THREE.Color(0xffffff), 0.5);
+    innerMat.color.copy(this.tempColor).lerp(this.whiteColor, 0.5);
     innerMat.opacity = sw.alpha * 0.55;
     innerMesh.visible = true;
   }
