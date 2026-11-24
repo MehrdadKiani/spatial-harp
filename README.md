@@ -27,7 +27,7 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 - **Sound Presets & Harmonic Scales**:
   - **Presets**: *Plucked Harp*, *Laser Synth*, *Ambient Chime*, *Retro 8-Bit*.
   - **Musical Scales**: *Pentatonic*, *Natural Minor*, *Hirajōshi*, *Major*, *Blues*.
-- **Endpoint Re-Grab & Repositioning**: Pinch existing string anchors to reposition, rotate, or fine-tune strings in 3D space.
+- **Fretted & Classic Pitch Modes**: In **Fretted Mode** (default for One-Hand Mode), each string acts as a 5-note fretboard depending on where you pluck it (`left → right`); switch anytime to **Classic Mode** (one pure note per string by length) in `⚙️ Settings`.
 - **Glassmorphic Responsive UI**: Cyberpunk-inspired HUD, live FPS/system diagnostics, audio meters, and a 4-step interactive visual tutorial.
 - **100% Offline & Private**: Zero cloud dependencies. Video frames are processed entirely on-device; no camera data is ever recorded, stored, or transmitted.
 
@@ -35,8 +35,8 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 
 ## 🎮 How to Play
 
-1. **Pinch & Drag (One-Hand Default) or Dual Pinch (Two-Hand)**: In **One-Hand Mode**, pinch thumb and index in open air, drag to stretch a holographic string, and release to lock it. In **Two-Hand Mode**, pinch both hands simultaneously, stretch apart, and release.
-2. **Switch Modes Anytime**: Toggle between **One-Hand** and **Two-Hand** on the Splash Screen or via `⚙️ Settings` in the top bar. If you're in Two-Hand Mode and show only one hand for 3 seconds, a `3-2-1` countdown automatically switches to One-Hand Mode.
+1. **Charge-to-Pop & Stretch**: Hold a steady thumb+index pinch (`~0.45s`) until the glowing charge orb **pops** to lock your start point (one hand in **One-Hand Mode**, or both hands in **Two-Hand Mode**), then drag apart and release to anchor the string.
+2. **Switch Modes or Lock Harp**: Toggle **One-Hand / Two-Hand** on the Splash Screen or in `⚙️ Settings` (Two-Hand Mode auto-switches via a 3s + `3-2-1` countdown if only 1 hand is shown). Click **🔒 Lock** (or press `L`) to lock your harp in Play Mode for distraction-free strumming.
 3. **Pluck to Play**: Swipe any fingertip across an anchored string. Velocity determines loudness, brightness, and particle burst intensity.
 4. **Re-Grab & Adjust**: Pinch either endpoint reticle of an existing string to pick it back up, stretch it, or rotate its position.
 5. **Clear / Reset**: Use the trash button in the top navigation bar (or press `C` / `Space`) to clear all active strings.

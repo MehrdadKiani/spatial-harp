@@ -25,6 +25,14 @@ export class DynamicStringView {
   private anchorRings: THREE.Mesh[] = [];
   private anchorGlowRings: THREE.Mesh[] = [];
 
+  // Hold-to-charge growing orbs & expanding halo rings (up to 2 hands, zero-GC)
+  private chargeCoreOrbs: THREE.Mesh[] = [];
+  private chargeOuterRings: THREE.Mesh[] = [];
+  private chargeCoreMat: THREE.MeshBasicMaterial;
+  private chargeOuterMat: THREE.MeshBasicMaterial;
+  private chargeColorStart = new THREE.Color(0x00f0ff);
+  private chargeColorEnd = new THREE.Color(0x76ff99);
+
   // Materials & configurable dimensions
   private stringMaterial: THREE.LineBasicMaterial;
   private tickMaterial: THREE.LineBasicMaterial;
@@ -145,6 +153,38 @@ export class DynamicStringView {
       this.group.add(ring);
       this.group.add(glowRing);
     }
+
+    // 4. Hold-to-Charge Growing Orbs (visual buildup before pop-lock)
+    this.chargeCoreMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.75,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+    this.chargeOuterMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+
+    const chargeCoreGeom = new THREE.CircleGeometry(0.015, 28);
+    const chargeOuterGeom = new THREE.RingGeometry(0.019, 0.023, 32);
+
+    for (let i = 0; i < 2; i++) {
+      const core = new THREE.Mesh(chargeCoreGeom, this.chargeCoreMat);
+      const outer = new THREE.Mesh(chargeOuterGeom, this.chargeOuterMat);
+      core.visible = false;
+      outer.visible = false;
+      this.chargeCoreOrbs.push(core);
+      this.chargeOuterRings.push(outer);
+      this.group.add(core);
+      this.group.add(outer);
+    }
   }
 
   public configure(cfg: Partial<VisualsConfigGroup>): void {
@@ -163,8 +203,51 @@ export class DynamicStringView {
   ): void {
     this.anchorRings.forEach((r) => (r.visible = false));
     this.anchorGlowRings.forEach((r) => (r.visible = false));
+    this.chargeCoreOrbs.forEach((o) => (o.visible = false));
+    this.chargeOuterRings.forEach((r) => (r.visible = false));
 
-    if (preview.mode === 'one-hand' && preview.isActive && preview.point1 && preview.point2) {
+    if (preview.isCharging && preview.chargePoint1) {
+      const p = preview.chargeProgress;
+      const coreScale = 0.28 + p * 1.25 + Math.sin(p * Math.PI) * 0.12;
+      const outerScale = 0.55 + p * 1.15;
+
+      this.chargeCoreMat.color.lerpColors(this.chargeColorStart, this.chargeColorEnd, p);
+      this.chargeCoreMat.opacity = 0.35 + p * 0.6;
+      this.chargeOuterMat.color.lerpColors(this.chargeColorStart, this.chargeColorEnd, p);
+      this.chargeOuterMat.opacity = 0.45 + p * 0.55;
+
+      const c1 = this.sceneManager.toWorldCoords(
+        preview.chargePoint1.x,
+        preview.chargePoint1.y,
+        preview.chargePoint1.z,
+        videoAspect
+      );
+      this.chargeCoreOrbs[0].position.copy(c1);
+      this.chargeCoreOrbs[0].scale.setScalar(coreScale);
+      this.chargeCoreOrbs[0].visible = true;
+
+      this.chargeOuterRings[0].position.copy(c1);
+      this.chargeOuterRings[0].scale.setScalar(outerScale);
+      this.chargeOuterRings[0].rotation.z = elapsed * (3.0 + p * 8.0);
+      this.chargeOuterRings[0].visible = true;
+
+      if (preview.chargePoint2) {
+        const c2 = this.sceneManager.toWorldCoords(
+          preview.chargePoint2.x,
+          preview.chargePoint2.y,
+          preview.chargePoint2.z,
+          videoAspect
+        );
+        this.chargeCoreOrbs[1].position.copy(c2);
+        this.chargeCoreOrbs[1].scale.setScalar(coreScale);
+        this.chargeCoreOrbs[1].visible = true;
+
+        this.chargeOuterRings[1].position.copy(c2);
+        this.chargeOuterRings[1].scale.setScalar(outerScale);
+        this.chargeOuterRings[1].rotation.z = -elapsed * (3.0 + p * 8.0);
+        this.chargeOuterRings[1].visible = true;
+      }
+    } else if (preview.mode === 'one-hand' && preview.isActive && preview.point1 && preview.point2) {
       // Show fixed start anchor reticle at point1 and moving pinch reticle at point2
       const w1 = this.sceneManager.toWorldCoords(
         preview.point1.x,

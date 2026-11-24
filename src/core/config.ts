@@ -1,4 +1,4 @@
-import { AudioFxParams, MusicalScaleId, SoundPresetId } from '../types/audio';
+import { AudioFxParams, MusicalScaleId, PitchMode, SoundPresetId } from '../types/audio';
 import { HandInteractionMode } from '../types/instruments';
 
 export interface VisionConfigGroup {
@@ -26,6 +26,8 @@ export interface StringsConfigGroup {
   maxStrings: number;
   minAnchorDistance: number;
   minStretchDurationMs: number;
+  chargeDurationMs: number;
+  maxChargeMoveDistance: number;
   releaseGraceMs: number;
   cooldownMs: number;
   grabProximityThreshold: number;
@@ -53,6 +55,8 @@ export interface AudioConfigGroup {
   _comment?: string;
   defaultPreset: SoundPresetId;
   defaultScale: MusicalScaleId;
+  pitchMode: PitchMode;
+  fretZones: number;
   volumeDb: number;
   reverbWet: number;
   delayWet: number;
@@ -135,6 +139,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     maxStrings: 12,
     minAnchorDistance: 0.10,
     minStretchDurationMs: 150,
+    chargeDurationMs: 450,
+    maxChargeMoveDistance: 0.065,
     releaseGraceMs: 120,
     cooldownMs: 350,
     grabProximityThreshold: 0.045,
@@ -167,6 +173,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   audio: {
     defaultPreset: 'harp',
     defaultScale: 'pentatonic',
+    pitchMode: 'fretted',
+    fretZones: 5,
     volumeDb: -4,
     reverbWet: 0.30,
     delayWet: 0.12,
@@ -239,6 +247,7 @@ export function parseHexPalette(palette: string[]): number[] {
 export interface StoredUserOverrides {
   defaultPreset?: SoundPresetId;
   defaultScale?: MusicalScaleId;
+  pitchMode?: PitchMode;
   handMode?: HandInteractionMode;
   showLiveHints?: boolean;
   presetFxOverrides?: Partial<Record<SoundPresetId, Partial<AudioFxParams>>>;
@@ -335,6 +344,9 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
   }
   if (overrides.defaultScale) {
     merged.audio.defaultScale = overrides.defaultScale;
+  }
+  if (overrides.pitchMode === 'fretted' || overrides.pitchMode === 'length') {
+    merged.audio.pitchMode = overrides.pitchMode;
   }
   if (overrides.handMode === 'one-hand' || overrides.handMode === 'two-hand') {
     merged.strings.handMode = overrides.handMode;

@@ -33,8 +33,8 @@ import { SoundStudioPanel } from './ui/sound-studio-panel';
 import { SettingsPanel } from './ui/settings-panel';
 import { TutorialModal } from './ui/tutorial-modal';
 import { HandPrompt } from './ui/hand-prompt';
-import { PluckEvent } from './types/audio';
-import { HandInteractionMode } from './types/instruments';
+import { PitchMode, PluckEvent } from './types/audio';
+import { ChargePopEvent, HandInteractionMode } from './types/instruments';
 import { globalBus } from './core/event-bus';
 
 // Initialize Vercel Web Analytics and Speed Insights
@@ -97,7 +97,7 @@ class App {
     this.pluckShockwavePool = new PluckShockwavePool(this.sceneManager.scene);
 
     // 3. Audio & Musical Harmony Subsystems
-    this.scaleMapper = new ScaleMapper(this.config.audio.defaultScale);
+    this.scaleMapper = new ScaleMapper(this.config.audio.defaultScale, this.config.audio.pitchMode);
     this.audioEngine = new AudioEngine({
       volume: this.config.audio.volumeDb,
       reverbWet: this.config.audio.reverbWet,
@@ -113,6 +113,8 @@ class App {
       maxStrings: this.config.strings.maxStrings,
       minAnchorDistance: this.config.strings.minAnchorDistance,
       minStretchDurationMs: this.config.strings.minStretchDurationMs,
+      chargeDurationMs: this.config.strings.chargeDurationMs,
+      maxChargeMoveDistance: this.config.strings.maxChargeMoveDistance,
       releaseGraceMs: this.config.strings.releaseGraceMs,
       cooldownMs: this.config.strings.cooldownMs,
       grabProximityThreshold: this.config.strings.grabProximityThreshold,
@@ -154,9 +156,13 @@ class App {
 
     this.settingsPanel = new SettingsPanel(this.container, {
       initialHandMode: this.config.strings.handMode,
+      initialPitchMode: this.config.audio.pitchMode,
       initialShowLiveHints: this.config.ui.showLiveHints,
       onHandModeChange: (mode) => {
         this.setHandMode(mode, true);
+      },
+      onPitchModeChange: (pitchMode) => {
+        this.setPitchMode(pitchMode, true);
       },
       onShowLiveHintsChange: (enabled) => {
         this.config.ui.showLiveHints = enabled;
@@ -193,6 +199,9 @@ class App {
       },
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
+      },
+      onToggleLock: () => {
+        this.toggleHarpLock();
       },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
@@ -295,6 +304,24 @@ class App {
       }
     });
 
+    // 6b. Hold-to-charge pop burst listener (shockwave + sparks + tactile audio pop)
+    globalBus.on<ChargePopEvent>('string:charge_pop', (event) => {
+      const videoAspect = this.cameraManager.aspectRatio;
+      const emitPopAt = (pt: { x: number; y: number; z: number }) => {
+        const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
+        this.sparkOrigin.copy(worldPos);
+        this.sparkNormal.set(0, 1, 0);
+        this.pluckShockwavePool.emitShockwave(this.sparkOrigin, 0x38ef7d, 0.9);
+        this.sparkParticlePool.emitBurst(this.sparkOrigin, this.sparkNormal, 0x00f0ff, 0.85);
+      };
+
+      emitPopAt(event.point1);
+      if (event.point2) {
+        emitPopAt(event.point2);
+      }
+      this.audioEngine.playAnchorPop();
+    });
+
     // 7. Hand tracker, gesture detector & loop ticker
     this.handTracker = new HandTracker();
     this.pinchDetector = new PinchDetector({
@@ -311,6 +338,8 @@ class App {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyC' || e.code === 'Space') {
         this.spatialStringManager.clearAll();
+      } else if (e.code === 'KeyL') {
+        this.toggleHarpLock();
       }
     });
   }
@@ -333,6 +362,8 @@ class App {
     // 4. Audio engine & scale mapper
     this.scaleMapper.configure({
       defaultScale: cfg.audio.defaultScale,
+      pitchMode: cfg.audio.pitchMode,
+      fretZones: cfg.audio.fretZones,
       minNormLengthForPitch: cfg.audio.minNormLengthForPitch,
       maxNormLengthForPitch: cfg.audio.maxNormLengthForPitch,
     });
@@ -357,10 +388,20 @@ class App {
     this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
     this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
     this.settingsPanel.setHandMode(cfg.strings.handMode);
+    this.settingsPanel.setPitchMode(cfg.audio.pitchMode);
     this.settingsPanel.setShowLiveHints(cfg.ui.showLiveHints);
     this.splashScreen.setHandMode(cfg.strings.handMode);
     this.handPrompt.setHandMode(cfg.strings.handMode);
     this.handPrompt.configure(cfg.ui.showLiveHints);
+  }
+
+  private setPitchMode(mode: PitchMode, persist = true): void {
+    this.config.audio.pitchMode = mode;
+    this.scaleMapper.setPitchMode(mode);
+    this.settingsPanel.setPitchMode(mode);
+    if (persist) {
+      saveUserOverride({ pitchMode: mode });
+    }
   }
 
   private setHandMode(mode: HandInteractionMode, persist = true): void {
@@ -370,15 +411,36 @@ class App {
     this.settingsPanel.setHandMode(mode);
     this.splashScreen.setHandMode(mode);
 
+    // Default to Fretted Pitch Mode in One-Hand Mode and Classic Length Mode in Two-Hand Mode
+    const defaultPitchForHandMode: PitchMode = mode === 'one-hand' ? 'fretted' : 'length';
+    this.setPitchMode(defaultPitchForHandMode, persist);
+
     if (persist) {
       saveUserOverride({ handMode: mode });
     }
 
     if (this.isVisionReady) {
       this.hud.setMessage(
-        mode === 'one-hand'
-          ? 'One-Hand Mode: Pinch & drag in mid-air to draw and lock a string.'
-          : 'Two-Hand Mode: Pinch thumb & index on both hands to stretch and anchor a string.'
+        this.spatialStringManager.getIsLocked()
+          ? 'Harp Locked (Play Mode) — strum freely! Press [L] or click Lock to edit.'
+          : mode === 'one-hand'
+            ? 'One-Hand Mode: Hold pinch steady to pop-lock Point A, drag & release.'
+            : 'Two-Hand Mode: Hold dual pinch steady to pop-lock, stretch & release.'
+      );
+    }
+  }
+
+  private toggleHarpLock(): void {
+    const nextLocked = !this.spatialStringManager.getIsLocked();
+    this.spatialStringManager.setLocked(nextLocked);
+    this.navBar.setLocked(nextLocked);
+    if (this.isVisionReady) {
+      this.hud.setMessage(
+        nextLocked
+          ? 'Harp Locked (Play Mode) — strum freely! Press [L] or click Lock to edit.'
+          : this.config.strings.handMode === 'one-hand'
+            ? 'Harp Unlocked — hold pinch steady to draw strings.'
+            : 'Harp Unlocked — hold dual pinch steady to stretch strings.'
       );
     }
   }

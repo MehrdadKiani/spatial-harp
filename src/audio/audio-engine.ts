@@ -411,6 +411,46 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Plays a crisp, subtle tactile pop chirp when a hold-to-charge anchor locks in mid-air
+   */
+  public playAnchorPop(): void {
+    if (!this.isAudioStarted) return;
+    try {
+      const rawCtx = Tone.getContext().rawContext as AudioContext;
+      if (rawCtx.state !== 'running') return;
+
+      const now = rawCtx.currentTime + 0.002;
+      const osc = rawCtx.createOscillator();
+      const gain = rawCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(1040, now + 0.055);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.09, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
+
+      osc.connect(gain);
+      Tone.connect(gain, this.mainVolume);
+
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          gain.disconnect();
+        } catch {
+          // Already disconnected
+        }
+      };
+
+      osc.start(now);
+      osc.stop(now + 0.085);
+    } catch {
+      // Ignore audio pop errors
+    }
+  }
+
   public get isReady(): boolean {
     return this.isAudioStarted && Tone.context.state === 'running';
   }

@@ -40,7 +40,7 @@ const ONE_HAND_COPY: Record<'show_hands' | 'pinch' | 'release' | 'pluck', HintCo
   },
   pinch: {
     icon: '🤏',
-    text: 'Pinch & drag in mid-air to draw a string',
+    text: 'Hold pinch steady until it pops, then drag to draw a string',
     accentBorder: 'rgba(0, 240, 255, 0.50)',
     accentGlow: 'rgba(0, 240, 255, 0.22)',
   },
@@ -67,7 +67,7 @@ const TWO_HAND_COPY: Record<'show_hands' | 'pinch' | 'release' | 'pluck', HintCo
   },
   pinch: {
     icon: '🤏',
-    text: 'Pinch thumb & index on both hands to create a string',
+    text: 'Hold pinch on both hands until it pops to create a string',
     accentBorder: 'rgba(0, 240, 255, 0.50)',
     accentGlow: 'rgba(0, 240, 255, 0.22)',
   },

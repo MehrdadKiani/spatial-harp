@@ -209,7 +209,7 @@ export class StringCollisionDetector {
               this.lastPluckTimes.set(pluckKey, nowMs);
               this.lastStringPluckTimes.set(str.id, nowMs);
 
-              const { note, frequency } = this.scaleMapper.getNoteForString(str, strings);
+              const { note, frequency } = this.scaleMapper.getNoteForString(str, strings, contactRatio);
 
               const event: PluckEvent = {
                 stringId: str.id,

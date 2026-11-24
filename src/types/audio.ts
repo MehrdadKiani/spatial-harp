@@ -20,6 +20,8 @@ export interface SoundPresetInfo {
 
 export type MusicalScaleId = 'pentatonic' | 'minor' | 'hirajoshi' | 'major' | 'blues';
 
+export type PitchMode = 'fretted' | 'length';
+
 export interface MusicalScaleInfo {
   id: MusicalScaleId;
   label: string;

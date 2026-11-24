@@ -1,9 +1,12 @@
 import { HandInteractionMode } from '../types/instruments';
+import { PitchMode } from '../types/audio';
 
 export interface SettingsPanelOptions {
   initialHandMode?: HandInteractionMode;
+  initialPitchMode?: PitchMode;
   initialShowLiveHints?: boolean;
   onHandModeChange?: (mode: HandInteractionMode) => void;
+  onPitchModeChange?: (mode: PitchMode) => void;
   onShowLiveHintsChange?: (enabled: boolean) => void;
   onClose?: () => void;
 }
@@ -13,13 +16,18 @@ export class SettingsPanel {
   private oneHandBtn: HTMLButtonElement;
   private twoHandBtn: HTMLButtonElement;
   private modeDescEl: HTMLDivElement;
+  private frettedBtn: HTMLButtonElement;
+  private classicBtn: HTMLButtonElement;
+  private pitchDescEl: HTMLDivElement;
   private hintsCheckbox: HTMLInputElement;
   private closeBtn: HTMLButtonElement;
   private currentMode: HandInteractionMode;
+  private currentPitchMode: PitchMode;
   private isOpen = false;
 
   constructor(container: HTMLElement, options: SettingsPanelOptions = {}) {
     this.currentMode = options.initialHandMode ?? 'one-hand';
+    this.currentPitchMode = options.initialPitchMode ?? (this.currentMode === 'one-hand' ? 'fretted' : 'length');
 
     this.element = document.createElement('div');
     this.element.id = 'settings-panel';
@@ -72,6 +80,22 @@ export class SettingsPanel {
           <div id="settings-mode-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 9px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
         </div>
 
+        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px;">
+          <label style="color: #00f0ff; font-weight: 600; display: flex; justify-content: space-between;">
+            <span>String Pitch Mode</span>
+            <span style="color: rgba(255,255,255,0.45); font-size: 11px;">Note Mapping</span>
+          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button id="settings-pitch-fretted" type="button" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 9px; font-family: var(--font-primary); font-size: 12px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
+              <span>🎸</span><span>Fretted</span>
+            </button>
+            <button id="settings-pitch-length" type="button" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 9px; font-family: var(--font-primary); font-size: 12px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
+              <span>🎵</span><span>Classic</span>
+            </button>
+          </div>
+          <div id="settings-pitch-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 9px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
+        </div>
+
         <label style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 9px; cursor: pointer;">
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <span style="font-weight: 600; color: #ffffff; font-size: 12px;">Live Coaching Hints</span>
@@ -87,11 +111,15 @@ export class SettingsPanel {
     this.oneHandBtn = this.element.querySelector('#settings-mode-one') as HTMLButtonElement;
     this.twoHandBtn = this.element.querySelector('#settings-mode-two') as HTMLButtonElement;
     this.modeDescEl = this.element.querySelector('#settings-mode-desc') as HTMLDivElement;
+    this.frettedBtn = this.element.querySelector('#settings-pitch-fretted') as HTMLButtonElement;
+    this.classicBtn = this.element.querySelector('#settings-pitch-length') as HTMLButtonElement;
+    this.pitchDescEl = this.element.querySelector('#settings-pitch-desc') as HTMLDivElement;
     this.hintsCheckbox = this.element.querySelector('#settings-hints-toggle') as HTMLInputElement;
     this.closeBtn = this.element.querySelector('#settings-close-btn') as HTMLButtonElement;
 
     this.hintsCheckbox.checked = options.initialShowLiveHints ?? true;
     this.renderModeSelection();
+    this.renderPitchSelection();
 
     this.closeBtn.addEventListener('mouseenter', () => {
       this.closeBtn.style.color = '#ffffff';
@@ -118,6 +146,20 @@ export class SettingsPanel {
       }
     });
 
+    this.frettedBtn.addEventListener('click', () => {
+      if (this.currentPitchMode !== 'fretted') {
+        this.setPitchMode('fretted');
+        if (options.onPitchModeChange) options.onPitchModeChange('fretted');
+      }
+    });
+
+    this.classicBtn.addEventListener('click', () => {
+      if (this.currentPitchMode !== 'length') {
+        this.setPitchMode('length');
+        if (options.onPitchModeChange) options.onPitchModeChange('length');
+      }
+    });
+
     this.hintsCheckbox.addEventListener('change', () => {
       if (options.onShowLiveHintsChange) {
         options.onShowLiveHintsChange(this.hintsCheckbox.checked);
@@ -130,26 +172,40 @@ export class SettingsPanel {
     this.renderModeSelection();
   }
 
+  public setPitchMode(mode: PitchMode): void {
+    this.currentPitchMode = mode;
+    this.renderPitchSelection();
+  }
+
   public setShowLiveHints(enabled: boolean): void {
     this.hintsCheckbox.checked = enabled;
   }
 
+  private applyToggleStyle(btn: HTMLButtonElement, active: boolean): void {
+    btn.style.background = active ? 'rgba(0, 240, 255, 0.22)' : 'rgba(14, 24, 44, 0.85)';
+    btn.style.border = active ? '1px solid rgba(0, 240, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.16)';
+    btn.style.color = active ? '#00f0ff' : 'rgba(255, 255, 255, 0.72)';
+    btn.style.boxShadow = active ? '0 0 12px rgba(0, 240, 255, 0.25)' : 'none';
+  }
+
   private renderModeSelection(): void {
     const isOneHand = this.currentMode === 'one-hand';
-
-    const applyStyle = (btn: HTMLButtonElement, active: boolean) => {
-      btn.style.background = active ? 'rgba(0, 240, 255, 0.22)' : 'rgba(14, 24, 44, 0.85)';
-      btn.style.border = active ? '1px solid rgba(0, 240, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.16)';
-      btn.style.color = active ? '#00f0ff' : 'rgba(255, 255, 255, 0.72)';
-      btn.style.boxShadow = active ? '0 0 12px rgba(0, 240, 255, 0.25)' : 'none';
-    };
-
-    applyStyle(this.oneHandBtn, isOneHand);
-    applyStyle(this.twoHandBtn, !isOneHand);
+    this.applyToggleStyle(this.oneHandBtn, isOneHand);
+    this.applyToggleStyle(this.twoHandBtn, !isOneHand);
 
     this.modeDescEl.textContent = isOneHand
-      ? '✋ Pinch thumb & index in open air, drag to stretch, and release to lock a string with a single hand.'
-      : '👐 Pinch with both hands to stretch strings. Showing only 1 hand for 3s starts a 3-2-1 auto-switch to One-Hand Mode.';
+      ? '✋ Hold pinch steady to pop-lock Point A, drag to stretch, and release with one hand.'
+      : '👐 Hold dual pinch steady to pop-lock and stretch with both hands. Showing 1 hand for 3s starts a 3-2-1 auto-switch.';
+  }
+
+  private renderPitchSelection(): void {
+    const isFretted = this.currentPitchMode === 'fretted';
+    this.applyToggleStyle(this.frettedBtn, isFretted);
+    this.applyToggleStyle(this.classicBtn, !isFretted);
+
+    this.pitchDescEl.textContent = isFretted
+      ? '🎸 Pluck different positions along a string (left → right) to play 5 notes per string — ideal for one-hand melodies.'
+      : '🎵 Classic harp: each string plays one pure note based on its 3D length (shorter = higher, longer = deeper).';
   }
 
   public open(): void {

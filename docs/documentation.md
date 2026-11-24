@@ -19,7 +19,7 @@ Codebase ↔ Functionality Mindmap: [docs/mindmap.md](./mindmap.md).
 | **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ **COMPLETED** | Multi-engine sound synthesizer (Harp, Laser Synth, Ambient Chime, Retro 8-Bit) & 5 musical scale modes (Pentatonic, Minor, Hirajōshi, Major, Blues). |
 | **Step 7** | **Advanced Plucking Visual Effects & Wave Envelopes** | ✅ **COMPLETED** | Resonant dual-wave envelope sheath (spindle oscillation), contact shockwaves, streak sparks, crosshair anchor reticles. |
 | **Step 8** | **Glassmorphic UI Suite & Mobile/Tablet Responsiveness** | ✅ **COMPLETED** | Navigation bar, Sound Studio drawer, real progress splash screen, centralized JetBrains Mono typography, safe-area & cross-device responsive layout. |
-| **Step 9** | **One-Hand Accessibility Mode & Settings Drawer** | ✅ **COMPLETED** | Default One-Hand Mode (Pinch-Drag-Release string creation), SplashScreen & SettingsPanel (`⚙️`) mode toggles, 3s + `3-2-1` auto-fallback countdown in Two-Hand Mode, `localStorage` persistence, and unit tests. |
+| **Step 9** | **One-Hand Accessibility Mode, Charge-to-Pop, Fretted Pitch & Harp Lock** | ✅ **COMPLETED** | Default One-Hand Mode (Hold-to-Charge → Pop → Drag → Release string creation with stillness guard & tactile pop VFX/SFX), Fretted Pitch Mode (5 position-based notes per string, default in One-Hand Mode, switchable in `⚙️ Settings`), SplashScreen & SettingsPanel toggles, 3s + `3-2-1` auto-fallback countdown, NavBar `🔒 Lock` Play Mode (`[L]`), `localStorage` persistence, and unit tests. |
 
 ---
 

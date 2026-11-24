@@ -13,6 +13,7 @@ export interface NavItem {
 export interface NavBarOptions {
   onTabChange?: (tabId: string) => void;
   onToggleDiagnostics?: () => void;
+  onToggleLock?: () => void;
   onClearStrings?: () => void;
 }
 
@@ -20,17 +21,21 @@ export class NavBar {
   private element: HTMLElement;
   private logoContainer: HTMLDivElement;
   private navItemsContainer: HTMLDivElement;
+  private lockBtn: HTMLButtonElement;
   private diagBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
   private activeTabId: string = 'instrument';
   private isDiagActive = false;
+  private isLocked = false;
   private onTabChange?: (tabId: string) => void;
   private onToggleDiagnostics?: () => void;
+  private onToggleLock?: () => void;
   private onClearStrings?: () => void;
 
   constructor(container: HTMLElement, options: NavBarOptions = {}) {
     this.onTabChange = options.onTabChange;
     this.onToggleDiagnostics = options.onToggleDiagnostics;
+    this.onToggleLock = options.onToggleLock;
     this.onClearStrings = options.onClearStrings;
 
     this.element = document.createElement('header');
@@ -190,6 +195,48 @@ export class NavBar {
       }
     });
 
+    // Lock Harp (Play Mode) Toggle Button in NavBar
+    this.lockBtn = document.createElement('button');
+    this.lockBtn.id = 'navbar-lock-btn';
+    this.lockBtn.title = 'Lock harp to play freely without creating or moving strings [L]';
+    Object.assign(this.lockBtn.style, {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      background: 'rgba(255, 255, 255, 0.06)',
+      border: '1px solid rgba(255, 255, 255, 0.22)',
+      color: 'rgba(255, 255, 255, 0.85)',
+      borderRadius: '8px',
+      padding: '6px 14px',
+      fontSize: '13px',
+      fontWeight: '700',
+      letterSpacing: '0.8px',
+      textTransform: 'uppercase',
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+    });
+    this.lockBtn.innerHTML = `<span>🔓</span><span class="navbar-btn-label">Lock</span>`;
+
+    this.lockBtn.addEventListener('mouseenter', () => {
+      if (!this.isLocked) {
+        this.lockBtn.style.background = 'rgba(255, 170, 0, 0.16)';
+        this.lockBtn.style.borderColor = 'rgba(255, 170, 0, 0.55)';
+        this.lockBtn.style.color = '#ffaa00';
+      }
+      this.lockBtn.style.transform = 'translateY(-1px)';
+    });
+    this.lockBtn.addEventListener('mouseleave', () => {
+      this.applyLockStyle();
+      this.lockBtn.style.transform = 'translateY(0)';
+    });
+    this.lockBtn.addEventListener('click', () => {
+      if (this.onToggleLock) {
+        this.onToggleLock();
+      }
+    });
+
+    rightContainer.appendChild(this.lockBtn);
     rightContainer.appendChild(this.diagBtn);
     rightContainer.appendChild(this.clearBtn);
 
@@ -273,6 +320,28 @@ export class NavBar {
     this.diagBtn.style.background = active ? 'rgba(0, 240, 255, 0.28)' : 'rgba(0, 240, 255, 0.08)';
     this.diagBtn.style.borderColor = active ? '#00f0ff' : 'rgba(0, 240, 255, 0.35)';
     this.diagBtn.style.boxShadow = active ? '0 0 12px rgba(0, 240, 255, 0.45)' : 'none';
+  }
+
+  public setLocked(locked: boolean): void {
+    this.isLocked = locked;
+    this.lockBtn.innerHTML = locked
+      ? `<span>🔒</span><span class="navbar-btn-label">Locked</span>`
+      : `<span>🔓</span><span class="navbar-btn-label">Lock</span>`;
+    this.applyLockStyle();
+  }
+
+  private applyLockStyle(): void {
+    if (this.isLocked) {
+      this.lockBtn.style.background = 'rgba(255, 170, 0, 0.24)';
+      this.lockBtn.style.borderColor = '#ffaa00';
+      this.lockBtn.style.color = '#ffca44';
+      this.lockBtn.style.boxShadow = '0 0 14px rgba(255, 170, 0, 0.45)';
+    } else {
+      this.lockBtn.style.background = 'rgba(255, 255, 255, 0.06)';
+      this.lockBtn.style.borderColor = 'rgba(255, 255, 255, 0.22)';
+      this.lockBtn.style.color = 'rgba(255, 255, 255, 0.85)';
+      this.lockBtn.style.boxShadow = 'none';
+    }
   }
 
   public setVisible(visible: boolean): void {

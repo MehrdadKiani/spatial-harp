@@ -22,10 +22,20 @@ export type HandInteractionMode = 'one-hand' | 'two-hand';
 
 export interface StringPreviewState {
   isActive: boolean;
+  isCharging: boolean;
+  chargeProgress: number;          // 0..1 while holding steady pinch to lock Point A
+  chargePoint1?: Point3D;
+  chargePoint2?: Point3D;
   point1?: Point3D;
   point2?: Point3D;
   mode: HandInteractionMode;
   drawingHandId?: number;
+}
+
+export interface ChargePopEvent {
+  point1: Point3D;
+  point2?: Point3D;
+  mode: HandInteractionMode;
 }
 
 export interface SpatialStringConfig {
@@ -33,6 +43,8 @@ export interface SpatialStringConfig {
   maxStrings?: number;             // Default: 12
   minAnchorDistance?: number;      // Default: 0.10 (normalized camera space)
   minStretchDurationMs?: number;   // Default: 150ms
+  chargeDurationMs?: number;       // Default: 450ms (hold steady pinch to pop & lock start point)
+  maxChargeMoveDistance?: number;  // Default: 0.065 (max normalized drift allowed while charging)
   releaseGraceMs?: number;         // Default: 120ms (debounce tracking flicker on fast movement)
   cooldownMs?: number;             // Default: 350ms (prevent rapid accidental duplicate anchors)
   grabProximityThreshold?: number; // Default: 0.032 (tight crosshair reticle hitbox)
