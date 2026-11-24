@@ -1,4 +1,5 @@
 import { MusicalScaleId, SoundPresetId } from '../types/audio';
+import { HandInteractionMode } from '../types/instruments';
 
 export interface VisionConfigGroup {
   _comment?: string;
@@ -21,6 +22,7 @@ export interface PinchConfigGroup {
 
 export interface StringsConfigGroup {
   _comment?: string;
+  handMode: HandInteractionMode;
   maxStrings: number;
   minAnchorDistance: number;
   minStretchDurationMs: number;
@@ -129,6 +131,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     releaseThreshold: 0.080,
   },
   strings: {
+    handMode: 'one-hand',
     maxStrings: 12,
     minAnchorDistance: 0.10,
     minStretchDurationMs: 150,
@@ -236,6 +239,8 @@ export function parseHexPalette(palette: string[]): number[] {
 export interface StoredUserOverrides {
   defaultPreset?: SoundPresetId;
   defaultScale?: MusicalScaleId;
+  handMode?: HandInteractionMode;
+  showLiveHints?: boolean;
 }
 
 export function loadUserOverrides(): StoredUserOverrides {
@@ -305,6 +310,12 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
   }
   if (overrides.defaultScale) {
     merged.audio.defaultScale = overrides.defaultScale;
+  }
+  if (overrides.handMode === 'one-hand' || overrides.handMode === 'two-hand') {
+    merged.strings.handMode = overrides.handMode;
+  }
+  if (typeof overrides.showLiveHints === 'boolean') {
+    merged.ui.showLiveHints = overrides.showLiveHints;
   }
 
   return merged;

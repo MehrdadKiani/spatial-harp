@@ -19,6 +19,7 @@ Codebase ↔ Functionality Mindmap: [docs/mindmap.md](./mindmap.md).
 | **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ **COMPLETED** | Multi-engine sound synthesizer (Harp, Laser Synth, Ambient Chime, Retro 8-Bit) & 5 musical scale modes (Pentatonic, Minor, Hirajōshi, Major, Blues). |
 | **Step 7** | **Advanced Plucking Visual Effects & Wave Envelopes** | ✅ **COMPLETED** | Resonant dual-wave envelope sheath (spindle oscillation), contact shockwaves, streak sparks, crosshair anchor reticles. |
 | **Step 8** | **Glassmorphic UI Suite & Mobile/Tablet Responsiveness** | ✅ **COMPLETED** | Navigation bar, Sound Studio drawer, real progress splash screen, centralized JetBrains Mono typography, safe-area & cross-device responsive layout. |
+| **Step 9** | **One-Hand Accessibility Mode & Settings Drawer** | ✅ **COMPLETED** | Default One-Hand Mode (Pinch-Drag-Release string creation), SplashScreen & SettingsPanel (`⚙️`) mode toggles, 3s + `3-2-1` auto-fallback countdown in Two-Hand Mode, `localStorage` persistence, and unit tests. |
 
 ---
 
@@ -96,6 +97,7 @@ graph TD
 ├── tests/
 │   ├── audio/                  # ScaleMapper & Mersenne's Law acoustic pitch tests
 │   ├── gestures/               # PinchDetector hysteresis & string collision tests
+│   ├── instruments/            # SpatialStringManager one-hand & two-hand anchoring tests
 │   └── core/                   # EventBus & AppConfig integrity tests
 └── src/
     ├── main.ts                 # Application bootstrapper & loop wiring
@@ -103,7 +105,7 @@ graph TD
     │   ├── env.d.ts            # Global compile-time environment typings (__APP_VERSION__)
     │   ├── vision.ts           # HandPose, Landmark, Bone connections
     │   ├── gestures.ts         # PinchState, DualPinchState, HandGestureState
-    │   ├── instruments.ts      # AnchoredString, EndpointGrabState, SpatialStringConfig
+    │   ├── instruments.ts      # AnchoredString, EndpointGrabState, HandInteractionMode, StringPreviewState, SpatialStringConfig
     │   ├── audio.ts            # PluckEvent, AudioEngineConfig
     │   └── physics.ts          # StringVibrationState, SparkParticle, ShockwaveState
     ├── core/
@@ -134,9 +136,10 @@ graph TD
         ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
         ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
         ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales)
+        ├── settings-panel.ts   # Glassmorphic Settings & Accessibility drawer (One-Hand / Two-Hand Mode toggle, live hints toggle)
         ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
-        ├── hand-prompt.ts      # Live step-by-step hand coach pill (show hands -> pinch -> release -> pluck, toggled via ui.showLiveHints)
-        └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with integrated button progress/spinner loader, gesture cards & compact privacy notice
+        ├── hand-prompt.ts      # Live step-by-step hand coach pill with 3s + 3-2-1 single-hand auto-switch countdown
+        └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with Hand Mode quick toggle, integrated button progress/spinner loader, gesture cards & compact privacy notice
 ```
 
 ---

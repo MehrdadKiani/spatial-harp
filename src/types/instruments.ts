@@ -18,7 +18,18 @@ export interface EndpointGrabState {
   endpoint: 'p1' | 'p2';
 }
 
+export type HandInteractionMode = 'one-hand' | 'two-hand';
+
+export interface StringPreviewState {
+  isActive: boolean;
+  point1?: Point3D;
+  point2?: Point3D;
+  mode: HandInteractionMode;
+  drawingHandId?: number;
+}
+
 export interface SpatialStringConfig {
+  handMode?: HandInteractionMode;  // Default: 'one-hand'
   maxStrings?: number;             // Default: 12
   minAnchorDistance?: number;      // Default: 0.10 (normalized camera space)
   minStretchDurationMs?: number;   // Default: 150ms

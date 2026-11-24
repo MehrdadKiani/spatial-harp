@@ -21,7 +21,7 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 ## ✨ Features
 
 - **Mirrored Low-Latency AR Tracking**: Processes 21 3D hand landmarks in real time with local WebAssembly (WASM) and SIMD acceleration.
-- **Mid-Air Spatial String Anchoring**: Pinch your thumb and index fingers on both hands to spawn, stretch, and lock 3D laser-like strings in mid-air space.
+- **One-Hand Accessibility Mode (Default) & Two-Hand Mode**: Draw mid-air strings with a single hand via **Pinch → Drag → Release**, or switch to **Two-Hand Dual-Pinch** in the Splash Screen or `⚙️ Settings` drawer (with a 3s + `3-2-1` auto-switch fallback if only one hand is shown).
 - **Dual-Wave Resonant Visual Sheath**: Plucked strings oscillate with damped harmonic motion, dynamic wave envelopes, and contact shockwaves.
 - **Polyphonic Physical Modeling Synthesis**: Karplus-Strong string synthesis, customizable polyphony, studio reverb, and feedback delay.
 - **Sound Presets & Harmonic Scales**:
@@ -35,11 +35,11 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 
 ## 🎮 How to Play
 
-1. **Pinch & Stretch**: Pinch your thumb and index finger on **both hands** simultaneously. An elastic holographic string appears connecting your hands.
-2. **Anchor in Space**: Move your hands to position the string in 3D space, then **release both pinches** to lock the string in mid-air.
+1. **Pinch & Drag (One-Hand Default) or Dual Pinch (Two-Hand)**: In **One-Hand Mode**, pinch thumb and index in open air, drag to stretch a holographic string, and release to lock it. In **Two-Hand Mode**, pinch both hands simultaneously, stretch apart, and release.
+2. **Switch Modes Anytime**: Toggle between **One-Hand** and **Two-Hand** on the Splash Screen or via `⚙️ Settings` in the top bar. If you're in Two-Hand Mode and show only one hand for 3 seconds, a `3-2-1` countdown automatically switches to One-Hand Mode.
 3. **Pluck to Play**: Swipe any fingertip across an anchored string. Velocity determines loudness, brightness, and particle burst intensity.
 4. **Re-Grab & Adjust**: Pinch either endpoint reticle of an existing string to pick it back up, stretch it, or rotate its position.
-5. **Clear / Reset**: Use the trash button in the top navigation bar to clear all active strings.
+5. **Clear / Reset**: Use the trash button in the top navigation bar (or press `C` / `Space`) to clear all active strings.
 
 ---
 

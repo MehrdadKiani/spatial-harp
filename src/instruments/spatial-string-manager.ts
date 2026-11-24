@@ -1,5 +1,11 @@
 import { DualPinchState, HandGestureState } from '../types/gestures';
-import { AnchoredString, EndpointGrabState, SpatialStringConfig } from '../types/instruments';
+import {
+  AnchoredString,
+  EndpointGrabState,
+  HandInteractionMode,
+  SpatialStringConfig,
+  StringPreviewState,
+} from '../types/instruments';
 import { Point3D } from '../types/vision';
 import { SceneManager } from '../render/scene-manager';
 import { globalBus } from '../core/event-bus';
@@ -26,6 +32,7 @@ interface PendingGrabCandidate {
 export class SpatialStringManager {
   private strings: AnchoredString[] = [];
   private sceneManager: SceneManager;
+  private handMode: HandInteractionMode;
   private maxStrings: number;
   private minAnchorDistance: number;
   private minStretchDurationMs: number;
@@ -48,6 +55,7 @@ export class SpatialStringManager {
 
   // Robust anchoring state machine with debounce & flicker suppression
   private isStretching = false;
+  private drawingHandId: number | null = null;
   private stretchStartTime = 0;
   private releaseStartTime = 0;
   private lastAnchorTime = 0;
@@ -55,8 +63,14 @@ export class SpatialStringManager {
   private lastPoint2: Point3D | null = null;
   private nextId = 1;
 
+  // Pre-allocated preview state objects (zero-GC inside RAF tick)
+  private previewP1: Point3D = { x: 0, y: 0, z: 0 };
+  private previewP2: Point3D = { x: 0, y: 0, z: 0 };
+  private previewState: StringPreviewState = { isActive: false, mode: 'one-hand' };
+
   constructor(sceneManager: SceneManager, config: SpatialStringConfig = {}) {
     this.sceneManager = sceneManager;
+    this.handMode = config.handMode ?? 'one-hand';
     this.maxStrings = config.maxStrings ?? 12;
     this.minAnchorDistance = config.minAnchorDistance ?? 0.10;
     this.minStretchDurationMs = config.minStretchDurationMs ?? 150;
@@ -70,6 +84,7 @@ export class SpatialStringManager {
   }
 
   public configure(config: SpatialStringConfig): void {
+    if (config.handMode !== undefined) this.setHandMode(config.handMode);
     if (config.maxStrings !== undefined) this.maxStrings = config.maxStrings;
     if (config.minAnchorDistance !== undefined) this.minAnchorDistance = config.minAnchorDistance;
     if (config.minStretchDurationMs !== undefined) this.minStretchDurationMs = config.minStretchDurationMs;
@@ -80,6 +95,20 @@ export class SpatialStringManager {
     if (config.grabDwellMs !== undefined) this.grabDwellMs = config.grabDwellMs;
     if (config.maxGrabHandSpeed !== undefined) this.maxGrabHandSpeed = config.maxGrabHandSpeed;
     if (config.palette && config.palette.length > 0) this.palette = config.palette;
+  }
+
+  public setHandMode(mode: HandInteractionMode): void {
+    if (this.handMode === mode) return;
+    this.handMode = mode;
+    this.isStretching = false;
+    this.drawingHandId = null;
+    this.releaseStartTime = 0;
+    this.lastPoint1 = null;
+    this.lastPoint2 = null;
+  }
+
+  public getHandMode(): HandInteractionMode {
+    return this.handMode;
   }
 
   public update(
@@ -235,13 +264,60 @@ export class SpatialStringManager {
     // 3. New String Creation State Machine
     if (this.activeGrabs.size > 0 || this.pendingGrabs.size > 0) {
       this.isStretching = false;
+      this.drawingHandId = null;
       this.releaseStartTime = 0;
       this.lastPoint1 = null;
       this.lastPoint2 = null;
       return null;
     }
 
-    if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
+    if (this.handMode === 'one-hand') {
+      // One-Hand Mode: Pinch at Point A -> Drag to Point B -> Release to anchor
+      const pinchingHand =
+        this.drawingHandId !== null
+          ? gestureStates.find((g) => g.handId === this.drawingHandId && g.pinch.isPinching)
+          : gestureStates.find((g) => g.pinch.isPinching);
+
+      if (pinchingHand) {
+        if (this.releaseStartTime > 0) {
+          this.releaseStartTime = 0;
+        }
+
+        if (!this.isStretching) {
+          if (nowMs - this.lastAnchorTime >= this.cooldownMs) {
+            this.isStretching = true;
+            this.drawingHandId = pinchingHand.handId;
+            this.stretchStartTime = nowMs;
+            this.lastPoint1 = { ...pinchingHand.pinch.pinchPoint };
+            this.lastPoint2 = { ...pinchingHand.pinch.pinchPoint };
+          }
+        } else {
+          this.lastPoint2 = { ...pinchingHand.pinch.pinchPoint };
+        }
+      } else if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
+        if (this.releaseStartTime === 0) {
+          this.releaseStartTime = nowMs;
+        } else if (nowMs - this.releaseStartTime >= this.releaseGraceMs) {
+          const stretchDuration = this.releaseStartTime - this.stretchStartTime;
+
+          const dx = this.lastPoint1.x - this.lastPoint2.x;
+          const dy = this.lastPoint1.y - this.lastPoint2.y;
+          const dz = (this.lastPoint1.z - this.lastPoint2.z) * 0.5;
+          const normDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          if (normDistance >= this.minAnchorDistance && stretchDuration >= this.minStretchDurationMs) {
+            newlyAnchored = this.anchorString(this.lastPoint1, this.lastPoint2, videoAspect, nowMs);
+            this.lastAnchorTime = nowMs;
+          }
+
+          this.isStretching = false;
+          this.drawingHandId = null;
+          this.releaseStartTime = 0;
+          this.lastPoint1 = null;
+          this.lastPoint2 = null;
+        }
+      }
+    } else if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
       if (this.releaseStartTime > 0) {
         this.releaseStartTime = 0;
       }
@@ -275,6 +351,7 @@ export class SpatialStringManager {
           }
 
           this.isStretching = false;
+          this.drawingHandId = null;
           this.releaseStartTime = 0;
           this.lastPoint1 = null;
           this.lastPoint2 = null;
@@ -332,10 +409,64 @@ export class SpatialStringManager {
     this.pinchStartedAwayFromTip.clear();
     this.prevHandSamples.clear();
     this.isStretching = false;
+    this.drawingHandId = null;
     this.releaseStartTime = 0;
     this.lastPoint1 = null;
     this.lastPoint2 = null;
     globalBus.emit('string:cleared', { count });
+  }
+
+  /**
+   * Returns a zero-GC reusable preview state for DynamicStringView (works for both one-hand & two-hand modes).
+   */
+  public getPreviewState(dualPinch: DualPinchState): StringPreviewState {
+    this.previewState.mode = this.handMode;
+
+    if (this.handMode === 'one-hand') {
+      if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
+        this.previewP1.x = this.lastPoint1.x;
+        this.previewP1.y = this.lastPoint1.y;
+        this.previewP1.z = this.lastPoint1.z;
+        this.previewP2.x = this.lastPoint2.x;
+        this.previewP2.y = this.lastPoint2.y;
+        this.previewP2.z = this.lastPoint2.z;
+        this.previewState.isActive = true;
+        this.previewState.point1 = this.previewP1;
+        this.previewState.point2 = this.previewP2;
+        this.previewState.drawingHandId = this.drawingHandId ?? undefined;
+      } else {
+        this.previewState.isActive = false;
+        this.previewState.point1 = undefined;
+        this.previewState.point2 = undefined;
+        this.previewState.drawingHandId = undefined;
+      }
+    } else if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
+      this.previewP1.x = dualPinch.point1.x;
+      this.previewP1.y = dualPinch.point1.y;
+      this.previewP1.z = dualPinch.point1.z;
+      this.previewP2.x = dualPinch.point2.x;
+      this.previewP2.y = dualPinch.point2.y;
+      this.previewP2.z = dualPinch.point2.z;
+      this.previewState.isActive = true;
+      this.previewState.point1 = this.previewP1;
+      this.previewState.point2 = this.previewP2;
+      this.previewState.drawingHandId = undefined;
+    } else {
+      this.previewState.isActive = false;
+      this.previewState.point1 = undefined;
+      this.previewState.point2 = undefined;
+      this.previewState.drawingHandId = undefined;
+    }
+
+    return this.previewState;
+  }
+
+  public getDrawingHandId(): number | null {
+    return this.isStretching ? this.drawingHandId : null;
+  }
+
+  public get isDrawingString(): boolean {
+    return this.isStretching;
   }
 
   public removeString(id: string): void {

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { DualPinchState, HandGestureState } from '../types/gestures';
+import { HandGestureState } from '../types/gestures';
+import { StringPreviewState } from '../types/instruments';
 import { SceneManager } from './scene-manager';
 import { VisualsConfigGroup } from '../core/config';
 
@@ -156,45 +157,75 @@ export class DynamicStringView {
 
   public update(
     gestureStates: HandGestureState[],
-    dualPinch: DualPinchState,
+    preview: StringPreviewState,
     videoAspect: number,
     elapsed: number
   ): void {
     this.anchorRings.forEach((r) => (r.visible = false));
     this.anchorGlowRings.forEach((r) => (r.visible = false));
 
-    gestureStates.forEach((gesture, idx) => {
-      if (idx >= 2) return;
-
-      if (gesture.pinch.isPinching) {
-        const pt = gesture.pinch.pinchPoint;
-        const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
-
-        const ring = this.anchorRings[idx];
-        const glow = this.anchorGlowRings[idx];
-
-        ring.position.copy(worldPos);
-        glow.position.copy(worldPos);
-
-        ring.rotation.z = elapsed * 2.0;
-        glow.rotation.z = -elapsed * 1.5;
-
-        ring.visible = true;
-        glow.visible = true;
-      }
-    });
-
-    if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
+    if (preview.mode === 'one-hand' && preview.isActive && preview.point1 && preview.point2) {
+      // Show fixed start anchor reticle at point1 and moving pinch reticle at point2
       const w1 = this.sceneManager.toWorldCoords(
-        dualPinch.point1.x,
-        dualPinch.point1.y,
-        dualPinch.point1.z,
+        preview.point1.x,
+        preview.point1.y,
+        preview.point1.z,
         videoAspect
       );
       const w2 = this.sceneManager.toWorldCoords(
-        dualPinch.point2.x,
-        dualPinch.point2.y,
-        dualPinch.point2.z,
+        preview.point2.x,
+        preview.point2.y,
+        preview.point2.z,
+        videoAspect
+      );
+
+      this.anchorRings[0].position.copy(w1);
+      this.anchorGlowRings[0].position.copy(w1);
+      this.anchorRings[0].rotation.z = elapsed * 2.0;
+      this.anchorGlowRings[0].rotation.z = -elapsed * 1.5;
+      this.anchorRings[0].visible = true;
+      this.anchorGlowRings[0].visible = true;
+
+      this.anchorRings[1].position.copy(w2);
+      this.anchorGlowRings[1].position.copy(w2);
+      this.anchorRings[1].rotation.z = elapsed * 2.0;
+      this.anchorGlowRings[1].rotation.z = -elapsed * 1.5;
+      this.anchorRings[1].visible = true;
+      this.anchorGlowRings[1].visible = true;
+    } else {
+      gestureStates.forEach((gesture, idx) => {
+        if (idx >= 2) return;
+
+        if (gesture.pinch.isPinching) {
+          const pt = gesture.pinch.pinchPoint;
+          const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
+
+          const ring = this.anchorRings[idx];
+          const glow = this.anchorGlowRings[idx];
+
+          ring.position.copy(worldPos);
+          glow.position.copy(worldPos);
+
+          ring.rotation.z = elapsed * 2.0;
+          glow.rotation.z = -elapsed * 1.5;
+
+          ring.visible = true;
+          glow.visible = true;
+        }
+      });
+    }
+
+    if (preview.isActive && preview.point1 && preview.point2) {
+      const w1 = this.sceneManager.toWorldCoords(
+        preview.point1.x,
+        preview.point1.y,
+        preview.point1.z,
+        videoAspect
+      );
+      const w2 = this.sceneManager.toWorldCoords(
+        preview.point2.x,
+        preview.point2.y,
+        preview.point2.z,
         videoAspect
       );
 

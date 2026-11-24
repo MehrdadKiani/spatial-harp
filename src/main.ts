@@ -27,9 +27,11 @@ import { HUD } from './ui/hud';
 import { NavBar } from './ui/nav-bar';
 import { SplashScreen } from './ui/splash-screen';
 import { SoundStudioPanel } from './ui/sound-studio-panel';
+import { SettingsPanel } from './ui/settings-panel';
 import { TutorialModal } from './ui/tutorial-modal';
 import { HandPrompt } from './ui/hand-prompt';
 import { PluckEvent } from './types/audio';
+import { HandInteractionMode } from './types/instruments';
 import { globalBus } from './core/event-bus';
 
 // Initialize Vercel Web Analytics and Speed Insights
@@ -55,6 +57,7 @@ class App {
   private pluckShockwavePool: PluckShockwavePool;
   private navBar: NavBar;
   private soundStudioPanel: SoundStudioPanel;
+  private settingsPanel: SettingsPanel;
   private tutorialModal: TutorialModal;
   private splashScreen: SplashScreen;
   private handPrompt: HandPrompt;
@@ -103,6 +106,7 @@ class App {
 
     // 4. Instruments Subsystem: Mid-air Spatial String Manager
     this.spatialStringManager = new SpatialStringManager(this.sceneManager, {
+      handMode: this.config.strings.handMode,
       maxStrings: this.config.strings.maxStrings,
       minAnchorDistance: this.config.strings.minAnchorDistance,
       minStretchDurationMs: this.config.strings.minStretchDurationMs,
@@ -115,7 +119,7 @@ class App {
       palette: parseHexPalette(this.config.strings.palette),
     });
 
-    // 5. UI NavBar, SoundStudioPanel, HUD & Splash Screen
+    // 5. UI NavBar, SoundStudioPanel, SettingsPanel, HUD & Splash Screen
     this.soundStudioPanel = new SoundStudioPanel(this.container, {
       onPresetChange: (preset) => {
         this.audioEngine.setPreset(preset);
@@ -131,17 +135,43 @@ class App {
       },
     });
 
+    this.settingsPanel = new SettingsPanel(this.container, {
+      initialHandMode: this.config.strings.handMode,
+      initialShowLiveHints: this.config.ui.showLiveHints,
+      onHandModeChange: (mode) => {
+        this.setHandMode(mode, true);
+      },
+      onShowLiveHintsChange: (enabled) => {
+        this.config.ui.showLiveHints = enabled;
+        this.handPrompt.configure(enabled);
+        saveUserOverride({ showLiveHints: enabled });
+      },
+      onClose: () => {
+        this.navBar.setActiveTab('instrument');
+      },
+    });
+
     this.tutorialModal = new TutorialModal(this.container, () => {
       this.navBar.setActiveTab('instrument');
     });
-    this.handPrompt = new HandPrompt(this.container);
+    this.handPrompt = new HandPrompt(this.container, {
+      initialHandMode: this.config.strings.handMode,
+      onAutoSwitchToOneHand: () => {
+        this.setHandMode('one-hand', true);
+      },
+    });
 
     this.navBar = new NavBar(this.container, {
       onTabChange: (tabId) => {
         if (tabId === 'studio') {
+          this.settingsPanel.close();
           this.soundStudioPanel.open();
+        } else if (tabId === 'settings') {
+          this.soundStudioPanel.close();
+          this.settingsPanel.open();
         } else {
           this.soundStudioPanel.close();
+          this.settingsPanel.close();
         }
       },
       onToggleDiagnostics: () => {
@@ -162,6 +192,10 @@ class App {
 
     // Initial Splash Screen: clicking START explicitly requests camera, unlocks Web Audio & opens tutorial
     this.splashScreen = new SplashScreen(this.container, {
+      initialHandMode: this.config.strings.handMode,
+      onHandModeChange: (mode) => {
+        this.setHandMode(mode, true);
+      },
       onStart: async () => {
         await this.startExperience();
       },
@@ -299,10 +333,34 @@ class App {
     this.pluckShockwavePool.configure(cfg.visuals);
     this.sparkParticlePool.configure(cfg.visuals);
 
-    // 6. Sync Sound Studio dropdowns & UI hints with loaded config
+    // 6. Sync Sound Studio, Settings, Splash & UI hints with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
     this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
+    this.settingsPanel.setHandMode(cfg.strings.handMode);
+    this.settingsPanel.setShowLiveHints(cfg.ui.showLiveHints);
+    this.splashScreen.setHandMode(cfg.strings.handMode);
+    this.handPrompt.setHandMode(cfg.strings.handMode);
     this.handPrompt.configure(cfg.ui.showLiveHints);
+  }
+
+  private setHandMode(mode: HandInteractionMode, persist = true): void {
+    this.config.strings.handMode = mode;
+    this.spatialStringManager.setHandMode(mode);
+    this.handPrompt.setHandMode(mode);
+    this.settingsPanel.setHandMode(mode);
+    this.splashScreen.setHandMode(mode);
+
+    if (persist) {
+      saveUserOverride({ handMode: mode });
+    }
+
+    if (this.isVisionReady) {
+      this.hud.setMessage(
+        mode === 'one-hand'
+          ? 'One-Hand Mode: Pinch & drag in mid-air to draw and lock a string.'
+          : 'Two-Hand Mode: Pinch thumb & index on both hands to stretch and anchor a string.'
+      );
+    }
   }
 
   private async unlockAudio(): Promise<void> {
@@ -377,7 +435,11 @@ class App {
       }
 
       this.isVisionReady = true;
-      this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
+      this.hud.setMessage(
+        this.config.strings.handMode === 'one-hand'
+          ? 'One-Hand Mode: Pinch & drag in mid-air to draw and lock a string.'
+          : 'Two-Hand Mode: Pinch thumb & index on both hands to stretch and anchor a string.'
+      );
 
       // 4. Start main RAF tick loop
       if (!this.isLoopInitialized) {
@@ -428,14 +490,21 @@ class App {
     this.spatialStringManager.update(gestureStates, dualPinch, videoAspect, nowMs);
     const anchoredStrings = this.spatialStringManager.getStrings();
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
+    const previewState = this.spatialStringManager.getPreviewState(dualPinch);
 
     // Update live step-by-step hand coaching pill (zero-GC)
-    this.handPrompt.update(hands.length, dualPinch.isDualPinch, anchoredStrings.length, nowMs);
+    this.handPrompt.update(hands.length, previewState.isActive, anchoredStrings.length, nowMs);
 
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();
     let grabbedStringNote: string | null = null;
     const postGrabCooldown = this.config.strings.postGrabReleaseCooldownMs;
+
+    const drawingHandId = this.spatialStringManager.getDrawingHandId();
+    if (drawingHandId !== null) {
+      ignoreHandIds.add(drawingHandId);
+      this.handGrabCooldownUntil.set(drawingHandId, nowMs + postGrabCooldown);
+    }
 
     if (activeGrabs.length > 0) {
       activeGrabs.forEach((grab) => {
@@ -461,7 +530,7 @@ class App {
 
     // 6. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
     if (!this.spatialStringManager.isAnyEndpointGrabbed) {
-      this.dynamicStringView.update(gestureStates, dualPinch, videoAspect, elapsed);
+      this.dynamicStringView.update(gestureStates, previewState, videoAspect, elapsed);
     } else {
       this.dynamicStringView.setVisible(false);
     }

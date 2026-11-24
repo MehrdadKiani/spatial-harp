@@ -1,14 +1,28 @@
 /**
  * Live Contextual Hand Coach Pill (Zero UI Framework - Pure Vanilla DOM & TypeScript)
  * Guides first-time users step-by-step through the core loop without blocking the camera:
- *   1. Show both hands to the camera
- *   2. Pinch thumb & index on both hands to create a string
- *   3. Stretch apart & release to lock the string in air
- *   4. Swipe a fingertip across the string to play
+ *   One-Hand Mode (default):
+ *     1. Show your hand to the camera
+ *     2. Pinch thumb & index and drag in mid-air to draw a string
+ *     3. Drag apart & release to lock the string in air
+ *     4. Swipe a fingertip across the string to play
+ *   Two-Hand Mode:
+ *     - Guides both hands; if only 1 hand is visible for 3s with 0 strings,
+ *       runs a 3-2-1 countdown and automatically switches to One-Hand Mode.
  * Automatically fades out once the user plucks their first note.
  */
 
-type HintStage = 'none' | 'show_hands' | 'pinch' | 'release' | 'pluck';
+import { HandInteractionMode } from '../types/instruments';
+
+type HintStage =
+  | 'none'
+  | 'show_hands'
+  | 'pinch'
+  | 'release'
+  | 'pluck'
+  | 'countdown_3'
+  | 'countdown_2'
+  | 'countdown_1';
 
 interface HintContent {
   icon: string;
@@ -17,9 +31,36 @@ interface HintContent {
   accentGlow: string;
 }
 
-const HINT_COPY: Record<Exclude<HintStage, 'none'>, HintContent> = {
+const ONE_HAND_COPY: Record<'show_hands' | 'pinch' | 'release' | 'pluck', HintContent> = {
   show_hands: {
     icon: '✋',
+    text: 'Show your hand to the camera',
+    accentBorder: 'rgba(0, 240, 255, 0.38)',
+    accentGlow: 'rgba(0, 240, 255, 0.16)',
+  },
+  pinch: {
+    icon: '🤏',
+    text: 'Pinch & drag in mid-air to draw a string',
+    accentBorder: 'rgba(0, 240, 255, 0.50)',
+    accentGlow: 'rgba(0, 240, 255, 0.22)',
+  },
+  release: {
+    icon: '✨',
+    text: 'Drag apart & release to lock the string in air',
+    accentBorder: 'rgba(56, 239, 125, 0.50)',
+    accentGlow: 'rgba(56, 239, 125, 0.22)',
+  },
+  pluck: {
+    icon: '☝️',
+    text: 'Swipe a fingertip across the string to play',
+    accentBorder: 'rgba(255, 0, 127, 0.50)',
+    accentGlow: 'rgba(255, 0, 127, 0.22)',
+  },
+};
+
+const TWO_HAND_COPY: Record<'show_hands' | 'pinch' | 'release' | 'pluck', HintContent> = {
+  show_hands: {
+    icon: '👐',
     text: 'Show both hands to the camera',
     accentBorder: 'rgba(0, 240, 255, 0.38)',
     accentGlow: 'rgba(0, 240, 255, 0.16)',
@@ -44,7 +85,35 @@ const HINT_COPY: Record<Exclude<HintStage, 'none'>, HintContent> = {
   },
 };
 
+const COUNTDOWN_COPY: Record<'countdown_3' | 'countdown_2' | 'countdown_1', HintContent> = {
+  countdown_3: {
+    icon: '⏳',
+    text: 'One hand detected — switching to One-Hand Mode in 3...',
+    accentBorder: 'rgba(255, 170, 0, 0.65)',
+    accentGlow: 'rgba(255, 170, 0, 0.28)',
+  },
+  countdown_2: {
+    icon: '⏳',
+    text: 'One hand detected — switching to One-Hand Mode in 2...',
+    accentBorder: 'rgba(255, 170, 0, 0.72)',
+    accentGlow: 'rgba(255, 170, 0, 0.32)',
+  },
+  countdown_1: {
+    icon: '⏳',
+    text: 'One hand detected — switching to One-Hand Mode in 1...',
+    accentBorder: 'rgba(56, 239, 125, 0.75)',
+    accentGlow: 'rgba(56, 239, 125, 0.35)',
+  },
+};
+
 const HANDS_LOST_GRACE_MS = 900;
+const SINGLE_HAND_DETECT_MS = 3000;
+const COUNTDOWN_DURATION_MS = 3000;
+
+export interface HandPromptOptions {
+  initialHandMode?: HandInteractionMode;
+  onAutoSwitchToOneHand?: () => void;
+}
 
 export class HandPrompt {
   private element: HTMLDivElement;
@@ -54,10 +123,16 @@ export class HandPrompt {
   private isEnabled = true;
   private isActive = false;
   private hasCompletedOnboarding = false;
+  private handMode: HandInteractionMode;
   private currentStage: HintStage = 'none';
-  private lastTwoHandsSeenMs = -Infinity;
+  private lastRequiredHandsSeenMs = -Infinity;
+  private singleHandSinceMs = -Infinity;
+  private onAutoSwitchToOneHand?: () => void;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: HandPromptOptions = {}) {
+    this.handMode = options.initialHandMode ?? 'one-hand';
+    this.onAutoSwitchToOneHand = options.onAutoSwitchToOneHand;
+
     this.element = document.createElement('div');
     this.element.id = 'hand-camera-prompt';
     this.element.setAttribute('aria-live', 'polite');
@@ -116,13 +191,31 @@ export class HandPrompt {
     }
   }
 
+  public setHandMode(mode: HandInteractionMode): void {
+    if (this.handMode === mode) return;
+    this.handMode = mode;
+    this.singleHandSinceMs = -Infinity;
+    this.lastRequiredHandsSeenMs = -Infinity;
+    // Refresh copy immediately if currently visible
+    if (this.currentStage !== 'none') {
+      const stageToRefresh: HintStage =
+        this.currentStage === 'countdown_3' ||
+        this.currentStage === 'countdown_2' ||
+        this.currentStage === 'countdown_1'
+          ? 'show_hands'
+          : this.currentStage;
+      this.applyStage(stageToRefresh);
+    }
+  }
+
   /**
    * Starts live coaching once the camera experience is running.
    */
   public activate(): void {
     this.isActive = true;
     this.hasCompletedOnboarding = false;
-    this.lastTwoHandsSeenMs = -Infinity;
+    this.lastRequiredHandsSeenMs = -Infinity;
+    this.singleHandSinceMs = -Infinity;
     if (this.isEnabled) {
       this.applyStage('show_hands');
     }
@@ -134,6 +227,7 @@ export class HandPrompt {
   public markPlucked(): void {
     if (this.hasCompletedOnboarding) return;
     this.hasCompletedOnboarding = true;
+    this.singleHandSinceMs = -Infinity;
     this.applyStage('none');
   }
 
@@ -142,31 +236,71 @@ export class HandPrompt {
    */
   public update(
     handCount: number,
-    isDualPinch: boolean,
+    isStretching: boolean,
     stringCount: number,
     nowMs: number
   ): void {
-    if (!this.isEnabled || !this.isActive || this.hasCompletedOnboarding) {
+    if (!this.isActive) return;
+
+    // 1. Auto-fallback in Two-Hand Mode: if only 1 hand is shown for 3s (with 0 strings),
+    //    run a 3-2-1 countdown and automatically switch to One-Hand Mode.
+    let countdownStage: 'countdown_3' | 'countdown_2' | 'countdown_1' | null = null;
+
+    if (this.handMode === 'two-hand' && stringCount === 0 && !isStretching && handCount === 1) {
+      if (this.singleHandSinceMs === -Infinity) {
+        this.singleHandSinceMs = nowMs;
+      }
+      const elapsedSingleMs = nowMs - this.singleHandSinceMs;
+      if (elapsedSingleMs >= SINGLE_HAND_DETECT_MS + COUNTDOWN_DURATION_MS) {
+        // Countdown finished -> switch to One-Hand Mode and continue
+        this.handMode = 'one-hand';
+        this.singleHandSinceMs = -Infinity;
+        this.lastRequiredHandsSeenMs = nowMs;
+        if (this.onAutoSwitchToOneHand) {
+          this.onAutoSwitchToOneHand();
+        }
+      } else if (elapsedSingleMs >= SINGLE_HAND_DETECT_MS) {
+        const remainingSec = Math.ceil(
+          (SINGLE_HAND_DETECT_MS + COUNTDOWN_DURATION_MS - elapsedSingleMs) / 1000
+        );
+        if (remainingSec >= 3) countdownStage = 'countdown_3';
+        else if (remainingSec === 2) countdownStage = 'countdown_2';
+        else countdownStage = 'countdown_1';
+      }
+    } else {
+      this.singleHandSinceMs = -Infinity;
+    }
+
+    // Show countdown even if general hints were previously completed or disabled, so user sees why mode switches
+    if (countdownStage) {
+      if (countdownStage !== this.currentStage) {
+        this.applyStage(countdownStage);
+      }
+      return;
+    }
+
+    if (!this.isEnabled || this.hasCompletedOnboarding) {
       if (this.currentStage !== 'none') {
         this.applyStage('none');
       }
       return;
     }
 
-    if (handCount >= 2) {
-      this.lastTwoHandsSeenMs = nowMs;
+    const requiredHands = this.handMode === 'one-hand' ? 1 : 2;
+    if (handCount >= requiredHands) {
+      this.lastRequiredHandsSeenMs = nowMs;
     }
 
     let nextStage: HintStage;
     if (stringCount > 0) {
       nextStage = 'pluck';
-    } else if (isDualPinch) {
+    } else if (isStretching) {
       nextStage = 'release';
-    } else if (handCount >= 2) {
+    } else if (handCount >= requiredHands) {
       nextStage = 'pinch';
     } else if (
       this.currentStage === 'pinch' &&
-      nowMs - this.lastTwoHandsSeenMs < HANDS_LOST_GRACE_MS
+      nowMs - this.lastRequiredHandsSeenMs < HANDS_LOST_GRACE_MS
     ) {
       // Avoid flickering back to "show_hands" during brief single-frame tracking drops
       nextStage = 'pinch';
@@ -188,7 +322,13 @@ export class HandPrompt {
       return;
     }
 
-    const content = HINT_COPY[stage];
+    const content =
+      stage === 'countdown_3' || stage === 'countdown_2' || stage === 'countdown_1'
+        ? COUNTDOWN_COPY[stage]
+        : this.handMode === 'one-hand'
+          ? ONE_HAND_COPY[stage]
+          : TWO_HAND_COPY[stage];
+
     this.iconEl.textContent = content.icon;
     this.textEl.textContent = content.text;
     this.element.style.borderColor = content.accentBorder;

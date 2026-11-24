@@ -21,7 +21,8 @@
   },
 
   "strings": {
-    "_comment": "Mid-air string creation rules, 3-layer anti-snag endpoint tip grabbing (hitbox radius, firm pinch distance, hold dwell time, max hand speed), and laser color palette.",
+    "_comment": "Mid-air string creation rules ('one-hand' pinch-drag default or 'two-hand' dual-pinch), 3-layer anti-snag endpoint tip grabbing, and laser color palette.",
+    "handMode": "one-hand",
     "maxStrings": 8,
     "minAnchorDistance": 0.10,
     "minStretchDurationMs": 150,

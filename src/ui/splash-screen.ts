@@ -4,10 +4,14 @@
  * button that seamlessly unlocks the Web Audio Context.
  */
 
+import { HandInteractionMode } from '../types/instruments';
+
 export interface SplashScreenOptions {
   title?: string;
   subtitle?: string;
   buttonLabel?: string;
+  initialHandMode?: HandInteractionMode;
+  onHandModeChange?: (mode: HandInteractionMode) => void;
   onStart?: () => void | Promise<void>;
 }
 
@@ -20,15 +24,26 @@ export class SplashScreen {
   private btnSpinner: HTMLSpanElement;
   private btnText: HTMLSpanElement;
   private errorBanner: HTMLDivElement;
+  private oneHandBtn: HTMLButtonElement;
+  private twoHandBtn: HTMLButtonElement;
+  private createGuideIcon: HTMLDivElement;
+  private createGuideTitle: HTMLDivElement;
+  private createGuideDesc: HTMLDivElement;
   private isDismissed = false;
   private isReady = false;
+  private handMode: HandInteractionMode;
+  private customButtonLabel?: string;
   private buttonLabel: string;
+  private onHandModeChange?: (mode: HandInteractionMode) => void;
   private onStart?: () => void | Promise<void>;
 
   constructor(container: HTMLElement, options: SplashScreenOptions = {}) {
     this.container = container;
     this.onStart = options.onStart;
-    this.buttonLabel = options.buttonLabel || 'START & SHOW BOTH HANDS TO CAMERA';
+    this.onHandModeChange = options.onHandModeChange;
+    this.handMode = options.initialHandMode ?? 'one-hand';
+    this.customButtonLabel = options.buttonLabel;
+    this.buttonLabel = this.getEffectiveButtonLabel();
 
     this.element = document.createElement('div');
     this.element.id = 'app-splash-screen';
@@ -115,10 +130,10 @@ export class SplashScreen {
           font-size: 13px;
         ">
           <div class="splash-guide-card" style="background: rgba(0, 240, 255, 0.07); border: 1px solid rgba(0, 240, 255, 0.22); border-radius: 14px; padding: 16px 10px;">
-            <div class="guide-icon" style="font-size: 26px; margin-bottom: 6px;">🤏🤏</div>
+            <div id="splash-create-icon" class="guide-icon" style="font-size: 26px; margin-bottom: 6px;">🤏</div>
             <div>
-              <div style="font-weight: 700; color: #00f0ff; margin-bottom: 4px; font-size: 14px;">Dual Pinch</div>
-              <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Stretch & anchor strings in 3D air</div>
+              <div id="splash-create-title" style="font-weight: 700; color: #00f0ff; margin-bottom: 4px; font-size: 14px;">Pinch & Drag</div>
+              <div id="splash-create-desc" style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Pinch, drag & release to draw strings</div>
             </div>
           </div>
           <div class="splash-guide-card" style="background: rgba(255, 0, 127, 0.07); border: 1px solid rgba(255, 0, 127, 0.22); border-radius: 14px; padding: 16px 10px;">
@@ -134,6 +149,52 @@ export class SplashScreen {
               <div style="font-weight: 700; color: #38ef7d; margin-bottom: 4px; font-size: 14px;">Re-Grab Tips</div>
               <div style="color: rgba(255, 255, 255, 0.70); line-height: 1.3;">Pinch tip crosshair to move or rotate</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Hand Mode Quick Toggle (Accessibility) -->
+        <div class="splash-mode-selector" style="
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        ">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255, 255, 255, 0.58);">
+            Hand Mode
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%;">
+            <button id="splash-mode-one" type="button" style="
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              padding: 10px 14px;
+              border-radius: 11px;
+              font-family: var(--font-primary);
+              font-size: 13px;
+              font-weight: 700;
+              cursor: pointer;
+              outline: none;
+              transition: all 0.2s ease;
+            ">
+              <span>✋</span><span>One-Hand</span>
+            </button>
+            <button id="splash-mode-two" type="button" style="
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              padding: 10px 14px;
+              border-radius: 11px;
+              font-family: var(--font-primary);
+              font-size: 13px;
+              font-weight: 700;
+              cursor: pointer;
+              outline: none;
+              transition: all 0.2s ease;
+            ">
+              <span>👐</span><span>Two-Hand</span>
+            </button>
           </div>
         </div>
 
@@ -223,9 +284,54 @@ export class SplashScreen {
     this.btnSpinner = this.element.querySelector('#splash-btn-spinner') as HTMLSpanElement;
     this.btnText = this.element.querySelector('#splash-btn-text') as HTMLSpanElement;
     this.errorBanner = this.element.querySelector('#splash-error-banner') as HTMLDivElement;
+    this.oneHandBtn = this.element.querySelector('#splash-mode-one') as HTMLButtonElement;
+    this.twoHandBtn = this.element.querySelector('#splash-mode-two') as HTMLButtonElement;
+    this.createGuideIcon = this.element.querySelector('#splash-create-icon') as HTMLDivElement;
+    this.createGuideTitle = this.element.querySelector('#splash-create-title') as HTMLDivElement;
+    this.createGuideDesc = this.element.querySelector('#splash-create-desc') as HTMLDivElement;
 
+    this.renderHandModeUI();
     this.setupListeners();
     this.container.appendChild(this.element);
+  }
+
+  private getEffectiveButtonLabel(): string {
+    if (this.customButtonLabel) return this.customButtonLabel;
+    return this.handMode === 'one-hand'
+      ? 'START & SHOW YOUR HAND TO CAMERA'
+      : 'START & SHOW BOTH HANDS TO CAMERA';
+  }
+
+  public setHandMode(mode: HandInteractionMode): void {
+    this.handMode = mode;
+    this.buttonLabel = this.getEffectiveButtonLabel();
+    this.renderHandModeUI();
+    if (this.isReady && !this.startBtn.disabled) {
+      this.btnText.textContent = this.buttonLabel;
+    }
+  }
+
+  private renderHandModeUI(): void {
+    const isOneHand = this.handMode === 'one-hand';
+    const applyStyle = (btn: HTMLButtonElement, active: boolean) => {
+      btn.style.background = active ? 'rgba(0, 240, 255, 0.22)' : 'rgba(255, 255, 255, 0.05)';
+      btn.style.border = active ? '1px solid rgba(0, 240, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.16)';
+      btn.style.color = active ? '#00f0ff' : 'rgba(255, 255, 255, 0.72)';
+      btn.style.boxShadow = active ? '0 0 14px rgba(0, 240, 255, 0.25)' : 'none';
+    };
+
+    applyStyle(this.oneHandBtn, isOneHand);
+    applyStyle(this.twoHandBtn, !isOneHand);
+
+    if (isOneHand) {
+      this.createGuideIcon.textContent = '🤏';
+      this.createGuideTitle.textContent = 'Pinch & Drag';
+      this.createGuideDesc.textContent = 'Pinch, drag & release to draw strings';
+    } else {
+      this.createGuideIcon.textContent = '🤏🤏';
+      this.createGuideTitle.textContent = 'Dual Pinch';
+      this.createGuideDesc.textContent = 'Stretch & anchor strings in 3D air';
+    }
   }
 
   private handleStartClick = async () => {
@@ -251,6 +357,20 @@ export class SplashScreen {
     });
 
     this.startBtn.onclick = this.handleStartClick;
+
+    this.oneHandBtn.addEventListener('click', () => {
+      if (this.handMode !== 'one-hand') {
+        this.setHandMode('one-hand');
+        if (this.onHandModeChange) this.onHandModeChange('one-hand');
+      }
+    });
+
+    this.twoHandBtn.addEventListener('click', () => {
+      if (this.handMode !== 'two-hand') {
+        this.setHandMode('two-hand');
+        if (this.onHandModeChange) this.onHandModeChange('two-hand');
+      }
+    });
   }
 
   /**
