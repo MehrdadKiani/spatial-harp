@@ -1,4 +1,4 @@
-import { MusicalScaleId, SoundPresetId } from '../types/audio';
+import { AudioFxParams, MusicalScaleId, SoundPresetId } from '../types/audio';
 import { HandInteractionMode } from '../types/instruments';
 
 export interface VisionConfigGroup {
@@ -241,6 +241,7 @@ export interface StoredUserOverrides {
   defaultScale?: MusicalScaleId;
   handMode?: HandInteractionMode;
   showLiveHints?: boolean;
+  presetFxOverrides?: Partial<Record<SoundPresetId, Partial<AudioFxParams>>>;
 }
 
 export function loadUserOverrides(): StoredUserOverrides {
@@ -261,6 +262,30 @@ export function saveUserOverride(patch: StoredUserOverrides): void {
   } catch {
     // Ignore localStorage quota/privacy errors
   }
+}
+
+export function getPresetFxOverride(presetId: SoundPresetId): Partial<AudioFxParams> | undefined {
+  const overrides = loadUserOverrides();
+  return overrides.presetFxOverrides?.[presetId];
+}
+
+export function savePresetFxOverride(presetId: SoundPresetId, fx: AudioFxParams): void {
+  const current = loadUserOverrides();
+  const nextMap: Partial<Record<SoundPresetId, Partial<AudioFxParams>>> = {
+    ...(current.presetFxOverrides ?? {}),
+    [presetId]: { ...fx },
+  };
+  saveUserOverride({ presetFxOverrides: nextMap });
+}
+
+export function clearPresetFxOverride(presetId: SoundPresetId): void {
+  const current = loadUserOverrides();
+  if (!current.presetFxOverrides || !current.presetFxOverrides[presetId]) return;
+  const nextMap: Partial<Record<SoundPresetId, Partial<AudioFxParams>>> = {
+    ...current.presetFxOverrides,
+  };
+  delete nextMap[presetId];
+  saveUserOverride({ presetFxOverrides: nextMap });
 }
 
 export function clearUserOverrides(): void {

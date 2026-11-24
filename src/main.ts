@@ -5,8 +5,11 @@ import { EngineLoop } from './core/loop';
 import {
   AppConfig,
   DEFAULT_CONFIG,
+  clearPresetFxOverride,
+  getPresetFxOverride,
   loadAppConfig,
   parseHexPalette,
+  savePresetFxOverride,
   saveUserOverride,
 } from './core/config';
 import { CameraManager } from './vision/camera-manager';
@@ -123,12 +126,26 @@ class App {
     this.soundStudioPanel = new SoundStudioPanel(this.container, {
       onPresetChange: (preset) => {
         this.audioEngine.setPreset(preset);
+        const savedFx = getPresetFxOverride(preset);
+        if (savedFx) {
+          this.audioEngine.setFxParams(savedFx);
+        }
+        this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
         saveUserOverride({ defaultPreset: preset });
         this.hud.updateAudioPreset(preset);
       },
       onScaleChange: (scale) => {
         this.scaleMapper.setScaleById(scale);
         saveUserOverride({ defaultScale: scale });
+      },
+      onFxChange: (patch) => {
+        this.audioEngine.setFxParams(patch);
+        savePresetFxOverride(this.audioEngine.currentPreset, this.audioEngine.getFxParams());
+      },
+      onFxReset: () => {
+        clearPresetFxOverride(this.audioEngine.currentPreset);
+        const defaults = this.audioEngine.resetPresetFx();
+        this.soundStudioPanel.setFxParams(defaults);
       },
       onClose: () => {
         this.navBar.setActiveTab('instrument');
@@ -321,10 +338,12 @@ class App {
     });
     this.audioEngine.configure({
       volumeDb: cfg.audio.volumeDb,
-      reverbWet: cfg.audio.reverbWet,
-      delayWet: cfg.audio.delayWet,
       defaultPreset: cfg.audio.defaultPreset,
     });
+    const savedPresetFx = getPresetFxOverride(cfg.audio.defaultPreset);
+    if (savedPresetFx) {
+      this.audioEngine.setFxParams(savedPresetFx);
+    }
 
     // 5. Visuals, hand skeleton sizing, laser beam widths, ruler transparency, rainbow waves & particles
     this.skeletonView.configure(cfg.visuals);
@@ -333,9 +352,10 @@ class App {
     this.pluckShockwavePool.configure(cfg.visuals);
     this.sparkParticlePool.configure(cfg.visuals);
 
-    // 6. Sync Sound Studio, Settings, Splash & UI hints with loaded config
+    // 6. Sync Sound Studio dropdowns, FX sliders, Settings, Splash & UI hints with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
     this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
+    this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
     this.settingsPanel.setHandMode(cfg.strings.handMode);
     this.settingsPanel.setShowLiveHints(cfg.ui.showLiveHints);
     this.splashScreen.setHandMode(cfg.strings.handMode);

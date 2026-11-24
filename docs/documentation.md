@@ -106,7 +106,7 @@ graph TD
     │   ├── vision.ts           # HandPose, Landmark, Bone connections
     │   ├── gestures.ts         # PinchState, DualPinchState, HandGestureState
     │   ├── instruments.ts      # AnchoredString, EndpointGrabState, HandInteractionMode, StringPreviewState, SpatialStringConfig
-    │   ├── audio.ts            # PluckEvent, AudioEngineConfig
+    │   ├── audio.ts            # PluckEvent, AudioFxParams, DelayTimeDivision, AudioEngineConfig
     │   └── physics.ts          # StringVibrationState, SparkParticle, ShockwaveState
     ├── core/
     │   ├── config.ts           # Typed AppConfig defaults, /config.json loader & localStorage overrides
@@ -135,7 +135,7 @@ graph TD
     └── ui/
         ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
         ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
-        ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales)
+        ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales, live Reverb/Delay FX rack)
         ├── settings-panel.ts   # Glassmorphic Settings & Accessibility drawer (One-Hand / Two-Hand Mode toggle, live hints toggle)
         ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
         ├── hand-prompt.ts      # Live step-by-step hand coach pill with 3s + 3-2-1 single-hand auto-switch countdown
@@ -257,11 +257,12 @@ graph TD
 ### Step 6: Modular Presets & Instrument Settings (✅ Completed)
 
 1. **Multi-Engine Synthesizer Architecture** (`audio-engine.ts`, `types/audio.ts`):
-   - **Plucked Harp (Acoustic)**: Polyphonic Karplus-Strong physical modeling (`Tone.PluckSynth`) with dynamic resonance and attack noise. Ambience: $2.6\text{ s}$ reverb ($30\%$ wet), $8\text{n.}$ dotted delay ($12\%$ wet).
-   - **Laser Synth (Sci-Fi)**: Polyphonic sawtooth synthesizer (`Tone.PolySynth(Tone.Synth)`) with fast attack ($5\text{ ms}$) and snappy decay ($320\text{ ms}$), coupled with resonant space delay ($32\%$ wet, $40\%$ feedback).
-   - **Ambient Chime (FM Bell)**: Frequency modulation synthesizer (`Tone.PolySynth(Tone.FMSynth)`) with inharmonic metallic ratio ($3.01$), modulation index $12$, and deep $4.2\text{ s}$ ethereal reverb ($50\%$ wet).
-   - **Retro 8-Bit (Arcade)**: Square wave chiptune synth (`Tone.PolySynth(Tone.Synth)`) with ultra-fast attack ($1\text{ ms}$) and punchy decay for authentic arcade transients.
-   - **Adaptive Dynamic FX Chain**: Switching presets smoothly reconfigures `Tone.FeedbackDelay` and `Tone.Reverb` parameters to match each instrument's acoustic profile.
+   - **Zero-Leak Round-Robin Voice Pools**: `Plucked Harp` uses a pre-allocated `Tone.PluckSynth` pool, while `Laser Synth`, `Ambient Chime` (16 voices), and `Retro 8-Bit` lazily allocate voices on demand after audio unlock and recycle them round-robin, preventing both startup Web Audio bloat and `Tone.PolySynth` voice exhaustion/leaks during rapid multi-finger strumming.
+   - **Plucked Harp (Acoustic)**: Polyphonic Karplus-Strong physical modeling (`Tone.PluckSynth` pool) with dynamic resonance and attack noise. Ambience: $2.8\text{ s}$ reverb ($30\%$ wet), $8\text{n.}$ dotted delay ($12\%$ wet).
+   - **Laser Synth (Sci-Fi)**: Pre-allocated sawtooth synthesizer pool (`Tone.Synth`) with fast attack ($5\text{ ms}$) and snappy decay, coupled with resonant space delay ($32\%$ wet, $38\%$ feedback).
+   - **Ambient Chime (FM Bell)**: Native Web Audio API one-shot FM bell engine (inharmonic ratio $3.01$, velocity-sensitive modulation index $12$, $1.55\text{ s}$ decay tail, 16-voice soft fade-out cap) routed into the Tone.js FX chain, eliminating `Tone.PolySynth` / `OneShotSource.cancelStop()` dropouts during rapid strumming.
+   - **Retro 8-Bit (Arcade)**: Pre-allocated square wave chiptune synth pool (`Tone.Synth`) with ultra-fast attack ($2\text{ ms}$) and punchy decay for authentic arcade transients.
+   - **Adaptive Dynamic FX Chain**: Switching presets smoothly reconfigures `Tone.FeedbackDelay` and `Tone.Reverb` parameters (or restores per-preset user overrides from the Sound Studio FX rack).
 
 2. **Harmonic Scale Library** (`scale-mapper.ts`):
    - **C Major Pentatonic**: Consonant, peaceful harmonic scale (`C4, D4, E4, G4, A4, C5, D5, E5, G5, A5, C6, D6`).
@@ -302,6 +303,8 @@ graph TD
 
 2. **Dedicated Sound Studio Slide-Out Drawer (`src/ui/sound-studio-panel.ts`)**:
    - Extracted audio preset and scale selectors out of the HUD into an atmospheric drawer panel accessible via the `Sound Studio` tab in the navigation bar.
+   - Includes a live **Effects Rack (FX)** with real-time sliders for **Reverb Mix** (`0–100%`), **Delay Mix** (`0–100%`), **Delay Feedback** (`0–85%`), **Delay Time** tempo-synced subdivisions (`1/16` through `1/4.`), and a **Reset FX** button.
+   - Custom FX tweaks are persisted per preset in `localStorage` (`presetFxOverrides`) and automatically restored when switching between presets (`AudioEngine.setFxParams` / `resetPresetFx`).
    - Seamlessly integrates with `AudioEngine` preset loading and `ScaleMapper` spatial pitch tuning.
 
 3. **User-Intent Permission Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:

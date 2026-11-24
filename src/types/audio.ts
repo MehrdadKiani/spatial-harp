@@ -27,6 +27,15 @@ export interface MusicalScaleInfo {
   description: string;
 }
 
+export type DelayTimeDivision = '16n' | '16n.' | '8n' | '8n.' | '4n' | '4n.';
+
+export interface AudioFxParams {
+  reverbWet: number;         // Reverb mix 0..1
+  delayWet: number;          // Delay mix 0..1
+  delayFeedback: number;     // Delay feedback 0..0.85
+  delayTime: DelayTimeDivision;
+}
+
 export interface AudioEngineConfig {
   volume?: number;       // Master volume in dB (default: -4 dB)
   reverbWet?: number;    // Reverb mix 0..1 (default: 0.3)
