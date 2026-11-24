@@ -104,7 +104,8 @@
   },
 
   "ui": {
-    "_comment": "UI behavior toggles (e.g. whether to automatically open the 4-step tutorial modal when starting the experience).",
-    "showTutorialOnStart": false
+    "_comment": "UI behavior toggles (tutorial popup on start & live step-by-step hand coaching hints).",
+    "showTutorialOnStart": false,
+    "showLiveHints": true
   }
 }

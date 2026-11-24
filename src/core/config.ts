@@ -96,6 +96,7 @@ export interface VisualsConfigGroup {
 export interface UiConfigGroup {
   _comment?: string;
   showTutorialOnStart: boolean;
+  showLiveHints: boolean;
 }
 
 export interface AppConfig {
@@ -204,6 +205,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   ui: {
     showTutorialOnStart: false,
+    showLiveHints: true,
   },
 };
 

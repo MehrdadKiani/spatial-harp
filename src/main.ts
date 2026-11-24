@@ -147,9 +147,6 @@ class App {
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
       },
-      onOpenTutorial: () => {
-        this.tutorialModal.open();
-      },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
       },
@@ -198,6 +195,7 @@ class App {
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
     globalBus.on<PluckEvent>('string:plucked', (event) => {
+      this.handPrompt.markPlucked();
       this.hud.setLastPluck(event.note, event.velocity);
 
       // Trigger multi-crest sinusoidal rainbow wave on the string
@@ -301,9 +299,10 @@ class App {
     this.pluckShockwavePool.configure(cfg.visuals);
     this.sparkParticlePool.configure(cfg.visuals);
 
-    // 6. Sync Sound Studio dropdowns with loaded config
+    // 6. Sync Sound Studio dropdowns & UI hints with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
     this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
+    this.handPrompt.configure(cfg.ui.showLiveHints);
   }
 
   private async unlockAudio(): Promise<void> {
@@ -418,7 +417,6 @@ class App {
 
     // 1. Detect hands (21 3D landmarks)
     const hands = this.handTracker.detect(video, nowMs);
-    this.handPrompt.update(hands.length, nowMs);
 
     // 2. Update skeleton overlay
     this.skeletonView.update(hands, videoAspect);
@@ -430,6 +428,9 @@ class App {
     this.spatialStringManager.update(gestureStates, dualPinch, videoAspect, nowMs);
     const anchoredStrings = this.spatialStringManager.getStrings();
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
+
+    // Update live step-by-step hand coaching pill (zero-GC)
+    this.handPrompt.update(hands.length, dualPinch.isDualPinch, anchoredStrings.length, nowMs);
 
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();
