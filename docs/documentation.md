@@ -134,13 +134,15 @@ graph TD
     │   ├── pluck-shockwave-pool.ts # Zero-GC expanding 3D contact shockwave ripple pool
     │   └── spark-particle-pool.ts # Zero-GC GPU multi-form spark & floating mote pool (adaptive 140/420 cap, O(1) idle skip)
     └── ui/
-        ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
-        ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
-        ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales, live Reverb/Delay FX rack)
-        ├── settings-panel.ts   # Glassmorphic Settings & Accessibility drawer (Hand Mode, Pitch Mode, Performance Profile, live hints)
-        ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
-        ├── hand-prompt.ts      # Live step-by-step hand coach pill with 3s + 3-2-1 single-hand auto-switch countdown
-        └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with Hand Mode quick toggle, integrated button progress/spinner loader, gesture cards & compact privacy notice
+        ├── icons.ts            # Minimalist 1.5px-stroke inline SVG icon library (zero external icon dependencies)
+        ├── styles.css          # Centralized Optical Studio design system (tokens, floating islands, drawers, precision sliders, mobile perf bypass)
+        ├── hud.ts              # Collapsible System Metrics drawer (tabular-nums FPS, gestures, active strings, audio status)
+        ├── nav-bar.ts          # Floating top-left brand/string-count/metrics island & top-right action island (Lock, Studio, Settings, Clear)
+        ├── sound-studio-panel.ts # Sound Studio drawer with 2×2 tactile patch grid, branded scale/delay selects & custom precision FX sliders
+        ├── settings-panel.ts   # Settings drawer with segmented Hand Mode, Pitch Mode, Performance Profile & Live Coaching Hints switch
+        ├── tutorial-modal.ts   # Native <dialog closedby="any"> 4-step interactive gesture tutorial modal
+        ├── hand-prompt.ts      # Low-profile live step-by-step hand coach pill with 3s + 3-2-1 single-hand auto-switch countdown
+        └── splash-screen.ts    # Editorial Optical Studio intro splash screen with hairline gesture strip, Hand Mode switch & integrated progress CTA
 ```
 
 ---
@@ -296,43 +298,29 @@ graph TD
 
 ---
 
-### Step 8: Glassmorphic UI Suite, Centralized Typography & Mobile/Tablet Responsiveness (✅ Completed)
+### Step 8: Optical Studio UI Suite, Typography System & Mobile/Tablet Responsiveness (✅ Completed)
 
-1. **Glassmorphic Top Navigation Bar (`src/ui/nav-bar.ts`)**:
-   - Floating header with geometric SVG spatial harp emblem, `SPATIAL HARP` branding, tab buttons (`Instrument`, `Sound Studio`, `Settings`), `📊 Diagnostics` toggle button, `🗑️ Clear` action button, and pulsing `LIVE AR` status badge.
-   - Zero UI framework — constructed entirely with vanilla DOM elements and TypeScript.
+1. **Floating Top Islands (`src/ui/nav-bar.ts`, `src/ui/styles.css`, `src/ui/icons.ts`)**:
+   - Smoked-obsidian floating top-left island (brand mark, `Spatial Harp`, live `0 / 12` active string counter pill, System Metrics toggle `[D]`) and top-right control island (`Lock [L]`, `Studio`, `Settings`, `Clear [C]`) so the glowing AR strings remain the sole neon focal point.
+   - Zero UI framework — 100% vanilla DOM, TypeScript, inline 1.5px-stroke SVGs, and centralized CSS custom properties in `src/ui/styles.css`.
 
-2. **Dedicated Sound Studio Slide-Out Drawer (`src/ui/sound-studio-panel.ts`)**:
-   - Extracted audio preset and scale selectors out of the HUD into an atmospheric drawer panel accessible via the `Sound Studio` tab in the navigation bar.
-   - Includes a live **Effects Rack (FX)** with real-time sliders for **Reverb Mix** (`0–100%`), **Delay Mix** (`0–100%`), **Delay Feedback** (`0–85%`), **Delay Time** tempo-synced subdivisions (`1/16` through `1/4.`), and a **Reset FX** button.
+2. **Dedicated Sound Studio Drawer (`src/ui/sound-studio-panel.ts`)**:
+   - Features a **2×2 tactile instrument patch grid** (`Plucked Harp`, `Laser Synth`, `Ambient Chime`, `Retro 8-Bit`), branded `<select>` pickers (`appearance: base-select` with native fallback) for musical scales and tempo-synced delay time, and custom precision `<input type="range">` faders for **Reverb Mix** (`0–100%`), **Delay Mix** (`0–100%`), **Delay Feedback** (`0–85%`), plus a **Reset** button.
    - Custom FX tweaks are persisted per preset in `localStorage` (`presetFxOverrides`) and automatically restored when switching between presets (`AudioEngine.setFxParams` / `resetPresetFx`).
-   - Seamlessly integrates with `AudioEngine` preset loading and `ScaleMapper` spatial pitch tuning.
 
-3. **User-Intent Permission Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
-   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user intentionally clicks `"START EXPERIENCE"`.
-   - **Compliant with Mobile & Desktop Browsers**: Adheres strictly to browser user-gesture requirements (iOS Safari, Android Chrome, desktop browsers), preventing unprompted camera popups or autoplay audio blocks.
-   - **Integrated Start Button Loader & Graceful Error Recovery**: Preloading progress (`0% -> 100%`) fills directly inside the Start button, and clicking `"START EXPERIENCE"` activates an inline CSS spinner and shimmer animation while negotiating camera access and audio unlock. If camera access is denied, a compact inline error banner appears with an interactive `"GRANT PERMISSION & RETRY"` button.
-   - **Compact Local-Only Privacy Notice**: Concise single-line notice reassuring users that everything is processed locally in-browser with zero recording or server transmission.
+3. **Editorial Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
+   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user clicks `"Start playing"` / `"Start with both hands"`.
+   - **Hairline Gesture Strip & Segmented Hand-Mode Switch**: Clean 3-column gesture strip with custom SVG icons, segmented `One-Hand / Two-Hand` control, quiet local-processing privacy note, and a high-contrast alabaster CTA with integrated loading progress bar and error retry recovery.
 
-4. **Centralized JetBrains Mono Typography (`index.html`)**:
-   - Global design tokens `--font-primary` and `--font-display` pointing to `JetBrains Mono, monospace`.
-   - All HUD labels, navbar buttons, modals, and metric readouts inherit the centralized font family.
+4. **Typography Pairing (`index.html`, `src/ui/styles.css`)**:
+   - **Plus Jakarta Sans** for clean sentence-case UI chrome, headings, and controls; **JetBrains Mono** (`tabular-nums`) reserved for live numeric telemetry (`FPS`, `%`, `0 / 12`, note names, version badge).
 
-5. **Cross-Device Mobile & Tablet Responsiveness (`index.html`, `src/ui/nav-bar.ts`)**:
-   - **Safe-Area Insets & Dynamic Viewport (`100dvh`)**: Full support for iPhone notch / Dynamic Island and mobile browser toolbars using `100dvh` and `env(safe-area-inset-*)`, with `#app-splash-screen` acting as a full-screen `pan-y` touch scroll container and `.splash-card` centered via `margin: auto 0` so it never clips or locks scrolling on short screens.
-   - **Compact Breakpoints ($\le 768\text{px}$ & $\le 420\text{px}$)**: Collapses button text labels into streamlined icon touch targets with `min-width: 32px-34px`, compresses header padding, condenses status badges to glowing live indicators, and automatically collapses splash guide cards into vertical rows.
-   - **Full-Width Drawers**: Sound Studio and Diagnostics panels automatically adapt to full viewport width (`calc(100vw - 16px)`) with smooth touch scrolling (`-webkit-overflow-scrolling: touch`).
-   - **Landscape Adaptation**: Short vertical viewports ($\le 500\text{px}$) automatically compress header height to $42\text{px}$ and enable vertical scroll containers so controls remain 100% accessible.
+5. **Cross-Device Mobile & Tablet Responsiveness & High-FPS Compositor Bypass (`src/ui/styles.css`)**:
+   - **Safe-Area Insets & Dynamic Viewport (`100dvh`)**: Full support for iPhone notch / Dynamic Island and mobile toolbars using `100dvh` and `env(safe-area-inset-*)`, plus `body.perf-mobile` disabling `backdrop-filter` across all glass overlays on mobile devices for steady 60 FPS.
+   - **Compact Breakpoints ($\le 768\text{px}$ & $\le 440\text{px}$)**: Keeps button text in the accessibility tree while collapsing to crisp icon targets, adapts drawers to full viewport width, and adjusts splash layout for short landscape viewports ($\le 500\text{px}$).
 
 6. **Interactive 4-Step Visual Tutorial Modal (`src/ui/tutorial-modal.ts`, `public/assets/tutorial/`)**:
-   - **Post-Splash Auto-Trigger**: Immediately after the user clicks "Start Experience" on the splash screen and enters the app, a glassmorphic tutorial window automatically opens.
-   - **Slide Carousel with Previous/Next Controls**: Includes interactive step indicator dots, a `← Previous` button, a `Next →` button, and keyboard navigation (`ArrowLeft`, `ArrowRight`, `Escape`).
-   - **4 Concise Step Visual Demonstrations (`public/assets/tutorial/`)**:
-     1. `step01.gif`: **Calibrate Hands** — Show open palms to camera to initialize 3D tracking.
-     2. `step02.gif`: **Pinch & Anchor String** — Pinch thumb and index on both hands, stretch apart, release to lock in air.
-     3. `step03.gif`: **Pluck to Play** — Swipe index finger across any string to play notes. Speed controls volume.
-     4. `step04.gif`: **Re-Grab & Modulate** — Pinch string tip [⌖] to resize/bend pitch while plucking with other hand.
-   - **On-Demand Access**: Re-open anytime via the `📖 Tutorial` tab in the top navigation bar.
+   - Native `<dialog closedby="any">` with `@starting-style` entry/exit transitions, keyboard navigation (`ArrowLeft`, `ArrowRight`, `Escape`), hairline media viewport, and step indicator dots.
 
 7. **Unified Brand Identity & Cross-Browser Favicon Suite**:
    - **Unified Brand Icon (`public/icon-128.png`)**: Both the Splash Screen (`src/ui/splash-screen.ts`) and Top Navigation Bar (`src/ui/nav-bar.ts`) consistently reference the official brand emblem from the `public/` directory with transparent background and neon glow styling.

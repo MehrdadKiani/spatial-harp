@@ -1,6 +1,7 @@
 import { HandInteractionMode } from '../types/instruments';
 import { PitchMode } from '../types/audio';
 import { PerformanceMode, PerformanceTier } from '../core/performance';
+import { Icons } from './icons';
 
 export interface SettingsPanelOptions {
   initialHandMode?: HandInteractionMode;
@@ -16,7 +17,7 @@ export interface SettingsPanelOptions {
 }
 
 export class SettingsPanel {
-  private element: HTMLDivElement;
+  private element: HTMLElement;
   private oneHandBtn: HTMLButtonElement;
   private twoHandBtn: HTMLButtonElement;
   private modeDescEl: HTMLDivElement;
@@ -42,98 +43,87 @@ export class SettingsPanel {
     this.currentPerformanceMode = options.initialPerformanceMode ?? 'auto';
     this.activePerformanceTier = options.activePerformanceTier ?? 'high';
 
-    this.element = document.createElement('div');
+    this.element = document.createElement('aside');
     this.element.id = 'settings-panel';
-
-    Object.assign(this.element.style, {
-      position: 'absolute',
-      top: '72px',
-      right: '16px',
-      width: '320px',
-      zIndex: '30',
-      background: 'rgba(10, 15, 28, 0.90)',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-      border: '1px solid rgba(0, 240, 255, 0.35)',
-      borderRadius: '16px',
-      padding: '18px 20px',
-      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65), 0 0 25px rgba(0, 240, 255, 0.15)',
-      fontFamily: 'var(--font-primary)',
-      color: '#ffffff',
-      userSelect: 'none',
-      display: 'none',
-      opacity: '0',
-      transform: 'translateY(-8px)',
-      transition: 'opacity 0.25s ease, transform 0.25s ease',
-    });
+    this.element.className = 'app-drawer studio-drawer';
+    this.element.dataset.open = 'false';
+    this.element.setAttribute('aria-labelledby', 'settings-title');
 
     this.element.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">⚙️</span>
-          <span style="font-weight: 700; font-size: 14px; letter-spacing: 0.8px; color: #00f0ff; text-transform: uppercase;">Settings & Accessibility</span>
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          ${Icons.settings(16)}
+          <h2 id="settings-title" class="drawer-title">Settings</h2>
         </div>
-        <button id="settings-close-btn" style="background: transparent; border: none; color: rgba(255, 255, 255, 0.6); font-size: 18px; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; transition: color 0.2s;">✕</button>
+        <button id="settings-close-btn" class="drawer-close-btn" type="button" aria-label="Close Settings">
+          ${Icons.close(16)}
+        </button>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 14px; font-size: 12px;">
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <label style="color: #00f0ff; font-weight: 600; display: flex; justify-content: space-between;">
-            <span>Hand Mode</span>
-            <span style="color: rgba(255,255,255,0.45); font-size: 11px;">String Creation</span>
-          </label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button id="settings-mode-one" type="button" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 9px; font-family: var(--font-primary); font-size: 12px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
-              <span>✋</span><span>One-Hand</span>
+      <div class="drawer-stack">
+        <div class="drawer-section">
+          <div class="section-heading-row">
+            <span class="section-label">Hand mode</span>
+            <span class="section-meta">String creation</span>
+          </div>
+          <div class="segmented-control" role="group" aria-label="Hand mode">
+            <button id="settings-mode-one" class="seg-btn" type="button" aria-pressed="true">
+              ${Icons.hand(15)}
+              <span>One-Hand</span>
             </button>
-            <button id="settings-mode-two" type="button" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 9px; font-family: var(--font-primary); font-size: 12px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
-              <span>👐</span><span>Two-Hand</span>
+            <button id="settings-mode-two" class="seg-btn" type="button" aria-pressed="false">
+              ${Icons.hands(15)}
+              <span>Two-Hand</span>
             </button>
           </div>
-          <div id="settings-mode-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 9px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
+          <div id="settings-mode-desc" class="section-note"></div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px;">
-          <label style="color: #00f0ff; font-weight: 600; display: flex; justify-content: space-between;">
-            <span>String Pitch Mode</span>
-            <span style="color: rgba(255,255,255,0.45); font-size: 11px;">Note Mapping</span>
-          </label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button id="settings-pitch-fretted" type="button" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 9px; font-family: var(--font-primary); font-size: 12px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
-              <span>🎸</span><span>Fretted</span>
+        <div class="drawer-section">
+          <div class="section-heading-row">
+            <span class="section-label">Pitch mode</span>
+            <span class="section-meta">Note mapping</span>
+          </div>
+          <div class="segmented-control" role="group" aria-label="Pitch mode">
+            <button id="settings-pitch-fretted" class="seg-btn" type="button" aria-pressed="true">
+              ${Icons.fret(14)}
+              <span>Fretted</span>
             </button>
-            <button id="settings-pitch-length" type="button" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 9px; font-family: var(--font-primary); font-size: 12px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
-              <span>🎵</span><span>Classic</span>
+            <button id="settings-pitch-length" class="seg-btn" type="button" aria-pressed="false">
+              ${Icons.music(14)}
+              <span>Classic</span>
             </button>
           </div>
-          <div id="settings-pitch-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 9px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
+          <div id="settings-pitch-desc" class="section-note"></div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px;">
-          <label style="color: #00f0ff; font-weight: 600; display: flex; justify-content: space-between;">
-            <span>Performance Profile</span>
-            <span style="color: rgba(255,255,255,0.45); font-size: 11px;">FPS / Graphics</span>
-          </label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
-            <button id="settings-perf-auto" type="button" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border-radius: 9px; font-family: var(--font-primary); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
+        <div class="drawer-section">
+          <div class="section-heading-row">
+            <span class="section-label">Performance profile</span>
+            <span class="section-meta">FPS / Graphics</span>
+          </div>
+          <div class="segmented-control segmented-control--3" role="group" aria-label="Performance profile">
+            <button id="settings-perf-auto" class="seg-btn" type="button" aria-pressed="true">
               <span>Auto</span>
             </button>
-            <button id="settings-perf-mobile" type="button" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border-radius: 9px; font-family: var(--font-primary); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
-              <span>⚡ Fast</span>
+            <button id="settings-perf-mobile" class="seg-btn" type="button" aria-pressed="false">
+              ${Icons.bolt(13)}
+              <span>Fast</span>
             </button>
-            <button id="settings-perf-high" type="button" style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border-radius: 9px; font-family: var(--font-primary); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: all 0.2s ease;">
-              <span>✨ High</span>
+            <button id="settings-perf-high" class="seg-btn" type="button" aria-pressed="false">
+              ${Icons.sparkle(13)}
+              <span>High</span>
             </button>
           </div>
-          <div id="settings-perf-desc" style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 8px; padding: 8px 10px; font-size: 11px; color: rgba(255, 255, 255, 0.72); line-height: 1.45;"></div>
+          <div id="settings-perf-desc" class="section-note"></div>
         </div>
 
-        <label style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 9px; cursor: pointer;">
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <span style="font-weight: 600; color: #ffffff; font-size: 12px;">Live Coaching Hints</span>
-            <span style="font-size: 10.5px; color: rgba(255, 255, 255, 0.55);">Step-by-step on-screen gesture prompts</span>
-          </div>
-          <input id="settings-hints-toggle" type="checkbox" style="width: 16px; height: 16px; accent-color: #00f0ff; cursor: pointer;" />
+        <label for="settings-hints-toggle" class="toggle-row">
+          <span class="toggle-copy">
+            <span class="toggle-title">Live coaching hints</span>
+            <span class="toggle-sub">Step-by-step on-screen gesture prompts</span>
+          </span>
+          <input id="settings-hints-toggle" class="studio-switch" type="checkbox" role="switch" />
         </label>
       </div>
     `;
@@ -158,12 +148,6 @@ export class SettingsPanel {
     this.renderPitchSelection();
     this.renderPerformanceSelection();
 
-    this.closeBtn.addEventListener('mouseenter', () => {
-      this.closeBtn.style.color = '#ffffff';
-    });
-    this.closeBtn.addEventListener('mouseleave', () => {
-      this.closeBtn.style.color = 'rgba(255, 255, 255, 0.6)';
-    });
     this.closeBtn.addEventListener('click', () => {
       this.close();
       if (options.onClose) options.onClose();
@@ -214,6 +198,13 @@ export class SettingsPanel {
         options.onShowLiveHintsChange(this.hintsCheckbox.checked);
       }
     });
+
+    this.element.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen) {
+        this.close();
+        if (options.onClose) options.onClose();
+      }
+    });
   }
 
   public setHandMode(mode: HandInteractionMode): void {
@@ -237,69 +228,52 @@ export class SettingsPanel {
   }
 
   private renderPerformanceSelection(): void {
-    this.applyToggleStyle(this.perfAutoBtn, this.currentPerformanceMode === 'auto');
-    this.applyToggleStyle(this.perfMobileBtn, this.currentPerformanceMode === 'mobile');
-    this.applyToggleStyle(this.perfHighBtn, this.currentPerformanceMode === 'high');
+    this.perfAutoBtn.setAttribute('aria-pressed', String(this.currentPerformanceMode === 'auto'));
+    this.perfMobileBtn.setAttribute('aria-pressed', String(this.currentPerformanceMode === 'mobile'));
+    this.perfHighBtn.setAttribute('aria-pressed', String(this.currentPerformanceMode === 'high'));
 
     const activeLabel = this.activePerformanceTier === 'mobile' ? 'Fast (Mobile)' : 'High Quality';
     const reloadHint = this.perfReloadRequired
-      ? ' Refresh page to apply full camera & WebGL changes.'
+      ? ' Reload the page to apply full camera and WebGL changes.'
       : '';
 
     if (this.currentPerformanceMode === 'auto') {
-      this.perfDescEl.textContent = `Auto detected: ${activeLabel}. Optimizes camera, string segments & effects for smooth 30–60 FPS.${reloadHint}`;
+      this.perfDescEl.textContent = `Detected: ${activeLabel}. Balances camera resolution, string segments, and effects for steady 30–60 FPS.${reloadHint}`;
     } else if (this.currentPerformanceMode === 'mobile') {
-      this.perfDescEl.textContent = `⚡ Fast Mode: 640×480 camera, 32-seg strings, lighter particles & no blur overhead for high mobile FPS.${reloadHint}`;
+      this.perfDescEl.textContent = `Fast mode: 640×480 camera, 32-segment strings, lighter particles, and no blur overhead.${reloadHint}`;
     } else {
-      this.perfDescEl.textContent = `✨ High Quality: 720p camera, 64-seg strings, full particle trails & glassmorphic blur.${reloadHint}`;
+      this.perfDescEl.textContent = `High quality: 720p camera, 64-segment strings, full particle trails, and frosted glass blur.${reloadHint}`;
     }
-  }
-
-  private applyToggleStyle(btn: HTMLButtonElement, active: boolean): void {
-    btn.style.background = active ? 'rgba(0, 240, 255, 0.22)' : 'rgba(14, 24, 44, 0.85)';
-    btn.style.border = active ? '1px solid rgba(0, 240, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.16)';
-    btn.style.color = active ? '#00f0ff' : 'rgba(255, 255, 255, 0.72)';
-    btn.style.boxShadow = active ? '0 0 12px rgba(0, 240, 255, 0.25)' : 'none';
   }
 
   private renderModeSelection(): void {
     const isOneHand = this.currentMode === 'one-hand';
-    this.applyToggleStyle(this.oneHandBtn, isOneHand);
-    this.applyToggleStyle(this.twoHandBtn, !isOneHand);
+    this.oneHandBtn.setAttribute('aria-pressed', String(isOneHand));
+    this.twoHandBtn.setAttribute('aria-pressed', String(!isOneHand));
 
     this.modeDescEl.textContent = isOneHand
-      ? '✋ Hold pinch steady to pop-lock Point A, drag to stretch, and release with one hand.'
-      : '👐 Hold dual pinch steady to pop-lock and stretch with both hands. Showing 1 hand for 3s starts a 3-2-1 auto-switch.';
+      ? 'Hold pinch steady to pop-lock Point A, drag to stretch, and release with one hand.'
+      : 'Hold dual pinch steady to stretch with both hands. Showing one hand for 3s auto-switches to One-Hand mode.';
   }
 
   private renderPitchSelection(): void {
     const isFretted = this.currentPitchMode === 'fretted';
-    this.applyToggleStyle(this.frettedBtn, isFretted);
-    this.applyToggleStyle(this.classicBtn, !isFretted);
+    this.frettedBtn.setAttribute('aria-pressed', String(isFretted));
+    this.classicBtn.setAttribute('aria-pressed', String(!isFretted));
 
     this.pitchDescEl.textContent = isFretted
-      ? '🎸 Pluck different positions along a string (left → right) to play 5 notes per string — ideal for one-hand melodies.'
-      : '🎵 Classic harp: each string plays one pure note based on its 3D length (shorter = higher, longer = deeper).';
+      ? 'Pluck different positions along a string (left to right) to play 5 notes per string.'
+      : 'Classic harp: each string plays one pure note based on its 3D length (shorter = higher).';
   }
 
   public open(): void {
     this.isOpen = true;
-    this.element.style.display = 'block';
-    requestAnimationFrame(() => {
-      this.element.style.opacity = '1';
-      this.element.style.transform = 'translateY(0)';
-    });
+    this.element.dataset.open = 'true';
   }
 
   public close(): void {
     this.isOpen = false;
-    this.element.style.opacity = '0';
-    this.element.style.transform = 'translateY(-8px)';
-    setTimeout(() => {
-      if (!this.isOpen) {
-        this.element.style.display = 'none';
-      }
-    }, 250);
+    this.element.dataset.open = 'false';
   }
 
   public getIsOpen(): boolean {

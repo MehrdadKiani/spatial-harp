@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import './ui/styles.css';
 import { inject } from '@vercel/analytics';
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { EngineLoop } from './core/loop';
@@ -266,26 +267,6 @@ class App {
     const versionBadge = document.createElement('div');
     versionBadge.id = 'app-version-badge';
     versionBadge.textContent = `v${__APP_VERSION__}`;
-    Object.assign(versionBadge.style, {
-      position: 'fixed',
-      bottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
-      right: 'max(14px, env(safe-area-inset-right, 14px))',
-      zIndex: '20',
-      fontFamily: 'var(--font-primary)',
-      fontSize: '11px',
-      fontWeight: '600',
-      letterSpacing: '0.8px',
-      color: 'rgba(0, 240, 255, 0.70)',
-      background: 'rgba(8, 12, 22, 0.65)',
-      backdropFilter: 'blur(8px)',
-      WebkitBackdropFilter: 'blur(8px)',
-      border: '1px solid rgba(0, 240, 255, 0.22)',
-      borderRadius: '6px',
-      padding: '3px 8px',
-      pointerEvents: 'none',
-      userSelect: 'none',
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
-    });
     this.container.appendChild(versionBadge);
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
@@ -686,7 +667,8 @@ class App {
     this.sparkParticlePool.update(delta);
     this.pluckShockwavePool.update(delta);
 
-    // 9. Update HUD diagnostics
+    // 9. Update HUD diagnostics & NavBar string count (zero-GC)
+    this.navBar.setStringCount(anchoredStrings.length, this.spatialStringManager.maxCapacity);
     const handDetails = hands.map((h) => `${h.handedness}`);
     const singlePinch = gestureStates.find((g) => g.pinch.isPinching);
     const singlePinchHand = singlePinch ? singlePinch.handedness : null;
