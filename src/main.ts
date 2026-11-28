@@ -37,6 +37,7 @@ import { SplashScreen } from './ui/splash-screen';
 import { SoundStudioPanel } from './ui/sound-studio-panel';
 import { SettingsPanel } from './ui/settings-panel';
 import { TutorialModal } from './ui/tutorial-modal';
+import { AboutModal } from './ui/about-modal';
 import { HandPrompt } from './ui/hand-prompt';
 import { PitchMode, PluckEvent } from './types/audio';
 import { ChargePopEvent } from './types/instruments';
@@ -68,12 +69,14 @@ class App {
   private soundStudioPanel: SoundStudioPanel;
   private settingsPanel: SettingsPanel;
   private tutorialModal: TutorialModal;
+  private aboutModal: AboutModal;
   private splashScreen: SplashScreen;
   private handPrompt: HandPrompt;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
   private isLoopInitialized = false;
+  private isSpawningStarter = false;
   private currentElapsed = 0;
 
   // Reusable scratch vectors for spark burst calculations (zero-GC)
@@ -177,6 +180,9 @@ class App {
       onPitchModeChange: (pitchMode) => {
         this.setPitchMode(pitchMode, true);
       },
+      onOpenAbout: (opener) => {
+        this.aboutModal.open(opener);
+      },
       onClose: () => {
         this.navBar.setActiveTab('instrument');
       },
@@ -185,6 +191,7 @@ class App {
     this.tutorialModal = new TutorialModal(this.container, () => {
       this.navBar.setActiveTab('instrument');
     });
+    this.aboutModal = new AboutModal(this.container);
     this.handPrompt = new HandPrompt(this.container);
 
     this.navBar = new NavBar(this.container, {
@@ -203,6 +210,16 @@ class App {
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
       },
+      onOpenGuide: () => {
+        if (this.spatialStringManager.count === 0) {
+          this.spawnStarterStringSafe();
+        }
+        this.handPrompt.activate(true);
+      },
+      onOpenAbout: (opener) => {
+        this.closeOpenDrawers();
+        this.aboutModal.open(opener);
+      },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
       },
@@ -219,10 +236,17 @@ class App {
       },
     });
 
-    // Persistent sticky bottom-right version badge
-    const versionBadge = document.createElement('div');
+    // Persistent sticky bottom-right About / version trigger button
+    const versionBadge = document.createElement('button');
+    versionBadge.type = 'button';
     versionBadge.id = 'app-version-badge';
-    versionBadge.textContent = `v${__APP_VERSION__}`;
+    versionBadge.title = 'About Spatial Harp';
+    versionBadge.setAttribute('aria-label', `About Spatial Harp, version ${__APP_VERSION__}`);
+    versionBadge.textContent = `About · v${__APP_VERSION__}`;
+    versionBadge.addEventListener('click', () => {
+      this.closeOpenDrawers();
+      this.aboutModal.open(versionBadge);
+    });
     this.container.appendChild(versionBadge);
 
     // 6. Pluck feedback listener: HUD, Harmonic Wave Physics, Shockwaves & Spark VFX
@@ -290,6 +314,17 @@ class App {
       this.audioEngine.playAnchorPop();
     });
 
+    // 6c. Interactive 3-step coach progression listeners
+    globalBus.on('string:anchored', () => {
+      if (!this.isSpawningStarter) {
+        this.handPrompt.markStringCreated();
+      }
+    });
+
+    globalBus.on('string:grabbed', () => {
+      this.handPrompt.markEndpointGrabbed();
+    });
+
     // 7. Hand tracker, gesture detector & loop ticker
     this.handTracker = new HandTracker();
     this.pinchDetector = new PinchDetector({
@@ -319,8 +354,10 @@ class App {
         target.closest('#sound-studio-panel') ||
         target.closest('#settings-panel') ||
         target.closest('#hud-card') ||
+        target.closest('#app-fps-badge') ||
         target.closest('#app-navbar') ||
-        target.closest('#tutorial-modal-dialog')
+        target.closest('#tutorial-modal-dialog') ||
+        target.closest('#about-modal-dialog')
       ) {
         return;
       }
@@ -398,6 +435,15 @@ class App {
     this.settingsPanel.setPitchMode(mode);
     if (persist) {
       saveUserOverride({ pitchMode: mode });
+    }
+  }
+
+  private spawnStarterStringSafe(): void {
+    this.isSpawningStarter = true;
+    try {
+      this.spatialStringManager.spawnStarterString(this.cameraManager.aspectRatio, performance.now());
+    } finally {
+      this.isSpawningStarter = false;
     }
   }
 
@@ -486,6 +532,9 @@ class App {
         this.isLoopInitialized = true;
       }
       this.loop.start();
+      if (!this.handPrompt.hasCompletedOnboarding() && this.spatialStringManager.count === 0) {
+        this.spawnStarterStringSafe();
+      }
       this.handPrompt.activate();
 
       // 5. Open the 4-step tutorial popup if enabled in config
@@ -531,8 +580,14 @@ class App {
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
     const previewState = this.spatialStringManager.getPreviewState();
 
-    // Update live step-by-step hand coaching pill (zero-GC)
-    this.handPrompt.update(hands.length, previewState.isActive, anchoredStrings.length, nowMs);
+    // Update interactive 3-step hand coach (zero-GC)
+    this.handPrompt.update(
+      hands.length,
+      this.spatialStringManager.isChargingAnchor,
+      previewState.isActive,
+      anchoredStrings.length,
+      nowMs
+    );
 
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();

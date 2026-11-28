@@ -4,6 +4,9 @@ export class HUD {
   private element: HTMLElement;
   private cardElement: HTMLDivElement;
   private fpsDisplay: HTMLSpanElement;
+  private fpsBadge: HTMLButtonElement;
+  private fpsBadgeValue: HTMLSpanElement;
+  private lastBadgeFps = -1;
   private handsDisplay: HTMLSpanElement;
   private gestureDisplay: HTMLSpanElement;
   private stringsDisplay: HTMLSpanElement;
@@ -57,6 +60,18 @@ export class HUD {
     `;
 
     container.appendChild(this.element);
+
+    // Always-visible bottom-left FPS pill (balances bottom-right About/version pill)
+    this.fpsBadge = document.createElement('button');
+    this.fpsBadge.type = 'button';
+    this.fpsBadge.id = 'app-fps-badge';
+    this.fpsBadge.dataset.tier = 'idle';
+    this.fpsBadge.title = 'Live frame rate — click to toggle System Metrics [D]';
+    this.fpsBadge.setAttribute('aria-label', 'Live frame rate');
+    this.fpsBadge.innerHTML = `<span class="fps-badge-dot" aria-hidden="true"></span><span id="app-fps-badge-val">-- FPS</span>`;
+    this.fpsBadgeValue = this.fpsBadge.querySelector('#app-fps-badge-val') as HTMLSpanElement;
+    this.fpsBadge.addEventListener('click', () => this.toggleCard());
+    container.appendChild(this.fpsBadge);
 
     this.cardElement = this.element.querySelector('#hud-card')!;
     this.fpsDisplay = this.element.querySelector('#hud-fps')!;
@@ -116,8 +131,15 @@ export class HUD {
     grabbedStringNote: string | null = null
   ): void {
     this.fpsDisplay.textContent = `${fps} fps`;
+    const fpsTier = fps >= 30 ? 'good' : fps >= 20 ? 'warn' : 'low';
     this.fpsDisplay.style.color =
-      fps >= 30 ? 'var(--accent-mint)' : fps >= 20 ? 'var(--accent-amber)' : 'var(--accent-coral)';
+      fpsTier === 'good' ? 'var(--accent-mint)' : fpsTier === 'warn' ? 'var(--accent-amber)' : 'var(--accent-coral)';
+
+    if (fps !== this.lastBadgeFps) {
+      this.lastBadgeFps = fps;
+      this.fpsBadgeValue.textContent = `${fps} FPS`;
+      this.fpsBadge.dataset.tier = fpsTier;
+    }
 
     this.stringsDisplay.textContent = `${stringsCount} / ${maxStrings}`;
     this.stringsDisplay.style.color = stringsCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)';

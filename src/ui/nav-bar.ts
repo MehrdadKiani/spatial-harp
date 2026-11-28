@@ -10,13 +10,17 @@ export interface NavBarOptions {
   onTabChange?: (tabId: string) => void;
   onToggleDiagnostics?: () => void;
   onClearStrings?: () => void;
+  onOpenGuide?: () => void;
+  onOpenAbout?: (opener: HTMLElement) => void;
 }
 
 export class NavBar {
   private element: HTMLElement;
+  private brandBtn: HTMLButtonElement;
   private studioBtn: HTMLButtonElement;
   private settingsBtn: HTMLButtonElement;
   private diagBtn: HTMLButtonElement;
+  private helpBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
   private stringPill: HTMLDivElement;
   private stringCountEl: HTMLSpanElement;
@@ -28,21 +32,25 @@ export class NavBar {
   private onTabChange?: (tabId: string) => void;
   private onToggleDiagnostics?: () => void;
   private onClearStrings?: () => void;
+  private onOpenGuide?: () => void;
+  private onOpenAbout?: (opener: HTMLElement) => void;
 
   constructor(container: HTMLElement, options: NavBarOptions = {}) {
     this.onTabChange = options.onTabChange;
     this.onToggleDiagnostics = options.onToggleDiagnostics;
     this.onClearStrings = options.onClearStrings;
+    this.onOpenGuide = options.onOpenGuide;
+    this.onOpenAbout = options.onOpenAbout;
 
     this.element = document.createElement('header');
     this.element.id = 'app-navbar';
 
     this.element.innerHTML = `
       <div class="hud-island hud-island--brand">
-        <div class="navbar-brand">
-          <img class="navbar-logo-img" src="/icon-128.png" width="30" height="30" alt="Spatial Harp" />
+        <button id="navbar-brand-btn" class="navbar-brand" type="button" title="About Spatial Harp" aria-label="About Spatial Harp">
+          <img class="navbar-logo-img" src="/icon-128.png" width="30" height="30" alt="" />
           <span class="navbar-brand-title">Spatial Harp</span>
-        </div>
+        </button>
         <div id="navbar-string-pill" class="navbar-string-pill" data-active="false" title="Active strings in air">
           <span class="navbar-string-dot" aria-hidden="true"></span>
           <span id="navbar-string-count">0 / 12</span>
@@ -62,18 +70,35 @@ export class NavBar {
           <span class="navbar-btn-label">Settings</span>
         </button>
         <span class="island-divider" aria-hidden="true"></span>
+        <button id="navbar-help-btn" class="island-btn island-btn--icon" type="button" title="Interactive guide" aria-label="Interactive guide">
+          ${Icons.help(16)}
+        </button>
         <button id="navbar-clear-btn" class="island-btn island-btn--icon island-btn--danger" type="button" title="Clear all strings [C]" aria-label="Clear all strings">
           ${Icons.trash(16)}
         </button>
       </nav>
     `;
 
+    this.brandBtn = this.element.querySelector('#navbar-brand-btn') as HTMLButtonElement;
     this.stringPill = this.element.querySelector('#navbar-string-pill') as HTMLDivElement;
     this.stringCountEl = this.element.querySelector('#navbar-string-count') as HTMLSpanElement;
     this.diagBtn = this.element.querySelector('#navbar-diag-btn') as HTMLButtonElement;
     this.studioBtn = this.element.querySelector('#navbar-studio-btn') as HTMLButtonElement;
     this.settingsBtn = this.element.querySelector('#navbar-settings-btn') as HTMLButtonElement;
+    this.helpBtn = this.element.querySelector('#navbar-help-btn') as HTMLButtonElement;
     this.clearBtn = this.element.querySelector('#navbar-clear-btn') as HTMLButtonElement;
+
+    this.brandBtn.addEventListener('click', () => {
+      if (this.onOpenAbout) {
+        this.onOpenAbout(this.brandBtn);
+      }
+    });
+
+    this.helpBtn.addEventListener('click', () => {
+      if (this.onOpenGuide) {
+        this.onOpenGuide();
+      }
+    });
 
     this.studioBtn.addEventListener('click', () => {
       this.setActiveTab(this.activeTabId === 'studio' ? 'instrument' : 'studio');

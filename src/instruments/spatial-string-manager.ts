@@ -406,6 +406,20 @@ export class SpatialStringManager {
     return anchored;
   }
 
+  /**
+   * Spawns a centered horizontal starter string when the harp is empty so
+   * first-time users can pluck and hear sound immediately.
+   */
+  public spawnStarterString(videoAspect: number, nowMs: number): AnchoredString | null {
+    if (this.strings.length > 0) return null;
+    return this.anchorString(
+      { x: 0.24, y: 0.50, z: 0 },
+      { x: 0.76, y: 0.50, z: 0 },
+      videoAspect,
+      nowMs
+    );
+  }
+
   public clearAll(): void {
     const count = this.strings.length;
     this.strings = [];

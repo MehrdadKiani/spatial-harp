@@ -137,12 +137,13 @@ graph TD
         ├── icons.ts            # Minimalist 1.5px-stroke inline SVG icon library (zero external icon dependencies)
         ├── styles.css          # Centralized Optical Studio design system (tokens, floating islands, drawers, precision sliders, mobile perf bypass)
         ├── hud.ts              # Collapsible System Metrics drawer (tabular-nums FPS, gestures, active strings, audio status)
-        ├── nav-bar.ts          # Floating top-left brand/string-count/metrics island & top-right action island (Studio, Settings, Clear)
+        ├── nav-bar.ts          # Floating top-left brand/string-count/metrics island & top-right action island (Studio, Settings, Guide ?, Clear)
         ├── sound-studio-panel.ts # Sound Studio drawer with 2×2 tactile patch grid & custom precision FX rack (Japanese Hirajōshi tuning under the hood)
-        ├── settings-panel.ts   # Settings drawer with Pitch Mode selector (Fretted / Classic)
+        ├── settings-panel.ts   # Settings drawer with Pitch Mode selector (Fretted / Classic) & About link
+        ├── about-modal.ts      # Native <dialog closedby="any"> About modal (app info, tech stack, keyboard shortcuts, privacy & credits)
         ├── tutorial-modal.ts   # Native <dialog closedby="any"> 4-step interactive gesture tutorial modal
-        ├── hand-prompt.ts      # Low-profile live step-by-step hand coach pill (fades out after first pluck)
-        └── splash-screen.ts    # Editorial Optical Studio intro splash screen with hairline gesture strip & integrated progress CTA
+        ├── hand-prompt.ts      # Interactive 3-step coach card ("Play First, Build Second") with looping SVG gesture animations, Skip & localStorage persistence
+        └── splash-screen.ts    # Editorial Optical Studio intro splash screen with numbered 1-2-3 gesture strip & integrated progress CTA
 ```
 
 ---

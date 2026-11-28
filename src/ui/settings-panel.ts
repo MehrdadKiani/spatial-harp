@@ -4,6 +4,7 @@ import { Icons } from './icons';
 export interface SettingsPanelOptions {
   initialPitchMode?: PitchMode;
   onPitchModeChange?: (mode: PitchMode) => void;
+  onOpenAbout?: (opener: HTMLElement) => void;
   onClose?: () => void;
 }
 
@@ -54,6 +55,16 @@ export class SettingsPanel {
           </div>
           <div id="settings-pitch-desc" class="section-note"></div>
         </div>
+
+        <div class="drawer-section">
+          <button id="settings-about-btn" class="settings-link-row" type="button">
+            <span class="settings-link-left">
+              ${Icons.info(16)}
+              <span>About Spatial Harp</span>
+            </span>
+            <span class="mono" style="font-size: 12px; color: var(--text-muted);">v${__APP_VERSION__}</span>
+          </button>
+        </div>
       </div>
     `;
 
@@ -63,6 +74,13 @@ export class SettingsPanel {
     this.classicBtn = this.element.querySelector('#settings-pitch-length') as HTMLButtonElement;
     this.pitchDescEl = this.element.querySelector('#settings-pitch-desc') as HTMLDivElement;
     this.closeBtn = this.element.querySelector('#settings-close-btn') as HTMLButtonElement;
+    const aboutBtn = this.element.querySelector('#settings-about-btn') as HTMLButtonElement;
+
+    aboutBtn.addEventListener('click', () => {
+      this.close();
+      if (options.onClose) options.onClose();
+      if (options.onOpenAbout) options.onOpenAbout(aboutBtn);
+    });
 
     this.renderPitchSelection();
 
