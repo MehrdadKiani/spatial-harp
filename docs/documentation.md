@@ -89,6 +89,7 @@ graph TD
 │   ├── robots.txt              # Crawler policy & sitemap reference
 │   ├── sitemap.xml             # Canonical XML sitemap for https://harps.vercel.app/
 │   ├── site.webmanifest        # PWA manifest (icons, start_url, description, #07090d theme)
+│   ├── og-preview.png          # 1200x630 Open Graph / Twitter summary_large_image social preview card
 │   ├── models/                 # Offline MediaPipe hand_landmarker.task (7.8 MB)
 │   └── wasm/                   # Offline vision_wasm binaries
 ├── files/                  # Local reference media (git-ignored, personal reference)
@@ -337,7 +338,8 @@ graph TD
 
 9. **SEO, Structured Data & PWA Metadata (`index.html`, `public/robots.txt`, `public/sitemap.xml`, `public/site.webmanifest`, `vercel.json`)**:
    - **Player-Focused Metadata & Static Shell (`index.html`)**: Targets `"virtual harp online"` and `"AR webcam musical instrument"` (no download or VR headset required) across `<title>`, `<meta name="description">`, Open Graph/Twitter cards, and the pre-rendered `#app-static-shell` (`<h1>` + `<h2>` hierarchy, removed when `SplashScreen` mounts).
-   - **Enriched `WebApplication` JSON-LD (`index.html`)**: Declares `isAccessibleForFree: true`, `offers` (`$0`), `softwareVersion`, and `featureList` covering hand-tracking modes, standing-wave physics, sound presets, musical scales, and local camera privacy.
+   - **Enriched `WebApplication` JSON-LD (`index.html`)**: Declares `isAccessibleForFree: true`, `offers` (`$0`), `softwareVersion`, `screenshot` (`og-preview.png`), and `featureList` covering hand-tracking modes, standing-wave physics, sound presets, musical scales, and local camera privacy.
+   - **Social Preview Card (`public/og-preview.png`)**: `1200×630` dark-studio action card wired to `og:image`, `twitter:card="summary_large_image"`, and `twitter:image`.
    - **Crawlability & PWA Alignment**: Canonical URL (`https://harps.vercel.app/`), `public/robots.txt`, `public/sitemap.xml`, `vercel.json` caching/security headers, and `public/site.webmanifest` aligned to `#07090d` with `start_url` and `description`.
 
 ---
