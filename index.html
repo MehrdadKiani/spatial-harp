@@ -2,35 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Spatial Harp — AR Musical Instrument for Vibe Coding & Flow State</title>
-    <meta name="description" content="Spatial Harp is the ultimate Augmented Reality musical instrument for vibe coding and flow state. Synthesize polyphonic soundscapes in mid-air using webcam hand tracking, Three.js 3D physics, and Tone.js." />
-    <meta name="keywords" content="vibe coding, vibe coder, ai vibe coding, creative flow state, spatial harp, augmented reality, webgl, hand tracking, mediapipe, tonejs, threejs, ambient music, virtual instrument, cyber instrument" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Spatial Harp — Free Virtual Harp &amp; AR Webcam Instrument</title>
+    <meta name="description" content="Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser — no download or VR headset." />
     <meta name="author" content="Mehrdad Kiani" />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#07090d" />
-    <meta property="og:title" content="Spatial Harp — AR Musical Instrument for Vibe Coding" />
-    <meta property="og:description" content="Turn your workspace into an ambient AR harp. Pluck holographic laser strings in mid-air for vibe coding, focus, and creative flow." />
+    <link rel="canonical" href="https://harps.vercel.app/" />
+    <meta property="og:url" content="https://harps.vercel.app/" />
+    <meta property="og:site_name" content="Spatial Harp" />
+    <meta property="og:title" content="Spatial Harp — Free Virtual Harp &amp; AR Webcam Instrument" />
+    <meta property="og:description" content="Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser — no download or VR headset." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/spatial-harp-icon-transparent.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Spatial Harp — AR Musical Instrument for Vibe Coding" />
-    <meta name="twitter:description" content="Turn your workspace into an ambient AR harp. Pluck holographic laser strings in mid-air for vibe coding, focus, and creative flow." />
-    <meta name="twitter:image" content="/spatial-harp-icon-transparent.png" />
+    <meta property="og:image" content="https://harps.vercel.app/spatial-harp-logo-card.png" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:image:alt" content="Spatial Harp — Free Virtual Harp and AR Webcam Instrument" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Spatial Harp — Free Virtual Harp &amp; AR Webcam Instrument" />
+    <meta name="twitter:description" content="Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser — no download or VR headset." />
+    <meta name="twitter:image" content="https://harps.vercel.app/spatial-harp-logo-card.png" />
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
+      "@id": "https://harps.vercel.app/#webapp",
       "name": "Spatial Harp",
-      "alternateName": "Spatial Harp — Vibe Coding AR Instrument",
-      "description": "Real-time Augmented Reality Spatial Harp powered by webcam hand tracking, Three.js WebGL physics, and Tone.js synthesis. Built for vibe coding and creative flow.",
+      "alternateName": "Spatial Harp — Virtual Harp & AR Webcam Instrument",
+      "url": "https://harps.vercel.app/",
+      "image": "https://harps.vercel.app/spatial-harp-logo-card.png",
+      "description": "Free virtual harp online and browser-based AR musical instrument. Play glowing polyphonic 3D strings in mid-air using your webcam — no download or VR headset required.",
       "applicationCategory": "MultimediaApplication",
       "operatingSystem": "All",
+      "softwareVersion": "0.1.11",
+      "browserRequirements": "Requires a modern browser with WebGL, Web Audio, and webcam access",
+      "isAccessibleForFree": true,
+      "featureList": [
+        "Real-time webcam hand tracking with one-hand and two-hand modes",
+        "Mid-air 3D light strings with realistic standing-wave physics",
+        "Polyphonic sound presets: Plucked Harp, Laser Synth, Ambient Chime, and Retro 8-Bit",
+        "Musical scales: Pentatonic, Minor, Hirajōshi, Major, and Blues",
+        "100% local on-device camera processing — never recorded or uploaded"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
       "author": {
         "@type": "Person",
         "name": "Mehrdad Kiani"
-      },
-      "keywords": "vibe coding, augmented reality, webgl, mediapipe, threejs, tonejs, hand tracking, ambient audio"
+      }
     }
     </script>
     <link rel="icon" href="/favicon.ico?v=2" sizes="any">
@@ -83,10 +105,76 @@
         z-index: 1;
         pointer-events: none;
       }
+      #app-static-shell {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        background: #07090d;
+        color: #f4f6fa;
+      }
+
+      #app-static-shell .static-card {
+        max-width: 460px;
+      }
+
+      #app-static-shell h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 6px;
+      }
+
+      #app-static-shell h2 {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #cbd5e1;
+        margin-bottom: 12px;
+      }
+
+      #app-static-shell p {
+        color: #a8b3c7;
+        line-height: 1.5;
+        margin-bottom: 14px;
+      }
+
+      #app-static-shell ol {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        color: #cbd5e1;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+      }
+
+      #app-static-shell noscript p {
+        color: #fbbf24;
+        font-size: 0.875rem;
+      }
     </style>
   </head>
   <body>
-    <main id="app"></main>
+    <main id="app">
+      <section id="app-static-shell" aria-label="Spatial Harp overview">
+        <div class="static-card">
+          <h1>Spatial Harp</h1>
+          <h2>Free Virtual Harp Online — AR Webcam Musical Instrument</h2>
+          <p>Play glowing 3D strings in mid-air with your hands using just your webcam — no download or VR headset needed. Switch between Plucked Harp, Laser Synth, Ambient Chime, and Retro 8-Bit presets across five musical scales.</p>
+          <ol>
+            <li><strong>Pinch &amp; drag:</strong> Hold steady until it pops, then draw a string.</li>
+            <li><strong>Swipe to pluck:</strong> Cross any string with your fingertips to play.</li>
+            <li><strong>Grab anchors:</strong> Pinch tips with one or both hands to resize or tune.</li>
+          </ol>
+          <p>Camera processing runs locally in your browser — never recorded or uploaded.</p>
+          <noscript>
+            <p>JavaScript, WebGL, Web Audio, and webcam access are required to play Spatial Harp.</p>
+          </noscript>
+        </div>
+      </section>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

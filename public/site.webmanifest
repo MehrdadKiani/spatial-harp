@@ -1,6 +1,8 @@
 {
   "name": "Spatial Harp",
   "short_name": "Spatial Harp",
+  "description": "Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser.",
+  "start_url": "/",
   "icons": [
     {
       "src": "/pwa-192.png",
@@ -13,7 +15,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#030619",
-  "background_color": "transparent",
+  "theme_color": "#07090d",
+  "background_color": "#07090d",
   "display": "standalone"
 }

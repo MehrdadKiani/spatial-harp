@@ -83,9 +83,12 @@ graph TD
 ├── package.json                # Dependencies: three, @mediapipe/tasks-vision, tone
 ├── tsconfig.json               # Strict TypeScript configuration
 ├── vite.config.ts              # Vite dev server (LAN host + basic-ssl HTTPS) & build settings (injects __APP_VERSION__)
-├── vercel.json                 # Vercel SPA rewrites & WASM/model caching headers
+├── vercel.json                 # Vercel immutable asset/WASM/model caching & security headers
 ├── public/
 │   ├── config.json             # External grouped runtime configuration (vision, pinch, strings, plucking, audio, visuals, ui)
+│   ├── robots.txt              # Crawler policy & sitemap reference
+│   ├── sitemap.xml             # Canonical XML sitemap for https://harps.vercel.app/
+│   ├── site.webmanifest        # PWA manifest (icons, start_url, description, #07090d theme)
 │   ├── models/                 # Offline MediaPipe hand_landmarker.task (7.8 MB)
 │   └── wasm/                   # Offline vision_wasm binaries
 ├── files/                  # Local reference media (git-ignored, personal reference)
@@ -331,6 +334,11 @@ graph TD
 8. **Automated Continuous Delivery Pipeline (`.github/workflows/`)**:
    - **`ci.yml`**: Triggers on pushes to `main`, validating unit tests and production build. Feature branches remain silent.
    - **`release.yml`**: Triggers on pushes to `release`, verifying tests/builds, automatically creating the `v*` Git tag from `package.json`, and publishing the official GitHub Release with auto-compiled changelogs.
+
+9. **SEO, Structured Data & PWA Metadata (`index.html`, `public/robots.txt`, `public/sitemap.xml`, `public/site.webmanifest`, `vercel.json`)**:
+   - **Player-Focused Metadata & Static Shell (`index.html`)**: Targets `"virtual harp online"` and `"AR webcam musical instrument"` (no download or VR headset required) across `<title>`, `<meta name="description">`, Open Graph/Twitter cards, and the pre-rendered `#app-static-shell` (`<h1>` + `<h2>` hierarchy, removed when `SplashScreen` mounts).
+   - **Enriched `WebApplication` JSON-LD (`index.html`)**: Declares `isAccessibleForFree: true`, `offers` (`$0`), `softwareVersion`, and `featureList` covering hand-tracking modes, standing-wave physics, sound presets, musical scales, and local camera privacy.
+   - **Crawlability & PWA Alignment**: Canonical URL (`https://harps.vercel.app/`), `public/robots.txt`, `public/sitemap.xml`, `vercel.json` caching/security headers, and `public/site.webmanifest` aligned to `#07090d` with `start_url` and `description`.
 
 ---
 

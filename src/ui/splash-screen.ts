@@ -96,6 +96,13 @@ export class SplashScreen {
     this.errorBanner = this.element.querySelector('#splash-error-banner') as HTMLDivElement;
 
     this.startBtn.onclick = this.handleStartClick;
+
+    // Remove static pre-rendered SEO/fallback shell once interactive splash mounts
+    const staticShell = this.container.querySelector('#app-static-shell');
+    if (staticShell) {
+      staticShell.remove();
+    }
+
     this.container.appendChild(this.element);
   }
 
