@@ -9,7 +9,6 @@ import { Icons } from './icons';
 export interface NavBarOptions {
   onTabChange?: (tabId: string) => void;
   onToggleDiagnostics?: () => void;
-  onToggleLock?: () => void;
   onClearStrings?: () => void;
 }
 
@@ -17,26 +16,22 @@ export class NavBar {
   private element: HTMLElement;
   private studioBtn: HTMLButtonElement;
   private settingsBtn: HTMLButtonElement;
-  private lockBtn: HTMLButtonElement;
   private diagBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
   private stringPill: HTMLDivElement;
   private stringCountEl: HTMLSpanElement;
 
   private activeTabId = 'instrument';
-  private isLocked = false;
   private lastStringCount = -1;
   private lastMaxStrings = -1;
 
   private onTabChange?: (tabId: string) => void;
   private onToggleDiagnostics?: () => void;
-  private onToggleLock?: () => void;
   private onClearStrings?: () => void;
 
   constructor(container: HTMLElement, options: NavBarOptions = {}) {
     this.onTabChange = options.onTabChange;
     this.onToggleDiagnostics = options.onToggleDiagnostics;
-    this.onToggleLock = options.onToggleLock;
     this.onClearStrings = options.onClearStrings;
 
     this.element = document.createElement('header');
@@ -45,7 +40,7 @@ export class NavBar {
     this.element.innerHTML = `
       <div class="hud-island hud-island--brand">
         <div class="navbar-brand">
-          <img class="navbar-logo-img" src="/icon-128.png" width="26" height="26" alt="Spatial Harp" />
+          <img class="navbar-logo-img" src="/icon-128.png" width="30" height="30" alt="Spatial Harp" />
           <span class="navbar-brand-title">Spatial Harp</span>
         </div>
         <div id="navbar-string-pill" class="navbar-string-pill" data-active="false" title="Active strings in air">
@@ -53,27 +48,22 @@ export class NavBar {
           <span id="navbar-string-count">0 / 12</span>
         </div>
         <button id="navbar-diag-btn" class="island-btn island-btn--icon" type="button" aria-expanded="false" aria-controls="hud-card" title="System metrics [D]" aria-label="System metrics">
-          ${Icons.activity(15)}
+          ${Icons.activity(16)}
         </button>
       </div>
 
       <nav class="hud-island hud-island--controls" aria-label="Instrument controls">
-        <button id="navbar-lock-btn" class="island-btn island-btn--lock" type="button" aria-pressed="false" title="Lock harp to play freely [L]">
-          <span id="navbar-lock-icon">${Icons.unlock(15)}</span>
-          <span class="navbar-btn-label">Lock</span>
-        </button>
-        <span class="island-divider" aria-hidden="true"></span>
         <button id="navbar-studio-btn" class="island-btn" type="button" data-tab-id="studio" aria-expanded="false" aria-controls="sound-studio-panel" title="Sound Studio">
-          ${Icons.sliders(15)}
+          ${Icons.sliders(16)}
           <span class="navbar-btn-label">Studio</span>
         </button>
         <button id="navbar-settings-btn" class="island-btn" type="button" data-tab-id="settings" aria-expanded="false" aria-controls="settings-panel" title="Settings">
-          ${Icons.settings(15)}
+          ${Icons.settings(16)}
           <span class="navbar-btn-label">Settings</span>
         </button>
         <span class="island-divider" aria-hidden="true"></span>
         <button id="navbar-clear-btn" class="island-btn island-btn--icon island-btn--danger" type="button" title="Clear all strings [C]" aria-label="Clear all strings">
-          ${Icons.trash(15)}
+          ${Icons.trash(16)}
         </button>
       </nav>
     `;
@@ -81,7 +71,6 @@ export class NavBar {
     this.stringPill = this.element.querySelector('#navbar-string-pill') as HTMLDivElement;
     this.stringCountEl = this.element.querySelector('#navbar-string-count') as HTMLSpanElement;
     this.diagBtn = this.element.querySelector('#navbar-diag-btn') as HTMLButtonElement;
-    this.lockBtn = this.element.querySelector('#navbar-lock-btn') as HTMLButtonElement;
     this.studioBtn = this.element.querySelector('#navbar-studio-btn') as HTMLButtonElement;
     this.settingsBtn = this.element.querySelector('#navbar-settings-btn') as HTMLButtonElement;
     this.clearBtn = this.element.querySelector('#navbar-clear-btn') as HTMLButtonElement;
@@ -97,12 +86,6 @@ export class NavBar {
     this.diagBtn.addEventListener('click', () => {
       if (this.onToggleDiagnostics) {
         this.onToggleDiagnostics();
-      }
-    });
-
-    this.lockBtn.addEventListener('click', () => {
-      if (this.onToggleLock) {
-        this.onToggleLock();
       }
     });
 
@@ -129,19 +112,6 @@ export class NavBar {
     this.diagBtn.setAttribute('aria-expanded', String(active));
   }
 
-  public setLocked(locked: boolean): void {
-    this.isLocked = locked;
-    this.lockBtn.setAttribute('aria-pressed', String(locked));
-    const iconSlot = this.lockBtn.querySelector('#navbar-lock-icon');
-    const labelSlot = this.lockBtn.querySelector('.navbar-btn-label');
-    if (iconSlot) {
-      iconSlot.innerHTML = locked ? Icons.lock(15) : Icons.unlock(15);
-    }
-    if (labelSlot) {
-      labelSlot.textContent = locked ? 'Locked' : 'Lock';
-    }
-  }
-
   /**
    * Zero-GC per-frame string counter updater (only mutates DOM when counts change).
    */
@@ -155,9 +125,5 @@ export class NavBar {
 
   public setVisible(visible: boolean): void {
     this.element.style.display = visible ? 'flex' : 'none';
-  }
-
-  public getIsLocked(): boolean {
-    return this.isLocked;
   }
 }

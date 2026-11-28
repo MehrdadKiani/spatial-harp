@@ -18,28 +18,21 @@ export interface EndpointGrabState {
   endpoint: 'p1' | 'p2';
 }
 
-export type HandInteractionMode = 'one-hand' | 'two-hand';
-
 export interface StringPreviewState {
   isActive: boolean;
   isCharging: boolean;
   chargeProgress: number;          // 0..1 while holding steady pinch to lock Point A
   chargePoint1?: Point3D;
-  chargePoint2?: Point3D;
   point1?: Point3D;
   point2?: Point3D;
-  mode: HandInteractionMode;
   drawingHandId?: number;
 }
 
 export interface ChargePopEvent {
   point1: Point3D;
-  point2?: Point3D;
-  mode: HandInteractionMode;
 }
 
 export interface SpatialStringConfig {
-  handMode?: HandInteractionMode;  // Default: 'one-hand'
   maxStrings?: number;             // Default: 12
   minAnchorDistance?: number;      // Default: 0.10 (normalized camera space)
   minStretchDurationMs?: number;   // Default: 150ms

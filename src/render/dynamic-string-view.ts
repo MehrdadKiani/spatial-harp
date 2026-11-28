@@ -236,25 +236,7 @@ export class DynamicStringView {
       this.chargeOuterRings[0].scale.setScalar(outerScale);
       this.chargeOuterRings[0].rotation.z = elapsed * (3.0 + p * 8.0);
       this.chargeOuterRings[0].visible = true;
-
-      if (preview.chargePoint2) {
-        const c2 = this.sceneManager.toWorldCoords(
-          preview.chargePoint2.x,
-          preview.chargePoint2.y,
-          preview.chargePoint2.z,
-          videoAspect,
-          this.scratchP2
-        );
-        this.chargeCoreOrbs[1].position.copy(c2);
-        this.chargeCoreOrbs[1].scale.setScalar(coreScale);
-        this.chargeCoreOrbs[1].visible = true;
-
-        this.chargeOuterRings[1].position.copy(c2);
-        this.chargeOuterRings[1].scale.setScalar(outerScale);
-        this.chargeOuterRings[1].rotation.z = -elapsed * (3.0 + p * 8.0);
-        this.chargeOuterRings[1].visible = true;
-      }
-    } else if (preview.mode === 'one-hand' && preview.isActive && preview.point1 && preview.point2) {
+    } else if (preview.isActive && preview.point1 && preview.point2) {
       // Show fixed start anchor reticle at point1 and moving pinch reticle at point2
       const w1 = this.sceneManager.toWorldCoords(
         preview.point1.x,

@@ -1,6 +1,4 @@
 import { AudioFxParams, MusicalScaleId, PitchMode, SoundPresetId } from '../types/audio';
-import { HandInteractionMode } from '../types/instruments';
-import { PerformanceMode } from './performance';
 
 export interface VisionConfigGroup {
   _comment?: string;
@@ -23,7 +21,6 @@ export interface PinchConfigGroup {
 
 export interface StringsConfigGroup {
   _comment?: string;
-  handMode: HandInteractionMode;
   maxStrings: number;
   minAnchorDistance: number;
   minStretchDurationMs: number;
@@ -103,8 +100,6 @@ export interface VisualsConfigGroup {
 export interface UiConfigGroup {
   _comment?: string;
   showTutorialOnStart: boolean;
-  showLiveHints: boolean;
-  performanceMode: PerformanceMode;
 }
 
 export interface AppConfig {
@@ -137,7 +132,6 @@ export const DEFAULT_CONFIG: AppConfig = {
     releaseThreshold: 0.080,
   },
   strings: {
-    handMode: 'one-hand',
     maxStrings: 12,
     minAnchorDistance: 0.10,
     minStretchDurationMs: 150,
@@ -174,7 +168,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   audio: {
     defaultPreset: 'harp',
-    defaultScale: 'pentatonic',
+    defaultScale: 'hirajoshi',
     pitchMode: 'fretted',
     fretZones: 5,
     volumeDb: -4,
@@ -218,8 +212,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   ui: {
     showTutorialOnStart: false,
-    showLiveHints: true,
-    performanceMode: 'auto',
   },
 };
 
@@ -249,11 +241,7 @@ export function parseHexPalette(palette: string[]): number[] {
 
 export interface StoredUserOverrides {
   defaultPreset?: SoundPresetId;
-  defaultScale?: MusicalScaleId;
   pitchMode?: PitchMode;
-  handMode?: HandInteractionMode;
-  showLiveHints?: boolean;
-  performanceMode?: PerformanceMode;
   presetFxOverrides?: Partial<Record<SoundPresetId, Partial<AudioFxParams>>>;
 }
 
@@ -346,24 +334,8 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
   if (overrides.defaultPreset) {
     merged.audio.defaultPreset = overrides.defaultPreset;
   }
-  if (overrides.defaultScale) {
-    merged.audio.defaultScale = overrides.defaultScale;
-  }
   if (overrides.pitchMode === 'fretted' || overrides.pitchMode === 'length') {
     merged.audio.pitchMode = overrides.pitchMode;
-  }
-  if (overrides.handMode === 'one-hand' || overrides.handMode === 'two-hand') {
-    merged.strings.handMode = overrides.handMode;
-  }
-  if (typeof overrides.showLiveHints === 'boolean') {
-    merged.ui.showLiveHints = overrides.showLiveHints;
-  }
-  if (
-    overrides.performanceMode === 'auto' ||
-    overrides.performanceMode === 'high' ||
-    overrides.performanceMode === 'mobile'
-  ) {
-    merged.ui.performanceMode = overrides.performanceMode;
   }
 
   return merged;

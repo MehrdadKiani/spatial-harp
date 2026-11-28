@@ -1,119 +1,56 @@
 /**
  * Live Contextual Hand Coach Pill (Zero UI Framework - Pure Vanilla DOM & TypeScript)
- * Guides first-time users step-by-step through the core loop without blocking the camera.
+ * Guides first-time users step-by-step through creating and plucking their first string,
+ * then automatically fades out once the first note is played.
  * Zero-GC per-frame update: only mutates DOM when the coaching stage actually changes.
  */
 
-import { HandInteractionMode } from '../types/instruments';
 import { Icons } from './icons';
 
-type HintStage =
-  | 'none'
-  | 'show_hands'
-  | 'pinch'
-  | 'release'
-  | 'pluck'
-  | 'countdown_3'
-  | 'countdown_2'
-  | 'countdown_1';
+type HintStage = 'none' | 'show_hand' | 'pinch' | 'release' | 'pluck';
 
 interface HintContent {
   icon: string;
   text: string;
-  tone: 'neutral' | 'mint' | 'amber';
+  tone: 'neutral' | 'mint';
 }
 
-const ONE_HAND_COPY: Record<'show_hands' | 'pinch' | 'release' | 'pluck', HintContent> = {
-  show_hands: {
-    icon: Icons.hand(16),
+const HINT_COPY: Record<Exclude<HintStage, 'none'>, HintContent> = {
+  show_hand: {
+    icon: Icons.hand(17),
     text: 'Show your hand to the camera',
     tone: 'neutral',
   },
   pinch: {
-    icon: Icons.pinch(16),
+    icon: Icons.pinch(17),
     text: 'Hold pinch steady until it pops, then drag to draw a string',
     tone: 'mint',
   },
   release: {
-    icon: Icons.sparkle(16),
+    icon: Icons.sparkle(17),
     text: 'Drag apart and release to anchor the string in air',
     tone: 'mint',
   },
   pluck: {
-    icon: Icons.pluck(16),
+    icon: Icons.pluck(17),
     text: 'Swipe a fingertip across the string to play',
-    tone: 'mint',
-  },
-};
-
-const TWO_HAND_COPY: Record<'show_hands' | 'pinch' | 'release' | 'pluck', HintContent> = {
-  show_hands: {
-    icon: Icons.hands(16),
-    text: 'Show both hands to the camera',
-    tone: 'neutral',
-  },
-  pinch: {
-    icon: Icons.pinch(16),
-    text: 'Hold pinch on both hands until it pops to create a string',
-    tone: 'mint',
-  },
-  release: {
-    icon: Icons.sparkle(16),
-    text: 'Stretch apart and release to anchor the string in air',
-    tone: 'mint',
-  },
-  pluck: {
-    icon: Icons.pluck(16),
-    text: 'Swipe a fingertip across the string to play',
-    tone: 'mint',
-  },
-};
-
-const COUNTDOWN_COPY: Record<'countdown_3' | 'countdown_2' | 'countdown_1', HintContent> = {
-  countdown_3: {
-    icon: Icons.clock(16),
-    text: 'One hand detected — switching to One-Hand mode in 3...',
-    tone: 'amber',
-  },
-  countdown_2: {
-    icon: Icons.clock(16),
-    text: 'One hand detected — switching to One-Hand mode in 2...',
-    tone: 'amber',
-  },
-  countdown_1: {
-    icon: Icons.clock(16),
-    text: 'One hand detected — switching to One-Hand mode in 1...',
     tone: 'mint',
   },
 };
 
 const HANDS_LOST_GRACE_MS = 900;
-const SINGLE_HAND_DETECT_MS = 3000;
-const COUNTDOWN_DURATION_MS = 3000;
-
-export interface HandPromptOptions {
-  initialHandMode?: HandInteractionMode;
-  onAutoSwitchToOneHand?: () => void;
-}
 
 export class HandPrompt {
   private element: HTMLDivElement;
   private iconEl: HTMLSpanElement;
   private textEl: HTMLSpanElement;
 
-  private isEnabled = true;
   private isActive = false;
   private hasCompletedOnboarding = false;
-  private handMode: HandInteractionMode;
   private currentStage: HintStage = 'none';
-  private lastRequiredHandsSeenMs = -Infinity;
-  private singleHandSinceMs = -Infinity;
-  private onAutoSwitchToOneHand?: () => void;
+  private lastHandSeenMs = -Infinity;
 
-  constructor(container: HTMLElement, options: HandPromptOptions = {}) {
-    this.handMode = options.initialHandMode ?? 'one-hand';
-    this.onAutoSwitchToOneHand = options.onAutoSwitchToOneHand;
-
+  constructor(container: HTMLElement) {
     this.element = document.createElement('div');
     this.element.id = 'hand-camera-prompt';
     this.element.setAttribute('aria-live', 'polite');
@@ -130,43 +67,16 @@ export class HandPrompt {
     container.appendChild(this.element);
   }
 
-  public configure(enabled: boolean): void {
-    this.isEnabled = enabled;
-    if (!this.isEnabled) {
-      this.applyStage('none');
-    }
-  }
-
-  public setHandMode(mode: HandInteractionMode): void {
-    if (this.handMode === mode) return;
-    this.handMode = mode;
-    this.singleHandSinceMs = -Infinity;
-    this.lastRequiredHandsSeenMs = -Infinity;
-    if (this.currentStage !== 'none') {
-      const stageToRefresh: HintStage =
-        this.currentStage === 'countdown_3' ||
-        this.currentStage === 'countdown_2' ||
-        this.currentStage === 'countdown_1'
-          ? 'show_hands'
-          : this.currentStage;
-      this.applyStage(stageToRefresh);
-    }
-  }
-
   public activate(): void {
     this.isActive = true;
     this.hasCompletedOnboarding = false;
-    this.lastRequiredHandsSeenMs = -Infinity;
-    this.singleHandSinceMs = -Infinity;
-    if (this.isEnabled) {
-      this.applyStage('show_hands');
-    }
+    this.lastHandSeenMs = -Infinity;
+    this.applyStage('show_hand');
   }
 
   public markPlucked(): void {
     if (this.hasCompletedOnboarding) return;
     this.hasCompletedOnboarding = true;
-    this.singleHandSinceMs = -Infinity;
     this.applyStage('none');
   }
 
@@ -176,51 +86,15 @@ export class HandPrompt {
     stringCount: number,
     nowMs: number
   ): void {
-    if (!this.isActive) return;
-
-    let countdownStage: 'countdown_3' | 'countdown_2' | 'countdown_1' | null = null;
-
-    if (this.handMode === 'two-hand' && stringCount === 0 && !isStretching && handCount === 1) {
-      if (this.singleHandSinceMs === -Infinity) {
-        this.singleHandSinceMs = nowMs;
-      }
-      const elapsedSingleMs = nowMs - this.singleHandSinceMs;
-      if (elapsedSingleMs >= SINGLE_HAND_DETECT_MS + COUNTDOWN_DURATION_MS) {
-        this.handMode = 'one-hand';
-        this.singleHandSinceMs = -Infinity;
-        this.lastRequiredHandsSeenMs = nowMs;
-        if (this.onAutoSwitchToOneHand) {
-          this.onAutoSwitchToOneHand();
-        }
-      } else if (elapsedSingleMs >= SINGLE_HAND_DETECT_MS) {
-        const remainingSec = Math.ceil(
-          (SINGLE_HAND_DETECT_MS + COUNTDOWN_DURATION_MS - elapsedSingleMs) / 1000
-        );
-        if (remainingSec >= 3) countdownStage = 'countdown_3';
-        else if (remainingSec === 2) countdownStage = 'countdown_2';
-        else countdownStage = 'countdown_1';
-      }
-    } else {
-      this.singleHandSinceMs = -Infinity;
-    }
-
-    if (countdownStage) {
-      if (countdownStage !== this.currentStage) {
-        this.applyStage(countdownStage);
-      }
-      return;
-    }
-
-    if (!this.isEnabled || this.hasCompletedOnboarding) {
+    if (!this.isActive || this.hasCompletedOnboarding) {
       if (this.currentStage !== 'none') {
         this.applyStage('none');
       }
       return;
     }
 
-    const requiredHands = this.handMode === 'one-hand' ? 1 : 2;
-    if (handCount >= requiredHands) {
-      this.lastRequiredHandsSeenMs = nowMs;
+    if (handCount >= 1) {
+      this.lastHandSeenMs = nowMs;
     }
 
     let nextStage: HintStage;
@@ -228,15 +102,15 @@ export class HandPrompt {
       nextStage = 'pluck';
     } else if (isStretching) {
       nextStage = 'release';
-    } else if (handCount >= requiredHands) {
+    } else if (handCount >= 1) {
       nextStage = 'pinch';
     } else if (
       this.currentStage === 'pinch' &&
-      nowMs - this.lastRequiredHandsSeenMs < HANDS_LOST_GRACE_MS
+      nowMs - this.lastHandSeenMs < HANDS_LOST_GRACE_MS
     ) {
       nextStage = 'pinch';
     } else {
-      nextStage = 'show_hands';
+      nextStage = 'show_hand';
     }
 
     if (nextStage !== this.currentStage) {
@@ -252,13 +126,7 @@ export class HandPrompt {
       return;
     }
 
-    const content =
-      stage === 'countdown_3' || stage === 'countdown_2' || stage === 'countdown_1'
-        ? COUNTDOWN_COPY[stage]
-        : this.handMode === 'one-hand'
-          ? ONE_HAND_COPY[stage]
-          : TWO_HAND_COPY[stage];
-
+    const content = HINT_COPY[stage];
     this.iconEl.innerHTML = content.icon;
     this.textEl.textContent = content.text;
     this.element.dataset.tone = content.tone;

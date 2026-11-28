@@ -19,7 +19,7 @@ Codebase ↔ Functionality Mindmap: [docs/mindmap.md](./mindmap.md).
 | **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ **COMPLETED** | Multi-engine sound synthesizer (Harp, Laser Synth, Ambient Chime, Retro 8-Bit) & 5 musical scale modes (Pentatonic, Minor, Hirajōshi, Major, Blues). |
 | **Step 7** | **Advanced Plucking Visual Effects & Wave Envelopes** | ✅ **COMPLETED** | Resonant dual-wave envelope sheath (spindle oscillation), contact shockwaves, streak sparks, crosshair anchor reticles. |
 | **Step 8** | **Glassmorphic UI Suite & Mobile/Tablet Responsiveness** | ✅ **COMPLETED** | Navigation bar, Sound Studio drawer, real progress splash screen, centralized JetBrains Mono typography, safe-area & cross-device responsive layout. |
-| **Step 9** | **One-Hand Accessibility Mode, Charge-to-Pop, Fretted Pitch & Harp Lock** | ✅ **COMPLETED** | Default One-Hand Mode (Hold-to-Charge → Pop → Drag → Release string creation with stillness guard & tactile pop VFX/SFX), Fretted Pitch Mode (5 position-based notes per string, default in One-Hand Mode, switchable in `⚙️ Settings`), SplashScreen & SettingsPanel toggles, 3s + `3-2-1` auto-fallback countdown, NavBar `🔒 Lock` Play Mode (`[L]`), `localStorage` persistence, and unit tests. |
+| **Step 9** | **Unified Single-Hand Creation, Charge-to-Pop & Fretted Pitch** | ✅ **COMPLETED** | Unified single-hand string creation (Hold-to-Charge → Pop → Drag → Release with stillness guard & tactile pop VFX/SFX), simultaneous 1- or 2-hand endpoint moving/resizing (and live plucking with the free hand), Fretted & Classic Pitch Modes in Settings, automatic device Performance Profile (`auto`), `localStorage` persistence, and unit tests. |
 
 ---
 
@@ -105,7 +105,7 @@ graph TD
     │   ├── env.d.ts            # Global compile-time environment typings (__APP_VERSION__)
     │   ├── vision.ts           # HandPose, Landmark, Bone connections
     │   ├── gestures.ts         # PinchState, DualPinchState, HandGestureState
-    │   ├── instruments.ts      # AnchoredString, EndpointGrabState, HandInteractionMode, StringPreviewState, SpatialStringConfig
+    │   ├── instruments.ts      # AnchoredString, EndpointGrabState, StringPreviewState, ChargePopEvent, SpatialStringConfig
     │   ├── audio.ts            # PluckEvent, AudioFxParams, DelayTimeDivision, AudioEngineConfig
     │   └── physics.ts          # StringVibrationState, SparkParticle, ShockwaveState
     ├── core/
@@ -137,12 +137,12 @@ graph TD
         ├── icons.ts            # Minimalist 1.5px-stroke inline SVG icon library (zero external icon dependencies)
         ├── styles.css          # Centralized Optical Studio design system (tokens, floating islands, drawers, precision sliders, mobile perf bypass)
         ├── hud.ts              # Collapsible System Metrics drawer (tabular-nums FPS, gestures, active strings, audio status)
-        ├── nav-bar.ts          # Floating top-left brand/string-count/metrics island & top-right action island (Lock, Studio, Settings, Clear)
-        ├── sound-studio-panel.ts # Sound Studio drawer with 2×2 tactile patch grid, branded scale/delay selects & custom precision FX sliders
-        ├── settings-panel.ts   # Settings drawer with segmented Hand Mode, Pitch Mode, Performance Profile & Live Coaching Hints switch
+        ├── nav-bar.ts          # Floating top-left brand/string-count/metrics island & top-right action island (Studio, Settings, Clear)
+        ├── sound-studio-panel.ts # Sound Studio drawer with 2×2 tactile patch grid & custom precision FX rack (Japanese Hirajōshi tuning under the hood)
+        ├── settings-panel.ts   # Settings drawer with Pitch Mode selector (Fretted / Classic)
         ├── tutorial-modal.ts   # Native <dialog closedby="any"> 4-step interactive gesture tutorial modal
-        ├── hand-prompt.ts      # Low-profile live step-by-step hand coach pill with 3s + 3-2-1 single-hand auto-switch countdown
-        └── splash-screen.ts    # Editorial Optical Studio intro splash screen with hairline gesture strip, Hand Mode switch & integrated progress CTA
+        ├── hand-prompt.ts      # Low-profile live step-by-step hand coach pill (fades out after first pluck)
+        └── splash-screen.ts    # Editorial Optical Studio intro splash screen with hairline gesture strip & integrated progress CTA
 ```
 
 ---
@@ -301,16 +301,16 @@ graph TD
 ### Step 8: Optical Studio UI Suite, Typography System & Mobile/Tablet Responsiveness (✅ Completed)
 
 1. **Floating Top Islands (`src/ui/nav-bar.ts`, `src/ui/styles.css`, `src/ui/icons.ts`)**:
-   - Smoked-obsidian floating top-left island (brand mark, `Spatial Harp`, live `0 / 12` active string counter pill, System Metrics toggle `[D]`) and top-right control island (`Lock [L]`, `Studio`, `Settings`, `Clear [C]`) so the glowing AR strings remain the sole neon focal point.
+   - Smoked-obsidian floating top-left island (brand mark, `Spatial Harp`, live `0 / 12` active string counter pill, System Metrics toggle `[D]`) and top-right control island (`Studio`, `Settings`, `Clear [C]`) so the glowing AR strings remain the sole neon focal point.
    - Zero UI framework — 100% vanilla DOM, TypeScript, inline 1.5px-stroke SVGs, and centralized CSS custom properties in `src/ui/styles.css`.
 
 2. **Dedicated Sound Studio Drawer (`src/ui/sound-studio-panel.ts`)**:
-   - Features a **2×2 tactile instrument patch grid** (`Plucked Harp`, `Laser Synth`, `Ambient Chime`, `Retro 8-Bit`), branded `<select>` pickers (`appearance: base-select` with native fallback) for musical scales and tempo-synced delay time, and custom precision `<input type="range">` faders for **Reverb Mix** (`0–100%`), **Delay Mix** (`0–100%`), **Delay Feedback** (`0–85%`), plus a **Reset** button.
+   - Features a **2×2 tactile instrument patch grid** (`Plucked Harp`, `Laser Synth`, `Ambient Chime`, `Retro 8-Bit`), custom precision `<input type="range">` faders for **Reverb Mix** (`0–100%`), **Delay Mix** (`0–100%`), **Delay Feedback** (`0–85%`), branded `<select>` for tempo-synced **Delay Time**, and a **Reset** button. The instrument uses the Japanese **Hirajōshi** tuning under the hood.
    - Custom FX tweaks are persisted per preset in `localStorage` (`presetFxOverrides`) and automatically restored when switching between presets (`AudioEngine.setFxParams` / `resetPresetFx`).
 
 3. **Editorial Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
-   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user clicks `"Start playing"` / `"Start with both hands"`.
-   - **Hairline Gesture Strip & Segmented Hand-Mode Switch**: Clean 3-column gesture strip with custom SVG icons, segmented `One-Hand / Two-Hand` control, quiet local-processing privacy note, and a high-contrast alabaster CTA with integrated loading progress bar and error retry recovery.
+   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user clicks `"Start playing"`.
+   - **Hairline Gesture Strip**: Clean 3-column gesture strip with custom SVG icons, quiet local-processing privacy note, and a high-contrast alabaster CTA with integrated loading progress bar and error retry recovery.
 
 4. **Typography Pairing (`index.html`, `src/ui/styles.css`)**:
    - **Plus Jakarta Sans** for clean sentence-case UI chrome, headings, and controls; **JetBrains Mono** (`tabular-nums`) reserved for live numeric telemetry (`FPS`, `%`, `0 / 12`, note names, version badge).

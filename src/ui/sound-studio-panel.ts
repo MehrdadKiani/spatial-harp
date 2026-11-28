@@ -1,16 +1,13 @@
 import {
   AudioFxParams,
   DelayTimeDivision,
-  MusicalScaleId,
   SoundPresetId,
 } from '../types/audio';
 import { DELAY_TIME_OPTIONS, PRESETS } from '../audio/audio-engine';
-import { SCALES } from '../audio/scale-mapper';
 import { Icons } from './icons';
 
 export interface SoundStudioPanelOptions {
   onPresetChange?: (preset: SoundPresetId) => void;
-  onScaleChange?: (scale: MusicalScaleId) => void;
   onFxChange?: (patch: Partial<AudioFxParams>) => void;
   onFxReset?: () => void;
   onClose?: () => void;
@@ -26,7 +23,6 @@ const PATCH_META: Record<SoundPresetId, { name: string; tag: string }> = {
 export class SoundStudioPanel {
   private element: HTMLElement;
   private patchButtons = new Map<SoundPresetId, HTMLButtonElement>();
-  private scaleSelect: HTMLSelectElement;
   private reverbSlider: HTMLInputElement;
   private reverbValue: HTMLSpanElement;
   private delayWetSlider: HTMLInputElement;
@@ -58,10 +54,6 @@ export class SoundStudioPanel {
       })
       .join('');
 
-    const scaleOptions = Object.values(SCALES)
-      .map((s) => `<option value="${s.id}">${s.label}</option>`)
-      .join('');
-
     const delayTimeOptions = DELAY_TIME_OPTIONS
       .map((d) => `<option value="${d.value}">${d.label}</option>`)
       .join('');
@@ -69,11 +61,11 @@ export class SoundStudioPanel {
     this.element.innerHTML = `
       <div class="drawer-header">
         <div class="drawer-title-group">
-          ${Icons.sliders(16)}
+          ${Icons.sliders(17)}
           <h2 id="studio-title" class="drawer-title">Sound Studio</h2>
         </div>
         <button id="studio-close-btn" class="drawer-close-btn" type="button" aria-label="Close Sound Studio">
-          ${Icons.close(16)}
+          ${Icons.close(17)}
         </button>
       </div>
 
@@ -90,19 +82,9 @@ export class SoundStudioPanel {
 
         <div class="drawer-section">
           <div class="section-heading-row">
-            <label for="studio-scale-select" class="section-label">Musical scale</label>
-            <span class="section-meta">Pitch mapping</span>
-          </div>
-          <select id="studio-scale-select" name="scale" class="studio-select">
-            ${scaleOptions}
-          </select>
-        </div>
-
-        <div class="drawer-section">
-          <div class="section-heading-row">
             <span class="section-label">Effects rack</span>
             <button id="studio-fx-reset-btn" class="ghost-btn" type="button">
-              ${Icons.reset(12)}
+              ${Icons.reset(13)}
               <span>Reset</span>
             </button>
           </div>
@@ -161,7 +143,6 @@ export class SoundStudioPanel {
       });
     });
 
-    this.scaleSelect = this.element.querySelector('#studio-scale-select')!;
     this.reverbSlider = this.element.querySelector('#studio-reverb-slider')!;
     this.reverbValue = this.element.querySelector('#studio-reverb-val')!;
     this.delayWetSlider = this.element.querySelector('#studio-delay-wet-slider')!;
@@ -184,12 +165,6 @@ export class SoundStudioPanel {
     this.fxResetBtn.addEventListener('click', () => {
       if (options.onFxReset) options.onFxReset();
     });
-
-    if (options.onScaleChange) {
-      this.scaleSelect.addEventListener('change', () => {
-        options.onScaleChange!(this.scaleSelect.value as MusicalScaleId);
-      });
-    }
 
     this.reverbSlider.addEventListener('input', () => {
       const pct = Number(this.reverbSlider.value);
@@ -238,10 +213,6 @@ export class SoundStudioPanel {
     this.patchButtons.forEach((btn, id) => {
       btn.setAttribute('aria-pressed', String(id === preset));
     });
-  }
-
-  public setSelectedScale(scale: MusicalScaleId): void {
-    this.scaleSelect.value = scale;
   }
 
   public setFxParams(fx: AudioFxParams): void {

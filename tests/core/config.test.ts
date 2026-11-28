@@ -22,7 +22,7 @@ describe('AppConfig & Utilities', () => {
 
   it('validates audio configuration defaults', () => {
     expect(DEFAULT_CONFIG.audio.defaultPreset).toBe('harp');
-    expect(DEFAULT_CONFIG.audio.defaultScale).toBe('pentatonic');
+    expect(DEFAULT_CONFIG.audio.defaultScale).toBe('hirajoshi');
     expect(DEFAULT_CONFIG.audio.polyphony).toBeGreaterThanOrEqual(4);
     expect(DEFAULT_CONFIG.audio.minNormLengthForPitch).toBeLessThan(
       DEFAULT_CONFIG.audio.maxNormLengthForPitch

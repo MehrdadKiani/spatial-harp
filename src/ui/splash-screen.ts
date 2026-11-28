@@ -1,18 +1,15 @@
 /**
  * Optical Studio Splash Screen & Audio Unlocker (Zero UI Framework - Pure Vanilla DOM & TypeScript)
- * Minimal smoked-obsidian welcome overlay with hairline gesture guide, hand-mode toggle,
- * and integrated asset-loading progress CTA.
+ * Minimal smoked-obsidian welcome overlay with hairline gesture guide and integrated
+ * asset-loading progress CTA.
  */
 
-import { HandInteractionMode } from '../types/instruments';
 import { Icons } from './icons';
 
 export interface SplashScreenOptions {
   title?: string;
   subtitle?: string;
   buttonLabel?: string;
-  initialHandMode?: HandInteractionMode;
-  onHandModeChange?: (mode: HandInteractionMode) => void;
   onStart?: () => void | Promise<void>;
 }
 
@@ -24,25 +21,15 @@ export class SplashScreen {
   private btnSpinner: HTMLSpanElement;
   private btnText: HTMLSpanElement;
   private errorBanner: HTMLDivElement;
-  private oneHandBtn: HTMLButtonElement;
-  private twoHandBtn: HTMLButtonElement;
-  private createGuideTitle: HTMLDivElement;
-  private createGuideDesc: HTMLDivElement;
   private isDismissed = false;
   private isReady = false;
-  private handMode: HandInteractionMode;
-  private customButtonLabel?: string;
   private buttonLabel: string;
-  private onHandModeChange?: (mode: HandInteractionMode) => void;
   private onStart?: () => void | Promise<void>;
 
   constructor(container: HTMLElement, options: SplashScreenOptions = {}) {
     this.container = container;
     this.onStart = options.onStart;
-    this.onHandModeChange = options.onHandModeChange;
-    this.handMode = options.initialHandMode ?? 'one-hand';
-    this.customButtonLabel = options.buttonLabel;
-    this.buttonLabel = this.getEffectiveButtonLabel();
+    this.buttonLabel = options.buttonLabel || 'Start playing';
 
     this.element = document.createElement('div');
     this.element.id = 'app-splash-screen';
@@ -55,7 +42,7 @@ export class SplashScreen {
       <div class="splash-card">
         <div class="splash-header">
           <div class="splash-emblem">
-            <img src="/icon-128.png" width="38" height="38" alt="Spatial Harp" />
+            <img src="/icon-128.png" width="82" height="82" alt="Spatial Harp" />
           </div>
           <h1 class="splash-title">${titleText}</h1>
           <p class="splash-subtitle">${subtitleText}</p>
@@ -63,42 +50,25 @@ export class SplashScreen {
 
         <div class="splash-guide-strip">
           <div class="splash-guide-item">
-            <span class="splash-guide-icon">${Icons.pinch(18)}</span>
+            <span class="splash-guide-num" aria-hidden="true">1</span>
             <div>
-              <div id="splash-create-title" class="splash-guide-title">Pinch & drag</div>
-              <div id="splash-create-desc" class="splash-guide-desc">Hold steady until it pops, then draw</div>
+              <div class="splash-guide-title">Pinch & drag</div>
+              <div class="splash-guide-desc">Hold steady until it pops, then draw a string</div>
             </div>
           </div>
           <div class="splash-guide-item">
-            <span class="splash-guide-icon">${Icons.pluck(18)}</span>
+            <span class="splash-guide-num" aria-hidden="true">2</span>
             <div>
               <div class="splash-guide-title">Swipe to pluck</div>
-              <div class="splash-guide-desc">Cross any string to play notes</div>
+              <div class="splash-guide-desc">Cross any string with your fingertips to play</div>
             </div>
           </div>
           <div class="splash-guide-item">
-            <span class="splash-guide-icon">${Icons.crosshair(18)}</span>
+            <span class="splash-guide-num" aria-hidden="true">3</span>
             <div>
               <div class="splash-guide-title">Grab anchors</div>
-              <div class="splash-guide-desc">Pinch a string tip to move or tune</div>
+              <div class="splash-guide-desc">Pinch tips with one or both hands to resize or tune</div>
             </div>
-          </div>
-        </div>
-
-        <div class="splash-mode-block">
-          <div class="splash-mode-header">
-            <span class="section-label">Hand mode</span>
-            <span class="section-meta">Switch anytime in Settings</span>
-          </div>
-          <div class="segmented-control" role="group" aria-label="Hand mode">
-            <button id="splash-mode-one" class="seg-btn" type="button" aria-pressed="true">
-              ${Icons.hand(15)}
-              <span>One-Hand</span>
-            </button>
-            <button id="splash-mode-two" class="seg-btn" type="button" aria-pressed="false">
-              ${Icons.hands(15)}
-              <span>Two-Hand</span>
-            </button>
           </div>
         </div>
 
@@ -113,7 +83,7 @@ export class SplashScreen {
         </button>
 
         <div class="splash-privacy-note">
-          ${Icons.shield(14)}
+          ${Icons.shield(15)}
           <span>Camera processing runs locally in your browser — never recorded or uploaded.</span>
         </div>
       </div>
@@ -124,68 +94,15 @@ export class SplashScreen {
     this.btnSpinner = this.element.querySelector('#splash-btn-spinner') as HTMLSpanElement;
     this.btnText = this.element.querySelector('#splash-btn-text') as HTMLSpanElement;
     this.errorBanner = this.element.querySelector('#splash-error-banner') as HTMLDivElement;
-    this.oneHandBtn = this.element.querySelector('#splash-mode-one') as HTMLButtonElement;
-    this.twoHandBtn = this.element.querySelector('#splash-mode-two') as HTMLButtonElement;
-    this.createGuideTitle = this.element.querySelector('#splash-create-title') as HTMLDivElement;
-    this.createGuideDesc = this.element.querySelector('#splash-create-desc') as HTMLDivElement;
 
-    this.renderHandModeUI();
-    this.setupListeners();
+    this.startBtn.onclick = this.handleStartClick;
     this.container.appendChild(this.element);
-  }
-
-  private getEffectiveButtonLabel(): string {
-    if (this.customButtonLabel) return this.customButtonLabel;
-    return this.handMode === 'one-hand'
-      ? 'Start playing'
-      : 'Start with both hands';
-  }
-
-  public setHandMode(mode: HandInteractionMode): void {
-    this.handMode = mode;
-    this.buttonLabel = this.getEffectiveButtonLabel();
-    this.renderHandModeUI();
-    if (this.isReady && !this.startBtn.disabled) {
-      this.btnText.textContent = this.buttonLabel;
-    }
-  }
-
-  private renderHandModeUI(): void {
-    const isOneHand = this.handMode === 'one-hand';
-    this.oneHandBtn.setAttribute('aria-pressed', String(isOneHand));
-    this.twoHandBtn.setAttribute('aria-pressed', String(!isOneHand));
-
-    if (isOneHand) {
-      this.createGuideTitle.textContent = 'Pinch & drag';
-      this.createGuideDesc.textContent = 'Hold steady until it pops, then draw';
-    } else {
-      this.createGuideTitle.textContent = 'Dual pinch';
-      this.createGuideDesc.textContent = 'Hold both hands, stretch, and release';
-    }
   }
 
   private handleStartClick = async () => {
     if (!this.isReady || this.isDismissed) return;
     await this.dismiss();
   };
-
-  private setupListeners(): void {
-    this.startBtn.onclick = this.handleStartClick;
-
-    this.oneHandBtn.addEventListener('click', () => {
-      if (this.handMode !== 'one-hand') {
-        this.setHandMode('one-hand');
-        if (this.onHandModeChange) this.onHandModeChange('one-hand');
-      }
-    });
-
-    this.twoHandBtn.addEventListener('click', () => {
-      if (this.handMode !== 'two-hand') {
-        this.setHandMode('two-hand');
-        if (this.onHandModeChange) this.onHandModeChange('two-hand');
-      }
-    });
-  }
 
   public setProgress(progress: number, _status: string): void {
     const pct = Math.min(100, Math.max(0, progress <= 1.0 ? Math.round(progress * 100) : Math.round(progress)));

@@ -9,13 +9,11 @@ import {
   clearPresetFxOverride,
   getPresetFxOverride,
   loadAppConfig,
-  loadUserOverrides,
   parseHexPalette,
   savePresetFxOverride,
   saveUserOverride,
 } from './core/config';
 import {
-  PerformanceMode,
   PerformanceProfile,
   resolvePerformanceProfile,
 } from './core/performance';
@@ -41,7 +39,7 @@ import { SettingsPanel } from './ui/settings-panel';
 import { TutorialModal } from './ui/tutorial-modal';
 import { HandPrompt } from './ui/hand-prompt';
 import { PitchMode, PluckEvent } from './types/audio';
-import { ChargePopEvent, HandInteractionMode } from './types/instruments';
+import { ChargePopEvent } from './types/instruments';
 import { globalBus } from './core/event-bus';
 
 // Initialize Vercel Web Analytics and Speed Insights
@@ -91,10 +89,8 @@ class App {
   constructor() {
     this.container = document.getElementById('app') || document.body;
 
-    // 0. Resolve device performance profile before instantiating WebGL, pools, and audio
-    const initialPerfMode: PerformanceMode =
-      loadUserOverrides().performanceMode ?? this.config.ui.performanceMode;
-    this.perfProfile = resolvePerformanceProfile(initialPerfMode);
+    // 0. Resolve device performance profile automatically before instantiating WebGL, pools, and audio
+    this.perfProfile = resolvePerformanceProfile('auto');
     document.body.classList.toggle('perf-mobile', this.perfProfile.disableBackdropBlur);
 
     // 1. Video background (mirrored video element)
@@ -137,7 +133,6 @@ class App {
 
     // 4. Instruments Subsystem: Mid-air Spatial String Manager
     this.spatialStringManager = new SpatialStringManager(this.sceneManager, {
-      handMode: this.config.strings.handMode,
       maxStrings: this.config.strings.maxStrings,
       minAnchorDistance: this.config.strings.minAnchorDistance,
       minStretchDurationMs: this.config.strings.minStretchDurationMs,
@@ -162,11 +157,6 @@ class App {
         }
         this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
         saveUserOverride({ defaultPreset: preset });
-        this.hud.updateAudioPreset(preset);
-      },
-      onScaleChange: (scale) => {
-        this.scaleMapper.setScaleById(scale);
-        saveUserOverride({ defaultScale: scale });
       },
       onFxChange: (patch) => {
         this.audioEngine.setFxParams(patch);
@@ -183,27 +173,9 @@ class App {
     });
 
     this.settingsPanel = new SettingsPanel(this.container, {
-      initialHandMode: this.config.strings.handMode,
       initialPitchMode: this.config.audio.pitchMode,
-      initialPerformanceMode: this.perfProfile.mode,
-      activePerformanceTier: this.perfProfile.tier,
-      initialShowLiveHints: this.config.ui.showLiveHints,
-      onHandModeChange: (mode) => {
-        this.setHandMode(mode, true);
-      },
       onPitchModeChange: (pitchMode) => {
         this.setPitchMode(pitchMode, true);
-      },
-      onPerformanceModeChange: (perfMode) => {
-        this.config.ui.performanceMode = perfMode;
-        saveUserOverride({ performanceMode: perfMode });
-        const nextProfile = resolvePerformanceProfile(perfMode);
-        document.body.classList.toggle('perf-mobile', nextProfile.disableBackdropBlur);
-      },
-      onShowLiveHintsChange: (enabled) => {
-        this.config.ui.showLiveHints = enabled;
-        this.handPrompt.configure(enabled);
-        saveUserOverride({ showLiveHints: enabled });
       },
       onClose: () => {
         this.navBar.setActiveTab('instrument');
@@ -213,12 +185,7 @@ class App {
     this.tutorialModal = new TutorialModal(this.container, () => {
       this.navBar.setActiveTab('instrument');
     });
-    this.handPrompt = new HandPrompt(this.container, {
-      initialHandMode: this.config.strings.handMode,
-      onAutoSwitchToOneHand: () => {
-        this.setHandMode('one-hand', true);
-      },
-    });
+    this.handPrompt = new HandPrompt(this.container);
 
     this.navBar = new NavBar(this.container, {
       onTabChange: (tabId) => {
@@ -236,28 +203,17 @@ class App {
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
       },
-      onToggleLock: () => {
-        this.toggleHarpLock();
-      },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
       },
     });
 
-    this.hud = new HUD(
-      this.container,
-      () => this.unlockAudio(),
-      (expanded) => {
-        this.navBar.setDiagnosticsActive(expanded);
-      }
-    );
+    this.hud = new HUD(this.container, (expanded) => {
+      this.navBar.setDiagnosticsActive(expanded);
+    });
 
-    // Initial Splash Screen: clicking START explicitly requests camera, unlocks Web Audio & opens tutorial
+    // Initial Splash Screen: clicking START explicitly requests camera & unlocks Web Audio
     this.splashScreen = new SplashScreen(this.container, {
-      initialHandMode: this.config.strings.handMode,
-      onHandModeChange: (mode) => {
-        this.setHandMode(mode, true);
-      },
       onStart: async () => {
         await this.startExperience();
       },
@@ -331,9 +287,6 @@ class App {
       };
 
       emitPopAt(event.point1);
-      if (event.point2) {
-        emitPopAt(event.point2);
-      }
       this.audioEngine.playAnchorPop();
     });
 
@@ -353,10 +306,37 @@ class App {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyC' || e.code === 'Space') {
         this.spatialStringManager.clearAll();
-      } else if (e.code === 'KeyL') {
-        this.toggleHarpLock();
+      } else if (e.key === 'Escape') {
+        this.closeOpenDrawers();
       }
     });
+
+    // Light-dismiss any open floating drawer when clicking or tapping outside on desktop & mobile
+    document.addEventListener('pointerdown', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest('#sound-studio-panel') ||
+        target.closest('#settings-panel') ||
+        target.closest('#hud-card') ||
+        target.closest('#app-navbar') ||
+        target.closest('#tutorial-modal-dialog')
+      ) {
+        return;
+      }
+      this.closeOpenDrawers();
+    });
+  }
+
+  private closeOpenDrawers(): void {
+    if (this.soundStudioPanel.getIsOpen() || this.settingsPanel.getIsOpen()) {
+      this.soundStudioPanel.close();
+      this.settingsPanel.close();
+      this.navBar.setActiveTab('instrument');
+    }
+    if (this.hud.getIsExpanded()) {
+      this.hud.setCardExpanded(false);
+    }
   }
 
   private applyConfig(cfg: AppConfig): void {
@@ -406,17 +386,10 @@ class App {
         : cfg.visuals
     );
 
-    // 6. Sync Sound Studio dropdowns, FX sliders, Settings, Splash & UI hints with loaded config
+    // 6. Sync Sound Studio & Settings with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
-    this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
     this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
-    this.settingsPanel.setHandMode(cfg.strings.handMode);
     this.settingsPanel.setPitchMode(cfg.audio.pitchMode);
-    this.settingsPanel.setPerformanceMode(cfg.ui.performanceMode, this.perfProfile.tier);
-    this.settingsPanel.setShowLiveHints(cfg.ui.showLiveHints);
-    this.splashScreen.setHandMode(cfg.strings.handMode);
-    this.handPrompt.setHandMode(cfg.strings.handMode);
-    this.handPrompt.configure(cfg.ui.showLiveHints);
   }
 
   private setPitchMode(mode: PitchMode, persist = true): void {
@@ -428,62 +401,8 @@ class App {
     }
   }
 
-  private setHandMode(mode: HandInteractionMode, persist = true): void {
-    this.config.strings.handMode = mode;
-    this.spatialStringManager.setHandMode(mode);
-    this.handPrompt.setHandMode(mode);
-    this.settingsPanel.setHandMode(mode);
-    this.splashScreen.setHandMode(mode);
-
-    // Default to Fretted Pitch Mode in One-Hand Mode and Classic Length Mode in Two-Hand Mode
-    const defaultPitchForHandMode: PitchMode = mode === 'one-hand' ? 'fretted' : 'length';
-    this.setPitchMode(defaultPitchForHandMode, persist);
-
-    // On mobile, track 1 hand in One-Hand Mode to nearly halve MediaPipe inference cost
-    void this.handTracker.setNumHands(this.getTargetNumHands(mode));
-
-    if (persist) {
-      saveUserOverride({ handMode: mode });
-    }
-
-    if (this.isVisionReady) {
-      this.hud.setMessage(
-        this.spatialStringManager.getIsLocked()
-          ? 'Harp Locked (Play Mode) — strum freely! Press [L] or click Lock to edit.'
-          : mode === 'one-hand'
-            ? 'One-Hand Mode: Hold pinch steady to pop-lock Point A, drag & release.'
-            : 'Two-Hand Mode: Hold dual pinch steady to pop-lock, stretch & release.'
-      );
-    }
-  }
-
-  private toggleHarpLock(): void {
-    const nextLocked = !this.spatialStringManager.getIsLocked();
-    this.spatialStringManager.setLocked(nextLocked);
-    this.navBar.setLocked(nextLocked);
-    if (this.isVisionReady) {
-      this.hud.setMessage(
-        nextLocked
-          ? 'Harp Locked (Play Mode) — strum freely! Press [L] or click Lock to edit.'
-          : this.config.strings.handMode === 'one-hand'
-            ? 'Harp Unlocked — hold pinch steady to draw strings.'
-            : 'Harp Unlocked — hold dual pinch steady to stretch strings.'
-      );
-    }
-  }
-
   private async unlockAudio(): Promise<void> {
-    const success = await this.audioEngine.unlock();
-    if (success) {
-      this.hud.setAudioActive(true);
-    }
-  }
-
-  private getTargetNumHands(handMode: HandInteractionMode = this.config.strings.handMode): number {
-    if (this.perfProfile.tier === 'mobile' && handMode === 'one-hand') {
-      return 1;
-    }
-    return this.config.vision.numHands;
+    await this.audioEngine.unlock();
   }
 
   public async start(): Promise<void> {
@@ -502,7 +421,7 @@ class App {
       await this.handTracker.init({
         wasmPath: this.config.vision.wasmPath,
         modelAssetPath: this.config.vision.modelAssetPath,
-        numHands: this.getTargetNumHands(),
+        numHands: this.config.vision.numHands,
         smoothingAlpha: this.config.vision.smoothingAlpha,
         minHandDetectionConfidence: this.config.vision.minHandDetectionConfidence,
         minHandPresenceConfidence: this.config.vision.minHandPresenceConfidence,
@@ -550,7 +469,7 @@ class App {
         await this.handTracker.init({
           wasmPath: this.config.vision.wasmPath,
           modelAssetPath: this.config.vision.modelAssetPath,
-          numHands: this.getTargetNumHands(),
+          numHands: this.config.vision.numHands,
           smoothingAlpha: this.config.vision.smoothingAlpha,
           minHandDetectionConfidence: this.config.vision.minHandDetectionConfidence,
           minHandPresenceConfidence: this.config.vision.minHandPresenceConfidence,
@@ -559,11 +478,7 @@ class App {
       }
 
       this.isVisionReady = true;
-      this.hud.setMessage(
-        this.config.strings.handMode === 'one-hand'
-          ? 'One-Hand Mode: Pinch & drag in mid-air to draw and lock a string.'
-          : 'Two-Hand Mode: Pinch thumb & index on both hands to stretch and anchor a string.'
-      );
+      this.hud.setMessage('Hold pinch steady to draw a string, or grab string tips with one or both hands.');
 
       // 4. Start main RAF tick loop
       if (!this.isLoopInitialized) {
@@ -611,10 +526,10 @@ class App {
     const { gestureStates, dualPinch } = this.pinchDetector.detectDualPinch(hands);
 
     // 4. Instruments: Spatial String Anchoring & Endpoint Grab/Repositioning
-    this.spatialStringManager.update(gestureStates, dualPinch, videoAspect, nowMs);
+    this.spatialStringManager.update(gestureStates, videoAspect, nowMs);
     const anchoredStrings = this.spatialStringManager.getStrings();
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
-    const previewState = this.spatialStringManager.getPreviewState(dualPinch);
+    const previewState = this.spatialStringManager.getPreviewState();
 
     // Update live step-by-step hand coaching pill (zero-GC)
     this.handPrompt.update(hands.length, previewState.isActive, anchoredStrings.length, nowMs);

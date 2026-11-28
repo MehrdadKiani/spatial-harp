@@ -1,9 +1,8 @@
-import { DualPinchState, HandGestureState } from '../types/gestures';
+import { HandGestureState } from '../types/gestures';
 import {
   AnchoredString,
   ChargePopEvent,
   EndpointGrabState,
-  HandInteractionMode,
   SpatialStringConfig,
   StringPreviewState,
 } from '../types/instruments';
@@ -33,8 +32,6 @@ interface PendingGrabCandidate {
 export class SpatialStringManager {
   private strings: AnchoredString[] = [];
   private sceneManager: SceneManager;
-  private handMode: HandInteractionMode;
-  private isLocked = false;
   private maxStrings: number;
   private minAnchorDistance: number;
   private minStretchDurationMs: number;
@@ -48,7 +45,7 @@ export class SpatialStringManager {
   private maxGrabHandSpeed: number;
   private palette: number[];
 
-  // Active endpoint grabs (handId -> EndpointGrabState)
+  // Active endpoint grabs (handId -> EndpointGrabState); supports 1-hand or simultaneous 2-hand resizing
   private activeGrabs = new Map<number, EndpointGrabState>();
 
   // Intentional grab verification state (edge-triggered pinch + velocity guard + dwell timer)
@@ -62,9 +59,7 @@ export class SpatialStringManager {
   private chargeStartTime = 0;
   private chargeProgress = 0;
   private chargeOrigin1: Point3D | null = null;
-  private chargeOrigin2: Point3D | null = null;
   private chargeCurrent1: Point3D | null = null;
-  private chargeCurrent2: Point3D | null = null;
 
   private isStretching = false;
   private drawingHandId: number | null = null;
@@ -79,17 +74,14 @@ export class SpatialStringManager {
   private previewP1: Point3D = { x: 0, y: 0, z: 0 };
   private previewP2: Point3D = { x: 0, y: 0, z: 0 };
   private previewChargeP1: Point3D = { x: 0, y: 0, z: 0 };
-  private previewChargeP2: Point3D = { x: 0, y: 0, z: 0 };
   private previewState: StringPreviewState = {
     isActive: false,
     isCharging: false,
     chargeProgress: 0,
-    mode: 'one-hand',
   };
 
   constructor(sceneManager: SceneManager, config: SpatialStringConfig = {}) {
     this.sceneManager = sceneManager;
-    this.handMode = config.handMode ?? 'one-hand';
     this.maxStrings = config.maxStrings ?? 12;
     this.minAnchorDistance = config.minAnchorDistance ?? 0.10;
     this.minStretchDurationMs = config.minStretchDurationMs ?? 150;
@@ -105,7 +97,6 @@ export class SpatialStringManager {
   }
 
   public configure(config: SpatialStringConfig): void {
-    if (config.handMode !== undefined) this.setHandMode(config.handMode);
     if (config.maxStrings !== undefined) this.maxStrings = config.maxStrings;
     if (config.minAnchorDistance !== undefined) this.minAnchorDistance = config.minAnchorDistance;
     if (config.minStretchDurationMs !== undefined) this.minStretchDurationMs = config.minStretchDurationMs;
@@ -125,9 +116,7 @@ export class SpatialStringManager {
     this.chargeStartTime = 0;
     this.chargeProgress = 0;
     this.chargeOrigin1 = null;
-    this.chargeOrigin2 = null;
     this.chargeCurrent1 = null;
-    this.chargeCurrent2 = null;
     this.isStretching = false;
     this.drawingHandId = null;
     this.releaseStartTime = 0;
@@ -135,44 +124,14 @@ export class SpatialStringManager {
     this.lastPoint2 = null;
   }
 
-  public setHandMode(mode: HandInteractionMode): void {
-    if (this.handMode === mode) return;
-    this.handMode = mode;
-    this.resetCreationState();
-  }
-
-  public getHandMode(): HandInteractionMode {
-    return this.handMode;
-  }
-
-  public setLocked(locked: boolean): void {
-    if (this.isLocked === locked) return;
-    this.isLocked = locked;
-    if (locked) {
-      this.activeGrabs.clear();
-      this.pendingGrabs.clear();
-      this.resetCreationState();
-    }
-  }
-
-  public getIsLocked(): boolean {
-    return this.isLocked;
-  }
-
   public update(
     gestureStates: HandGestureState[],
-    dualPinch: DualPinchState,
     videoAspect: number,
     nowMs: number
   ): AnchoredString | null {
-    // When harp is locked (Play Mode), disable all tip grabbing & string creation
-    if (this.isLocked) {
-      return null;
-    }
-
     let newlyAnchored: AnchoredString | null = null;
 
-    // 1. Process active endpoint grabs
+    // 1. Process active endpoint grabs (supports 1-hand or simultaneous 2-hand moving/resizing)
     for (const [handId, grab] of Array.from(this.activeGrabs.entries())) {
       const gesture = gestureStates.find((g) => g.handId === handId);
       const targetString = this.strings.find((s) => s.id === grab.stringId);
@@ -314,7 +273,7 @@ export class SpatialStringManager {
       }
     }
 
-    // 3. New String Creation State Machine (with Hold-to-Charge -> Pop -> Stretch)
+    // 3. Single-hand String Creation State Machine (Hold-to-Charge -> Pop -> Drag -> Release)
     if (this.activeGrabs.size > 0 || this.pendingGrabs.size > 0) {
       this.resetCreationState();
       return null;
@@ -326,152 +285,58 @@ export class SpatialStringManager {
       return Math.sqrt(dx * dx + dy * dy);
     };
 
-    if (this.handMode === 'one-hand') {
-      // One-Hand Mode: Hold steady pinch to charge -> Pop locks Point A -> Drag to Point B -> Release to anchor
-      const pinchingHand =
-        this.drawingHandId !== null
-          ? gestureStates.find((g) => g.handId === this.drawingHandId && g.pinch.isPinching)
-          : gestureStates.find((g) => g.pinch.isPinching);
+    const pinchingHand =
+      this.drawingHandId !== null
+        ? gestureStates.find((g) => g.handId === this.drawingHandId && g.pinch.isPinching)
+        : gestureStates.find((g) => g.pinch.isPinching);
 
-      if (pinchingHand) {
-        if (this.releaseStartTime > 0) {
-          this.releaseStartTime = 0;
-        }
-
-        if (this.isStretching) {
-          this.lastPoint2 = { ...pinchingHand.pinch.pinchPoint };
-        } else if (nowMs - this.lastAnchorTime >= this.cooldownMs) {
-          if (this.chargeDurationMs <= 0) {
-            // Instant mode when chargeDurationMs === 0
-            this.isStretching = true;
-            this.drawingHandId = pinchingHand.handId;
-            this.stretchStartTime = nowMs;
-            this.lastPoint1 = { ...pinchingHand.pinch.pinchPoint };
-            this.lastPoint2 = { ...pinchingHand.pinch.pinchPoint };
-            const popEvent: ChargePopEvent = {
-              point1: { ...this.lastPoint1 },
-              mode: 'one-hand',
-            };
-            globalBus.emit('string:charge_pop', popEvent);
-          } else if (!this.isCharging) {
-            this.isCharging = true;
-            this.drawingHandId = pinchingHand.handId;
-            this.chargeStartTime = nowMs;
-            this.chargeProgress = 0;
-            this.chargeOrigin1 = { ...pinchingHand.pinch.pinchPoint };
-            this.chargeCurrent1 = { ...pinchingHand.pinch.pinchPoint };
-          } else if (this.chargeOrigin1) {
-            const pt = pinchingHand.pinch.pinchPoint;
-            this.chargeCurrent1 = { ...pt };
-            if (dist2D(pt, this.chargeOrigin1) > this.maxChargeMoveDistance) {
-              // Hand moved too much (likely strumming/waving) -> restart charge anchor
-              this.chargeStartTime = nowMs;
-              this.chargeProgress = 0;
-              this.chargeOrigin1 = { ...pt };
-            } else {
-              const elapsed = nowMs - this.chargeStartTime;
-              this.chargeProgress = Math.max(0, Math.min(1, elapsed / this.chargeDurationMs));
-              if (elapsed >= this.chargeDurationMs) {
-                // POP! Lock Point A in mid-air and transition to stretching
-                const lockedP1 = { ...this.chargeOrigin1 };
-                this.isCharging = false;
-                this.chargeProgress = 0;
-                this.chargeOrigin1 = null;
-                this.chargeCurrent1 = null;
-                this.isStretching = true;
-                this.stretchStartTime = nowMs;
-                this.lastPoint1 = lockedP1;
-                this.lastPoint2 = { ...pt };
-                const popEvent: ChargePopEvent = {
-                  point1: { ...lockedP1 },
-                  mode: 'one-hand',
-                };
-                globalBus.emit('string:charge_pop', popEvent);
-              }
-            }
-          }
-        }
-      } else if (this.isCharging) {
-        // Released before charge completed -> cancel cleanly
-        this.resetCreationState();
-      } else if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
-        if (this.releaseStartTime === 0) {
-          this.releaseStartTime = nowMs;
-        } else if (nowMs - this.releaseStartTime >= this.releaseGraceMs) {
-          const stretchDuration = this.releaseStartTime - this.stretchStartTime;
-
-          const dx = this.lastPoint1.x - this.lastPoint2.x;
-          const dy = this.lastPoint1.y - this.lastPoint2.y;
-          const dz = (this.lastPoint1.z - this.lastPoint2.z) * 0.5;
-          const normDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-          if (normDistance >= this.minAnchorDistance && stretchDuration >= this.minStretchDurationMs) {
-            newlyAnchored = this.anchorString(this.lastPoint1, this.lastPoint2, videoAspect, nowMs);
-            this.lastAnchorTime = nowMs;
-          }
-
-          this.resetCreationState();
-        }
-      }
-    } else if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
-      // Two-Hand Mode: Hold steady dual-pinch to charge -> Pop arms elastic string -> Stretch & release
+    if (pinchingHand) {
       if (this.releaseStartTime > 0) {
         this.releaseStartTime = 0;
       }
 
       if (this.isStretching) {
-        this.lastPoint1 = { ...dualPinch.point1 };
-        this.lastPoint2 = { ...dualPinch.point2 };
+        this.lastPoint2 = { ...pinchingHand.pinch.pinchPoint };
       } else if (nowMs - this.lastAnchorTime >= this.cooldownMs) {
         if (this.chargeDurationMs <= 0) {
           this.isStretching = true;
+          this.drawingHandId = pinchingHand.handId;
           this.stretchStartTime = nowMs;
-          this.lastPoint1 = { ...dualPinch.point1 };
-          this.lastPoint2 = { ...dualPinch.point2 };
+          this.lastPoint1 = { ...pinchingHand.pinch.pinchPoint };
+          this.lastPoint2 = { ...pinchingHand.pinch.pinchPoint };
           const popEvent: ChargePopEvent = {
             point1: { ...this.lastPoint1 },
-            point2: { ...this.lastPoint2 },
-            mode: 'two-hand',
           };
           globalBus.emit('string:charge_pop', popEvent);
         } else if (!this.isCharging) {
           this.isCharging = true;
+          this.drawingHandId = pinchingHand.handId;
           this.chargeStartTime = nowMs;
           this.chargeProgress = 0;
-          this.chargeOrigin1 = { ...dualPinch.point1 };
-          this.chargeOrigin2 = { ...dualPinch.point2 };
-          this.chargeCurrent1 = { ...dualPinch.point1 };
-          this.chargeCurrent2 = { ...dualPinch.point2 };
-        } else if (this.chargeOrigin1 && this.chargeOrigin2) {
-          this.chargeCurrent1 = { ...dualPinch.point1 };
-          this.chargeCurrent2 = { ...dualPinch.point2 };
-          const moved1 = dist2D(dualPinch.point1, this.chargeOrigin1) > this.maxChargeMoveDistance;
-          const moved2 = dist2D(dualPinch.point2, this.chargeOrigin2) > this.maxChargeMoveDistance;
-
-          if (moved1 || moved2) {
+          this.chargeOrigin1 = { ...pinchingHand.pinch.pinchPoint };
+          this.chargeCurrent1 = { ...pinchingHand.pinch.pinchPoint };
+        } else if (this.chargeOrigin1) {
+          const pt = pinchingHand.pinch.pinchPoint;
+          this.chargeCurrent1 = { ...pt };
+          if (dist2D(pt, this.chargeOrigin1) > this.maxChargeMoveDistance) {
             this.chargeStartTime = nowMs;
             this.chargeProgress = 0;
-            this.chargeOrigin1 = { ...dualPinch.point1 };
-            this.chargeOrigin2 = { ...dualPinch.point2 };
+            this.chargeOrigin1 = { ...pt };
           } else {
             const elapsed = nowMs - this.chargeStartTime;
             this.chargeProgress = Math.max(0, Math.min(1, elapsed / this.chargeDurationMs));
             if (elapsed >= this.chargeDurationMs) {
-              // POP! Arm elastic string between both hands
+              const lockedP1 = { ...this.chargeOrigin1 };
               this.isCharging = false;
               this.chargeProgress = 0;
               this.chargeOrigin1 = null;
-              this.chargeOrigin2 = null;
               this.chargeCurrent1 = null;
-              this.chargeCurrent2 = null;
               this.isStretching = true;
               this.stretchStartTime = nowMs;
-              this.lastPoint1 = { ...dualPinch.point1 };
-              this.lastPoint2 = { ...dualPinch.point2 };
+              this.lastPoint1 = lockedP1;
+              this.lastPoint2 = { ...pt };
               const popEvent: ChargePopEvent = {
-                point1: { ...this.lastPoint1 },
-                point2: { ...this.lastPoint2 },
-                mode: 'two-hand',
+                point1: { ...lockedP1 },
               };
               globalBus.emit('string:charge_pop', popEvent);
             }
@@ -480,25 +345,23 @@ export class SpatialStringManager {
       }
     } else if (this.isCharging) {
       this.resetCreationState();
-    } else {
-      if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
-        if (this.releaseStartTime === 0) {
-          this.releaseStartTime = nowMs;
-        } else if (nowMs - this.releaseStartTime >= this.releaseGraceMs) {
-          const stretchDuration = this.releaseStartTime - this.stretchStartTime;
+    } else if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
+      if (this.releaseStartTime === 0) {
+        this.releaseStartTime = nowMs;
+      } else if (nowMs - this.releaseStartTime >= this.releaseGraceMs) {
+        const stretchDuration = this.releaseStartTime - this.stretchStartTime;
 
-          const dx = this.lastPoint1.x - this.lastPoint2.x;
-          const dy = this.lastPoint1.y - this.lastPoint2.y;
-          const dz = (this.lastPoint1.z - this.lastPoint2.z) * 0.5;
-          const normDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const dx = this.lastPoint1.x - this.lastPoint2.x;
+        const dy = this.lastPoint1.y - this.lastPoint2.y;
+        const dz = (this.lastPoint1.z - this.lastPoint2.z) * 0.5;
+        const normDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-          if (normDistance >= this.minAnchorDistance && stretchDuration >= this.minStretchDurationMs) {
-            newlyAnchored = this.anchorString(this.lastPoint1, this.lastPoint2, videoAspect, nowMs);
-            this.lastAnchorTime = nowMs;
-          }
-
-          this.resetCreationState();
+        if (normDistance >= this.minAnchorDistance && stretchDuration >= this.minStretchDurationMs) {
+          newlyAnchored = this.anchorString(this.lastPoint1, this.lastPoint2, videoAspect, nowMs);
+          this.lastAnchorTime = nowMs;
         }
+
+        this.resetCreationState();
       }
     }
 
@@ -556,11 +419,9 @@ export class SpatialStringManager {
   }
 
   /**
-   * Returns a zero-GC reusable preview state for DynamicStringView (works for both one-hand & two-hand modes).
+   * Returns a zero-GC reusable preview state for DynamicStringView.
    */
-  public getPreviewState(dualPinch: DualPinchState): StringPreviewState {
-    this.previewState.mode = this.handMode;
-
+  public getPreviewState(): StringPreviewState {
     if (this.isCharging && this.chargeCurrent1) {
       this.previewChargeP1.x = this.chargeCurrent1.x;
       this.previewChargeP1.y = this.chargeCurrent1.y;
@@ -568,14 +429,6 @@ export class SpatialStringManager {
       this.previewState.isCharging = true;
       this.previewState.chargeProgress = this.chargeProgress;
       this.previewState.chargePoint1 = this.previewChargeP1;
-      if (this.chargeCurrent2) {
-        this.previewChargeP2.x = this.chargeCurrent2.x;
-        this.previewChargeP2.y = this.chargeCurrent2.y;
-        this.previewChargeP2.z = this.chargeCurrent2.z;
-        this.previewState.chargePoint2 = this.previewChargeP2;
-      } else {
-        this.previewState.chargePoint2 = undefined;
-      }
       this.previewState.isActive = false;
       this.previewState.point1 = undefined;
       this.previewState.point2 = undefined;
@@ -586,37 +439,18 @@ export class SpatialStringManager {
     this.previewState.isCharging = false;
     this.previewState.chargeProgress = 0;
     this.previewState.chargePoint1 = undefined;
-    this.previewState.chargePoint2 = undefined;
 
-    if (this.handMode === 'one-hand') {
-      if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
-        this.previewP1.x = this.lastPoint1.x;
-        this.previewP1.y = this.lastPoint1.y;
-        this.previewP1.z = this.lastPoint1.z;
-        this.previewP2.x = this.lastPoint2.x;
-        this.previewP2.y = this.lastPoint2.y;
-        this.previewP2.z = this.lastPoint2.z;
-        this.previewState.isActive = true;
-        this.previewState.point1 = this.previewP1;
-        this.previewState.point2 = this.previewP2;
-        this.previewState.drawingHandId = this.drawingHandId ?? undefined;
-      } else {
-        this.previewState.isActive = false;
-        this.previewState.point1 = undefined;
-        this.previewState.point2 = undefined;
-        this.previewState.drawingHandId = undefined;
-      }
-    } else if (this.isStretching && dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
-      this.previewP1.x = dualPinch.point1.x;
-      this.previewP1.y = dualPinch.point1.y;
-      this.previewP1.z = dualPinch.point1.z;
-      this.previewP2.x = dualPinch.point2.x;
-      this.previewP2.y = dualPinch.point2.y;
-      this.previewP2.z = dualPinch.point2.z;
+    if (this.isStretching && this.lastPoint1 && this.lastPoint2) {
+      this.previewP1.x = this.lastPoint1.x;
+      this.previewP1.y = this.lastPoint1.y;
+      this.previewP1.z = this.lastPoint1.z;
+      this.previewP2.x = this.lastPoint2.x;
+      this.previewP2.y = this.lastPoint2.y;
+      this.previewP2.z = this.lastPoint2.z;
       this.previewState.isActive = true;
       this.previewState.point1 = this.previewP1;
       this.previewState.point2 = this.previewP2;
-      this.previewState.drawingHandId = undefined;
+      this.previewState.drawingHandId = this.drawingHandId ?? undefined;
     } else {
       this.previewState.isActive = false;
       this.previewState.point1 = undefined;

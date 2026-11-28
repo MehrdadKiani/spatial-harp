@@ -7,17 +7,13 @@ export class HUD {
   private handsDisplay: HTMLSpanElement;
   private gestureDisplay: HTMLSpanElement;
   private stringsDisplay: HTMLSpanElement;
-  private audioStatusDisplay: HTMLSpanElement;
   private lastPluckDisplay: HTMLSpanElement;
   private statusDisplay: HTMLDivElement;
-  private audioBtn: HTMLButtonElement;
-  private isAudioUnlocked = false;
   private isExpanded = false;
   private onToggleStateChange?: (expanded: boolean) => void;
 
   constructor(
     container: HTMLElement,
-    onAudioUnlock?: () => void,
     onToggleStateChange?: (expanded: boolean) => void
   ) {
     this.onToggleStateChange = onToggleStateChange;
@@ -29,18 +25,12 @@ export class HUD {
       <div id="hud-card" class="app-drawer" data-open="false">
         <div class="drawer-header" style="margin-bottom: 12px; padding-bottom: 10px;">
           <div class="drawer-title-group">
-            ${Icons.activity(15)}
+            ${Icons.activity(16)}
             <h2 class="drawer-title">System metrics</h2>
           </div>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button id="hud-audio-btn" class="hud-audio-btn" type="button" data-active="false">
-              ${Icons.volumeOff(13)}
-              <span>Muted</span>
-            </button>
-            <button id="hud-close-card-btn" class="drawer-close-btn" type="button" aria-label="Close System Metrics">
-              ${Icons.close(15)}
-            </button>
-          </div>
+          <button id="hud-close-card-btn" class="drawer-close-btn" type="button" aria-label="Close System Metrics">
+            ${Icons.close(16)}
+          </button>
         </div>
 
         <div class="hud-metrics-grid">
@@ -52,8 +42,6 @@ export class HUD {
           <span id="hud-gesture" class="hud-metric-val">None</span>
           <span class="hud-metric-key">Strings</span>
           <span id="hud-strings" class="hud-metric-val">0 / 12</span>
-          <span class="hud-metric-key">Audio</span>
-          <span id="hud-audio-status" class="hud-metric-val" style="color: var(--accent-amber);">Muted</span>
           <span class="hud-metric-key">Last pluck</span>
           <span id="hud-last-pluck" class="hud-metric-val">--</span>
           <span class="hud-metric-key">Version</span>
@@ -75,10 +63,8 @@ export class HUD {
     this.handsDisplay = this.element.querySelector('#hud-hands')!;
     this.gestureDisplay = this.element.querySelector('#hud-gesture')!;
     this.stringsDisplay = this.element.querySelector('#hud-strings')!;
-    this.audioStatusDisplay = this.element.querySelector('#hud-audio-status')!;
     this.lastPluckDisplay = this.element.querySelector('#hud-last-pluck')!;
     this.statusDisplay = this.element.querySelector('#hud-status')!;
-    this.audioBtn = this.element.querySelector('#hud-audio-btn')!;
     const closeCardBtn = this.element.querySelector('#hud-close-card-btn')!;
 
     closeCardBtn.addEventListener('click', () => this.setCardExpanded(false));
@@ -88,13 +74,6 @@ export class HUD {
         this.toggleCard();
       }
     });
-
-    if (onAudioUnlock) {
-      this.audioBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onAudioUnlock();
-      });
-    }
   }
 
   public toggleCard(): void {
@@ -111,26 +90,6 @@ export class HUD {
 
   public getIsExpanded(): boolean {
     return this.isExpanded;
-  }
-
-  public setAudioActive(active: boolean): void {
-    this.isAudioUnlocked = active;
-    this.audioBtn.dataset.active = String(active);
-    if (active) {
-      this.audioBtn.innerHTML = `${Icons.volumeOn(13)}<span>Active</span>`;
-      this.audioStatusDisplay.textContent = 'Active';
-      this.audioStatusDisplay.style.color = 'var(--accent-mint)';
-    } else {
-      this.audioBtn.innerHTML = `${Icons.volumeOff(13)}<span>Enable</span>`;
-      this.audioStatusDisplay.textContent = 'Muted';
-      this.audioStatusDisplay.style.color = 'var(--accent-amber)';
-    }
-  }
-
-  public updateAudioPreset(presetLabel: string): void {
-    if (!this.isAudioUnlocked) return;
-    this.audioStatusDisplay.textContent = `Active (${presetLabel})`;
-    this.audioStatusDisplay.style.color = 'var(--accent-mint)';
   }
 
   public setLastPluck(note: string, velocity: number): void {
@@ -185,7 +144,7 @@ export class HUD {
     } else if (isDualPinching) {
       this.gestureDisplay.textContent = 'Dual pinch';
       this.gestureDisplay.style.color = 'var(--accent-mint)';
-      this.statusDisplay.textContent = 'Release pinch to anchor this string in mid-air.';
+      this.statusDisplay.textContent = 'Pinching with both hands.';
     } else if (singlePinchHand) {
       this.gestureDisplay.textContent = `Pinch (${singlePinchHand})`;
       this.gestureDisplay.style.color = 'var(--accent-amber)';

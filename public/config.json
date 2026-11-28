@@ -21,8 +21,7 @@
   },
 
   "strings": {
-    "_comment": "Mid-air string creation rules ('one-hand' pinch-drag default or 'two-hand' dual-pinch), 3-layer anti-snag endpoint tip grabbing, and laser color palette.",
-    "handMode": "one-hand",
+    "_comment": "Mid-air string creation rules (pinch-charge-drag), 3-layer anti-snag endpoint tip grabbing (1 or 2 hands), and laser color palette.",
     "maxStrings": 8,
     "minAnchorDistance": 0.10,
     "minStretchDurationMs": 150,
@@ -61,9 +60,9 @@
   },
 
   "audio": {
-    "_comment": "Default synthesizer preset ('harp' | 'laser' | 'chime' | 'retro8bit'), musical scale ('pentatonic' | 'minor' | 'hirajoshi' | 'major' | 'blues'), pitchMode ('fretted' | 'length'), fretZones (notes per string in fretted mode), master volume/FX, and 3D length-to-pitch bounds.",
+    "_comment": "Default synthesizer preset ('harp' | 'laser' | 'chime' | 'retro8bit'), Japanese Hirajoshi tuning ('hirajoshi'), pitchMode ('fretted' | 'length'), fretZones (notes per string in fretted mode), master volume/FX, and 3D length-to-pitch bounds.",
     "defaultPreset": "harp",
-    "defaultScale": "pentatonic",
+    "defaultScale": "hirajoshi",
     "pitchMode": "fretted",
     "fretZones": 5,
     "volumeDb": -4,
@@ -109,9 +108,7 @@
   },
 
   "ui": {
-    "_comment": "UI behavior toggles (tutorial popup on start, live coaching hints & performance profile: 'auto' | 'mobile' | 'high').",
-    "showTutorialOnStart": false,
-    "showLiveHints": true,
-    "performanceMode": "auto"
+    "_comment": "UI behavior toggles (tutorial popup on start).",
+    "showTutorialOnStart": false
   }
 }
