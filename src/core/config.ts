@@ -1,4 +1,4 @@
-import { MusicalScaleId, SoundPresetId } from '../types/audio';
+import { AudioFxParams, MusicalScaleId, PitchMode, SoundPresetId } from '../types/audio';
 
 export interface VisionConfigGroup {
   _comment?: string;
@@ -24,6 +24,8 @@ export interface StringsConfigGroup {
   maxStrings: number;
   minAnchorDistance: number;
   minStretchDurationMs: number;
+  chargeDurationMs: number;
+  maxChargeMoveDistance: number;
   releaseGraceMs: number;
   cooldownMs: number;
   grabProximityThreshold: number;
@@ -51,6 +53,8 @@ export interface AudioConfigGroup {
   _comment?: string;
   defaultPreset: SoundPresetId;
   defaultScale: MusicalScaleId;
+  pitchMode: PitchMode;
+  fretZones: number;
   volumeDb: number;
   reverbWet: number;
   delayWet: number;
@@ -96,7 +100,6 @@ export interface VisualsConfigGroup {
 export interface UiConfigGroup {
   _comment?: string;
   showTutorialOnStart: boolean;
-  showLiveHints: boolean;
 }
 
 export interface AppConfig {
@@ -132,6 +135,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     maxStrings: 12,
     minAnchorDistance: 0.10,
     minStretchDurationMs: 150,
+    chargeDurationMs: 450,
+    maxChargeMoveDistance: 0.065,
     releaseGraceMs: 120,
     cooldownMs: 350,
     grabProximityThreshold: 0.045,
@@ -163,7 +168,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   audio: {
     defaultPreset: 'harp',
-    defaultScale: 'pentatonic',
+    defaultScale: 'hirajoshi',
+    pitchMode: 'fretted',
+    fretZones: 5,
     volumeDb: -4,
     reverbWet: 0.30,
     delayWet: 0.12,
@@ -188,11 +195,11 @@ export const DEFAULT_CONFIG: AppConfig = {
     previewRulerTickOpacity: 0.18,
     majorTickHeight: 0.010,
     minorTickHeight: 0.005,
-    waveAmplitude: 0.042,
-    waveFrequency: 26.0,
-    waveSpeed: 1.65,
-    waveDamping: 2.05,
-    waveDurationSec: 1.75,
+    waveAmplitude: 0.016,
+    waveFrequency: 58.0,
+    waveSpeed: 2.6,
+    waveDamping: 2.85,
+    waveDurationSec: 1.35,
     waveCycles: 3.5,
     numEchoContours: 5,
     contactStarburstRays: 18,
@@ -205,7 +212,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   ui: {
     showTutorialOnStart: false,
-    showLiveHints: true,
   },
 };
 
@@ -235,7 +241,8 @@ export function parseHexPalette(palette: string[]): number[] {
 
 export interface StoredUserOverrides {
   defaultPreset?: SoundPresetId;
-  defaultScale?: MusicalScaleId;
+  pitchMode?: PitchMode;
+  presetFxOverrides?: Partial<Record<SoundPresetId, Partial<AudioFxParams>>>;
 }
 
 export function loadUserOverrides(): StoredUserOverrides {
@@ -256,6 +263,30 @@ export function saveUserOverride(patch: StoredUserOverrides): void {
   } catch {
     // Ignore localStorage quota/privacy errors
   }
+}
+
+export function getPresetFxOverride(presetId: SoundPresetId): Partial<AudioFxParams> | undefined {
+  const overrides = loadUserOverrides();
+  return overrides.presetFxOverrides?.[presetId];
+}
+
+export function savePresetFxOverride(presetId: SoundPresetId, fx: AudioFxParams): void {
+  const current = loadUserOverrides();
+  const nextMap: Partial<Record<SoundPresetId, Partial<AudioFxParams>>> = {
+    ...(current.presetFxOverrides ?? {}),
+    [presetId]: { ...fx },
+  };
+  saveUserOverride({ presetFxOverrides: nextMap });
+}
+
+export function clearPresetFxOverride(presetId: SoundPresetId): void {
+  const current = loadUserOverrides();
+  if (!current.presetFxOverrides || !current.presetFxOverrides[presetId]) return;
+  const nextMap: Partial<Record<SoundPresetId, Partial<AudioFxParams>>> = {
+    ...current.presetFxOverrides,
+  };
+  delete nextMap[presetId];
+  saveUserOverride({ presetFxOverrides: nextMap });
 }
 
 export function clearUserOverrides(): void {
@@ -303,8 +334,8 @@ export async function loadAppConfig(url = '/config.json'): Promise<AppConfig> {
   if (overrides.defaultPreset) {
     merged.audio.defaultPreset = overrides.defaultPreset;
   }
-  if (overrides.defaultScale) {
-    merged.audio.defaultScale = overrides.defaultScale;
+  if (overrides.pitchMode === 'fretted' || overrides.pitchMode === 'length') {
+    merged.audio.pitchMode = overrides.pitchMode;
   }
 
   return merged;

@@ -2,9 +2,9 @@ export interface StringVibrationState {
   stringId: string;
   initialAmplitude: number;
   amplitude?: number;
-  frequency: number;       // Fundamental visual oscillation speed in rad/s (~34)
-  waveSpeed: number;       // Bi-directional traveling wave speed along normalized string (u/sec)
-  damping: number;         // Exponential decay factor gamma (~2.3 for ~1.8s smooth decay)
+  frequency: number;       // Fundamental visual oscillation speed in rad/s (~58)
+  waveSpeed: number;       // Bi-directional traveling energy pulse speed along normalized string (u/sec)
+  damping: number;         // Exponential decay factor gamma (~2.85 for ~1.35s taut decay)
   startTime: number;       // In seconds (elapsed)
   contactRatio: number;    // 0..1 exact pluck position along string
   velocity: number;        // 0..1 strike intensity

@@ -51,7 +51,7 @@ export class CameraManager {
       });
     } catch (err) {
       console.error('Camera access error:', err);
-      throw new Error(`Failed to access camera: ${(err as Error).message}`);
+      throw new Error(`Failed to access camera: ${(err as Error).message}`, { cause: err });
     }
   }
 

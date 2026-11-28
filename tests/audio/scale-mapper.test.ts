@@ -95,4 +95,44 @@ describe('ScaleMapper', () => {
 
     expect(mapper.currentScaleId).toBe('minor');
   });
+
+  it('plays sequential scale notes along a single string in fretted pitch mode', () => {
+    mapper.configure({
+      defaultScale: 'pentatonic',
+      pitchMode: 'fretted',
+      fretZones: 5,
+    });
+
+    const longString: AnchoredString = {
+      id: 'fretted-test',
+      index: 0,
+      point1: { x: 0.1, y: 0.5, z: 0 },
+      point2: { x: 0.9, y: 0.5, z: 0 },
+      worldP1: { x: 0.1, y: 0.5, z: 0 },
+      worldP2: { x: 0.9, y: 0.5, z: 0 },
+      length: 0.8,
+      color: 0x00f0ff,
+      createdAt: 0,
+    };
+
+    const z0 = mapper.getNoteForString(longString, undefined, 0.1);
+    const z1 = mapper.getNoteForString(longString, undefined, 0.3);
+    const z2 = mapper.getNoteForString(longString, undefined, 0.5);
+    const z3 = mapper.getNoteForString(longString, undefined, 0.7);
+    const z4 = mapper.getNoteForString(longString, undefined, 0.9);
+
+    expect([z0.note, z1.note, z2.note, z3.note, z4.note]).toEqual(['C3', 'D3', 'E3', 'G3', 'A3']);
+    expect(z0.frequency).toBeLessThan(z2.frequency);
+    expect(z2.frequency).toBeLessThan(z4.frequency);
+
+    // Reversed draw direction (right->left) still maps left->right low-to-high
+    const reversedString: AnchoredString = {
+      ...longString,
+      point1: { x: 0.9, y: 0.5, z: 0 },
+      point2: { x: 0.1, y: 0.5, z: 0 },
+    };
+    // contactRatio = 0.9 on a right->left string is near the LEFT tip (x ~ 0.18) -> lowest fret
+    expect(mapper.getNoteForString(reversedString, undefined, 0.9).note).toBe('C3');
+    expect(mapper.getNoteForString(reversedString, undefined, 0.1).note).toBe('A3');
+  });
 });

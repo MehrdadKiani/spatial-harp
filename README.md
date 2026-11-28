@@ -21,13 +21,13 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 ## ✨ Features
 
 - **Mirrored Low-Latency AR Tracking**: Processes 21 3D hand landmarks in real time with local WebAssembly (WASM) and SIMD acceleration.
-- **Mid-Air Spatial String Anchoring**: Pinch your thumb and index fingers on both hands to spawn, stretch, and lock 3D laser-like strings in mid-air space.
+- **One-Hand Accessibility Mode (Default) & Two-Hand Mode**: Draw mid-air strings with a single hand via **Pinch → Drag → Release**, or switch to **Two-Hand Dual-Pinch** in the Splash Screen or `⚙️ Settings` drawer (with a 3s + `3-2-1` auto-switch fallback if only one hand is shown).
 - **Dual-Wave Resonant Visual Sheath**: Plucked strings oscillate with damped harmonic motion, dynamic wave envelopes, and contact shockwaves.
 - **Polyphonic Physical Modeling Synthesis**: Karplus-Strong string synthesis, customizable polyphony, studio reverb, and feedback delay.
 - **Sound Presets & Harmonic Scales**:
   - **Presets**: *Plucked Harp*, *Laser Synth*, *Ambient Chime*, *Retro 8-Bit*.
   - **Musical Scales**: *Pentatonic*, *Natural Minor*, *Hirajōshi*, *Major*, *Blues*.
-- **Endpoint Re-Grab & Repositioning**: Pinch existing string anchors to reposition, rotate, or fine-tune strings in 3D space.
+- **Fretted & Classic Pitch Modes**: In **Fretted Mode** (default for One-Hand Mode), each string acts as a 5-note fretboard depending on where you pluck it (`left → right`); switch anytime to **Classic Mode** (one pure note per string by length) in `⚙️ Settings`.
 - **Glassmorphic Responsive UI**: Cyberpunk-inspired HUD, live FPS/system diagnostics, audio meters, and a 4-step interactive visual tutorial.
 - **100% Offline & Private**: Zero cloud dependencies. Video frames are processed entirely on-device; no camera data is ever recorded, stored, or transmitted.
 
@@ -35,11 +35,11 @@ A real-time, browser-based **Augmented Reality Spatial Harp & Audio-Visual Instr
 
 ## 🎮 How to Play
 
-1. **Pinch & Stretch**: Pinch your thumb and index finger on **both hands** simultaneously. An elastic holographic string appears connecting your hands.
-2. **Anchor in Space**: Move your hands to position the string in 3D space, then **release both pinches** to lock the string in mid-air.
+1. **Charge-to-Pop & Stretch**: Hold a steady thumb+index pinch (`~0.45s`) until the glowing charge orb **pops** to lock your start point (one hand in **One-Hand Mode**, or both hands in **Two-Hand Mode**), then drag apart and release to anchor the string.
+2. **Switch Modes or Lock Harp**: Toggle **One-Hand / Two-Hand** on the Splash Screen or in `⚙️ Settings` (Two-Hand Mode auto-switches via a 3s + `3-2-1` countdown if only 1 hand is shown). Click **🔒 Lock** (or press `L`) to lock your harp in Play Mode for distraction-free strumming.
 3. **Pluck to Play**: Swipe any fingertip across an anchored string. Velocity determines loudness, brightness, and particle burst intensity.
 4. **Re-Grab & Adjust**: Pinch either endpoint reticle of an existing string to pick it back up, stretch it, or rotate its position.
-5. **Clear / Reset**: Use the trash button in the top navigation bar to clear all active strings.
+5. **Clear / Reset**: Use the trash button in the top navigation bar (or press `C` / `Space`) to clear all active strings.
 
 ---
 

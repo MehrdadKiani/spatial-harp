@@ -14,8 +14,9 @@ const CHROMATIC_SPARK_COLORS = [
 
 export class SparkParticlePool {
   private group: THREE.Group;
-  private maxParticles = 420;
+  private maxParticles: number;
   private particles: SparkParticle[] = [];
+  private activeCount = 0;
   private defaultBurstCount = 40;
   private defaultWaveGlitterCount = 32;
 
@@ -38,11 +39,13 @@ export class SparkParticlePool {
   private accentColor = new THREE.Color();
   private scratchWavePos = new THREE.Vector3();
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, maxParticles = 420) {
+    this.maxParticles = maxParticles;
     this.group = new THREE.Group();
     scene.add(this.group);
 
     this.positionBuffer = new Float32Array(this.maxParticles * 3);
+    this.positionBuffer.fill(9999);
     this.colorBuffer = new Float32Array(this.maxParticles * 3);
 
     const geometry = new THREE.BufferGeometry();
@@ -67,6 +70,7 @@ export class SparkParticlePool {
     this.group.add(this.points);
 
     this.trailPositionBuffer = new Float32Array(this.maxParticles * 2 * 3);
+    this.trailPositionBuffer.fill(9999);
     this.trailColorBuffer = new Float32Array(this.maxParticles * 2 * 3);
 
     const trailGeom = new THREE.BufferGeometry();
@@ -145,6 +149,7 @@ export class SparkParticlePool {
       if (p.active) continue;
 
       p.active = true;
+      this.activeCount++;
       p.x = origin.x;
       p.y = origin.y;
       p.z = origin.z;
@@ -211,6 +216,7 @@ export class SparkParticlePool {
       const offsetNormal = (Math.random() - 0.5) * 0.035;
 
       p.active = true;
+      this.activeCount++;
       p.x = this.scratchWavePos.x + normal.x * offsetNormal;
       p.y = this.scratchWavePos.y + normal.y * offsetNormal;
       p.z = this.scratchWavePos.z;
@@ -248,33 +254,24 @@ export class SparkParticlePool {
    * Updates particle dispersion, fine glitter shimmer, and radial streaks (Zero-GC)
    */
   public update(delta: number): void {
-    let hasActive = false;
+    if (this.activeCount === 0) {
+      return;
+    }
+
     const clampedDelta = Math.min(delta, 0.05);
 
     for (let i = 0; i < this.maxParticles; i++) {
       const p = this.particles[i];
+      if (!p.active) continue;
+
       const idx = i * 3;
       const trailIdx = i * 6;
 
-      if (!p.active) {
-        this.positionBuffer[idx] = 9999;
-        this.positionBuffer[idx + 1] = 9999;
-        this.positionBuffer[idx + 2] = 9999;
-
-        this.trailPositionBuffer[trailIdx] = 9999;
-        this.trailPositionBuffer[trailIdx + 1] = 9999;
-        this.trailPositionBuffer[trailIdx + 2] = 9999;
-        this.trailPositionBuffer[trailIdx + 3] = 9999;
-        this.trailPositionBuffer[trailIdx + 4] = 9999;
-        this.trailPositionBuffer[trailIdx + 5] = 9999;
-        continue;
-      }
-
-      hasActive = true;
       p.life += clampedDelta;
 
       if (p.life >= p.maxLife) {
         p.active = false;
+        this.activeCount = Math.max(0, this.activeCount - 1);
         this.positionBuffer[idx] = 9999;
         this.positionBuffer[idx + 1] = 9999;
         this.positionBuffer[idx + 2] = 9999;
@@ -343,12 +340,10 @@ export class SparkParticlePool {
       this.trailColorBuffer[trailIdx + 5] = p.b * tailFade;
     }
 
-    if (hasActive) {
-      this.posAttribute.needsUpdate = true;
-      this.colAttribute.needsUpdate = true;
-      this.trailPosAttribute.needsUpdate = true;
-      this.trailColAttribute.needsUpdate = true;
-    }
+    this.posAttribute.needsUpdate = true;
+    this.colAttribute.needsUpdate = true;
+    this.trailPosAttribute.needsUpdate = true;
+    this.trailColAttribute.needsUpdate = true;
   }
 
   public setVisible(visible: boolean): void {

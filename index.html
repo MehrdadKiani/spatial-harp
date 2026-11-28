@@ -2,35 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Spatial Harp — AR Musical Instrument for Vibe Coding & Flow State</title>
-    <meta name="description" content="Spatial Harp is the ultimate Augmented Reality musical instrument for vibe coding and flow state. Synthesize polyphonic soundscapes in mid-air using webcam hand tracking, Three.js 3D physics, and Tone.js." />
-    <meta name="keywords" content="vibe coding, vibe coder, ai vibe coding, creative flow state, spatial harp, augmented reality, webgl, hand tracking, mediapipe, tonejs, threejs, ambient music, virtual instrument, cyber instrument" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Spatial Harp — Free Virtual Harp &amp; AR Webcam Instrument</title>
+    <meta name="description" content="Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser — no download or VR headset." />
     <meta name="author" content="Mehrdad Kiani" />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#08080c" />
-    <meta property="og:title" content="Spatial Harp — AR Musical Instrument for Vibe Coding" />
-    <meta property="og:description" content="Turn your workspace into an ambient AR harp. Pluck holographic laser strings in mid-air for vibe coding, focus, and creative flow." />
+    <meta name="theme-color" content="#07090d" />
+    <link rel="canonical" href="https://harps.vercel.app/" />
+    <meta property="og:url" content="https://harps.vercel.app/" />
+    <meta property="og:site_name" content="Spatial Harp" />
+    <meta property="og:title" content="Spatial Harp — Free Virtual Harp &amp; AR Webcam Instrument" />
+    <meta property="og:description" content="Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser — no download or VR headset." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/spatial-harp-icon-transparent.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Spatial Harp — AR Musical Instrument for Vibe Coding" />
-    <meta name="twitter:description" content="Turn your workspace into an ambient AR harp. Pluck holographic laser strings in mid-air for vibe coding, focus, and creative flow." />
-    <meta name="twitter:image" content="/spatial-harp-icon-transparent.png" />
+    <meta property="og:image" content="https://harps.vercel.app/spatial-harp-logo-card.png" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:image:alt" content="Spatial Harp — Free Virtual Harp and AR Webcam Instrument" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Spatial Harp — Free Virtual Harp &amp; AR Webcam Instrument" />
+    <meta name="twitter:description" content="Play a free virtual harp in mid-air with your webcam. Draw glowing 3D strings and pluck synth melodies right in your browser — no download or VR headset." />
+    <meta name="twitter:image" content="https://harps.vercel.app/spatial-harp-logo-card.png" />
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
+      "@id": "https://harps.vercel.app/#webapp",
       "name": "Spatial Harp",
-      "alternateName": "Spatial Harp — Vibe Coding AR Instrument",
-      "description": "Real-time Augmented Reality Spatial Harp powered by webcam hand tracking, Three.js WebGL physics, and Tone.js synthesis. Built for vibe coding and creative flow.",
+      "alternateName": "Spatial Harp — Virtual Harp & AR Webcam Instrument",
+      "url": "https://harps.vercel.app/",
+      "image": "https://harps.vercel.app/spatial-harp-logo-card.png",
+      "description": "Free virtual harp online and browser-based AR musical instrument. Play glowing polyphonic 3D strings in mid-air using your webcam — no download or VR headset required.",
       "applicationCategory": "MultimediaApplication",
       "operatingSystem": "All",
+      "softwareVersion": "0.1.11",
+      "browserRequirements": "Requires a modern browser with WebGL, Web Audio, and webcam access",
+      "isAccessibleForFree": true,
+      "featureList": [
+        "Real-time webcam hand tracking with one-hand and two-hand modes",
+        "Mid-air 3D light strings with realistic standing-wave physics",
+        "Polyphonic sound presets: Plucked Harp, Laser Synth, Ambient Chime, and Retro 8-Bit",
+        "Musical scales: Pentatonic, Minor, Hirajōshi, Major, and Blues",
+        "100% local on-device camera processing — never recorded or uploaded"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
       "author": {
         "@type": "Person",
         "name": "Mehrdad Kiani"
-      },
-      "keywords": "vibe coding, augmented reality, webgl, mediapipe, threejs, tonejs, hand tracking, ambient audio"
+      }
     }
     </script>
     <link rel="icon" href="/favicon.ico?v=2" sizes="any">
@@ -40,14 +62,8 @@
     <link rel="manifest" href="/site.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      :root {
-        /* Centralized Typography Tokens - change these anytime to restyle the entire app */
-        --font-primary: 'JetBrains Mono', monospace;
-        --font-display: 'JetBrains Mono', monospace;
-      }
-
       * {
         margin: 0;
         padding: 0;
@@ -60,9 +76,9 @@
         height: 100%;
         height: 100dvh;
         overflow: hidden;
-        background-color: #08080c;
-        color: #ffffff;
-        font-family: var(--font-primary);
+        background-color: #07090d;
+        color: #f4f6fa;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         touch-action: manipulation;
@@ -89,323 +105,76 @@
         z-index: 1;
         pointer-events: none;
       }
-
-      /* Splash Screen Integrated Button Loader Animations */
-      @keyframes splash-spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      @keyframes splash-shimmer {
-        0% {
-          transform: translateX(-100%);
-        }
-        100% {
-          transform: translateX(250%);
-        }
-      }
-
-      .splash-spinner {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2.5px solid rgba(7, 13, 26, 0.25);
-        border-top-color: #070d1a;
-        border-radius: 50%;
-        animation: splash-spin 0.75s linear infinite;
-        flex-shrink: 0;
-      }
-
-      .splash-btn-shimmer {
-        position: absolute;
+      #app-static-shell {
+        position: fixed;
         inset: 0;
-        width: 45%;
-        background: linear-gradient(
-          90deg,
-          transparent 0%,
-          rgba(255, 255, 255, 0.38) 50%,
-          transparent 100%
-        );
-        animation: splash-shimmer 1.15s ease-in-out infinite;
-        pointer-events: none;
-        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        background: #07090d;
+        color: #f4f6fa;
       }
 
-      /* ==========================================================================
-         Mobile, Tablet & Landscape Responsive Breakpoints
-         ========================================================================== */
-      /* Safe-area default spacing for notched/island displays */
-      #app-navbar {
-        top: max(12px, env(safe-area-inset-top, 12px));
-        left: max(16px, env(safe-area-inset-left, 16px));
-        right: max(16px, env(safe-area-inset-right, 16px));
+      #app-static-shell .static-card {
+        max-width: 460px;
       }
 
-      /* Phones & Compact Screens (<= 768px) */
-      @media (max-width: 768px) {
-        #app-navbar {
-          top: max(8px, env(safe-area-inset-top, 8px)) !important;
-          left: max(8px, env(safe-area-inset-left, 8px)) !important;
-          right: max(8px, env(safe-area-inset-right, 8px)) !important;
-          height: 48px !important;
-          padding: 0 10px !important;
-          gap: 6px !important;
-        }
-
-        .navbar-logo-container {
-          gap: 6px !important;
-          flex-shrink: 0 !important;
-        }
-
-        .navbar-brand-sub {
-          display: none !important;
-        }
-
-        .navbar-brand-title {
-          font-size: 13px !important;
-          letter-spacing: 1px !important;
-        }
-
-        .navbar-logo-svg {
-          width: 30px !important;
-          height: 30px !important;
-        }
-
-        .navbar-items-container {
-          gap: 4px !important;
-        }
-
-        .navbar-right-container {
-          gap: 6px !important;
-          flex-shrink: 0 !important;
-        }
-
-        .navbar-btn-label {
-          display: none !important;
-        }
-
-        .navbar-item-btn {
-          padding: 6px 9px !important;
-          font-size: 14px !important;
-          min-width: 34px !important;
-          justify-content: center !important;
-        }
-
-        #navbar-tutorial-btn,
-        #navbar-diag-btn,
-        #navbar-clear-btn {
-          padding: 6px 9px !important;
-          font-size: 13px !important;
-          min-width: 32px !important;
-          justify-content: center !important;
-        }
-
-        .navbar-status-text {
-          display: none !important;
-        }
-
-        #navbar-status-badge {
-          padding: 6px 8px !important;
-          gap: 0 !important;
-        }
-
-        /* Splash Screen Mobile Optimizations */
-        #app-splash-screen {
-          padding: max(12px, env(safe-area-inset-top, 12px)) 12px max(12px, env(safe-area-inset-bottom, 12px)) 12px !important;
-        }
-
-        .splash-card {
-          padding: 24px 18px !important;
-          gap: 16px !important;
-          border-radius: 18px !important;
-          width: 100% !important;
-          max-width: 440px !important;
-          margin: auto 0 !important;
-        }
-
-        .splash-title {
-          font-size: 22px !important;
-          letter-spacing: 1.5px !important;
-        }
-
-        .splash-subtitle {
-          font-size: 12px !important;
-        }
-
-        .splash-guide-grid {
-          grid-template-columns: 1fr !important;
-          gap: 8px !important;
-        }
-
-        .splash-guide-card {
-          padding: 10px 12px !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 10px !important;
-          text-align: left !important;
-        }
-
-        .splash-guide-card .guide-icon {
-          font-size: 20px !important;
-          margin-bottom: 0 !important;
-        }
-
-        .splash-privacy-note {
-          font-size: 11px !important;
-          padding: 8px 12px !important;
-        }
-
-        /* Sound Studio & HUD drawer on mobile */
-        #sound-studio-panel {
-          width: auto !important;
-          max-width: calc(100vw - 16px) !important;
-          right: max(8px, env(safe-area-inset-right, 8px)) !important;
-          left: max(8px, env(safe-area-inset-left, 8px)) !important;
-          top: calc(max(8px, env(safe-area-inset-top, 8px)) + 54px) !important;
-          max-height: calc(100vh - 70px) !important;
-          overflow-y: auto !important;
-          -webkit-overflow-scrolling: touch !important;
-          padding: 14px 16px !important;
-        }
-
-        #hud-overlay {
-          top: calc(max(8px, env(safe-area-inset-top, 8px)) + 54px) !important;
-          left: max(8px, env(safe-area-inset-left, 8px)) !important;
-          right: max(8px, env(safe-area-inset-right, 8px)) !important;
-        }
-
-        #hud-card {
-          width: auto !important;
-          min-width: 0 !important;
-          max-width: calc(100vw - 16px) !important;
-          max-height: calc(100vh - 70px) !important;
-          overflow-y: auto !important;
-          -webkit-overflow-scrolling: touch !important;
-        }
-
-        .tutorial-modal-card {
-          width: calc(100vw - 20px) !important;
-          padding: 16px 14px !important;
-          max-height: 92vh !important;
-          overflow-y: auto !important;
-          -webkit-overflow-scrolling: touch !important;
-        }
+      #app-static-shell h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 6px;
       }
 
-      /* Compact / Narrow Smartphones (<= 420px, e.g. iPhone SE, Galaxy S, Pixel) */
-      @media (max-width: 420px) {
-        #app-navbar {
-          padding: 0 6px !important;
-          gap: 4px !important;
-        }
-
-        .navbar-brand-tail {
-          display: none !important;
-        }
-
-        .navbar-brand-title {
-          font-size: 11px !important;
-          letter-spacing: 0.8px !important;
-        }
-
-        .navbar-items-container {
-          gap: 2px !important;
-        }
-
-        .navbar-right-container {
-          gap: 4px !important;
-        }
-
-        .navbar-item-btn {
-          padding: 5px 6px !important;
-          min-width: 30px !important;
-          font-size: 13px !important;
-        }
-
-        #navbar-tutorial-btn,
-        #navbar-diag-btn,
-        #navbar-clear-btn {
-          padding: 5px 6px !important;
-          min-width: 28px !important;
-          font-size: 12px !important;
-        }
-
-        #navbar-status-badge {
-          padding: 5px 6px !important;
-        }
+      #app-static-shell h2 {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #cbd5e1;
+        margin-bottom: 12px;
       }
 
-      /* Tablets & Foldables (769px to 1024px) */
-      @media (min-width: 769px) and (max-width: 1024px) {
-        #app-navbar {
-          left: max(12px, env(safe-area-inset-left, 12px)) !important;
-          right: max(12px, env(safe-area-inset-right, 12px)) !important;
-          top: max(10px, env(safe-area-inset-top, 10px)) !important;
-          padding: 0 14px !important;
-          gap: 8px !important;
-        }
-
-        .navbar-brand-sub {
-          display: none !important;
-        }
-
-        .navbar-item-btn {
-          padding: 6px 10px !important;
-          font-size: 12px !important;
-        }
-
-        #navbar-tutorial-btn,
-        #navbar-diag-btn,
-        #navbar-clear-btn {
-          padding: 6px 10px !important;
-          font-size: 12px !important;
-        }
-
-        #sound-studio-panel {
-          width: 310px !important;
-          top: calc(max(10px, env(safe-area-inset-top, 10px)) + 58px) !important;
-          right: 12px !important;
-        }
-
-        #hud-overlay {
-          top: calc(max(10px, env(safe-area-inset-top, 10px)) + 58px) !important;
-          left: 12px !important;
-        }
+      #app-static-shell p {
+        color: #a8b3c7;
+        line-height: 1.5;
+        margin-bottom: 14px;
       }
 
-      /* Mobile Landscape Orientation (short vertical viewports <= 500px) */
-      @media (max-height: 500px) {
-        #app-navbar {
-          height: 42px !important;
-          top: 4px !important;
-        }
+      #app-static-shell ol {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        color: #cbd5e1;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+      }
 
-        .splash-card {
-          padding: 16px 20px !important;
-          gap: 10px !important;
-        }
-
-        .splash-guide-grid {
-          grid-template-columns: repeat(3, 1fr) !important;
-          gap: 6px !important;
-        }
-
-        .splash-guide-card {
-          padding: 6px 8px !important;
-          font-size: 10px !important;
-        }
-
-        #sound-studio-panel,
-        #hud-card,
-        .tutorial-modal-card {
-          max-height: calc(100vh - 50px) !important;
-        }
+      #app-static-shell noscript p {
+        color: #fbbf24;
+        font-size: 0.875rem;
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <main id="app">
+      <section id="app-static-shell" aria-label="Spatial Harp overview">
+        <div class="static-card">
+          <h1>Spatial Harp</h1>
+          <h2>Free Virtual Harp Online — AR Webcam Musical Instrument</h2>
+          <p>Play glowing 3D strings in mid-air with your hands using just your webcam — no download or VR headset needed. Switch between Plucked Harp, Laser Synth, Ambient Chime, and Retro 8-Bit presets across five musical scales.</p>
+          <ol>
+            <li><strong>Pinch &amp; drag:</strong> Hold steady until it pops, then draw a string.</li>
+            <li><strong>Swipe to pluck:</strong> Cross any string with your fingertips to play.</li>
+            <li><strong>Grab anchors:</strong> Pinch tips with one or both hands to resize or tune.</li>
+          </ol>
+          <p>Camera processing runs locally in your browser — never recorded or uploaded.</p>
+          <noscript>
+            <p>JavaScript, WebGL, Web Audio, and webcam access are required to play Spatial Harp.</p>
+          </noscript>
+        </div>
+      </section>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

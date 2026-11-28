@@ -1,14 +1,22 @@
 import * as THREE from 'three';
+import './ui/styles.css';
 import { inject } from '@vercel/analytics';
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { EngineLoop } from './core/loop';
 import {
   AppConfig,
   DEFAULT_CONFIG,
+  clearPresetFxOverride,
+  getPresetFxOverride,
   loadAppConfig,
   parseHexPalette,
+  savePresetFxOverride,
   saveUserOverride,
 } from './core/config';
+import {
+  PerformanceProfile,
+  resolvePerformanceProfile,
+} from './core/performance';
 import { CameraManager } from './vision/camera-manager';
 import { HandTracker } from './vision/hand-tracker';
 import { SceneManager } from './render/scene-manager';
@@ -27,9 +35,12 @@ import { HUD } from './ui/hud';
 import { NavBar } from './ui/nav-bar';
 import { SplashScreen } from './ui/splash-screen';
 import { SoundStudioPanel } from './ui/sound-studio-panel';
+import { SettingsPanel } from './ui/settings-panel';
 import { TutorialModal } from './ui/tutorial-modal';
+import { AboutModal } from './ui/about-modal';
 import { HandPrompt } from './ui/hand-prompt';
-import { PluckEvent } from './types/audio';
+import { PitchMode, PluckEvent } from './types/audio';
+import { ChargePopEvent } from './types/instruments';
 import { globalBus } from './core/event-bus';
 
 // Initialize Vercel Web Analytics and Speed Insights
@@ -39,6 +50,7 @@ injectSpeedInsights();
 class App {
   private container: HTMLElement;
   private config: AppConfig = DEFAULT_CONFIG;
+  private perfProfile: PerformanceProfile;
   private cameraManager: CameraManager;
   private videoBackground: VideoBackground;
   private handTracker: HandTracker;
@@ -55,19 +67,24 @@ class App {
   private pluckShockwavePool: PluckShockwavePool;
   private navBar: NavBar;
   private soundStudioPanel: SoundStudioPanel;
+  private settingsPanel: SettingsPanel;
   private tutorialModal: TutorialModal;
+  private aboutModal: AboutModal;
   private splashScreen: SplashScreen;
   private handPrompt: HandPrompt;
   private hud: HUD;
   private loop: EngineLoop;
   private isVisionReady = false;
   private isLoopInitialized = false;
+  private isSpawningStarter = false;
   private currentElapsed = 0;
 
   // Reusable scratch vectors for spark burst calculations (zero-GC)
   private sparkOrigin = new THREE.Vector3();
   private sparkNormal = new THREE.Vector3();
   private sparkDir = new THREE.Vector3();
+  private sparkW1 = new THREE.Vector3();
+  private sparkW2 = new THREE.Vector3();
 
   // Short post-grab cooldown per handId so releasing a string tip doesn't accidentally pluck it
   private handGrabCooldownUntil = new Map<number, number>();
@@ -75,28 +92,44 @@ class App {
   constructor() {
     this.container = document.getElementById('app') || document.body;
 
+    // 0. Resolve device performance profile automatically before instantiating WebGL, pools, and audio
+    this.perfProfile = resolvePerformanceProfile('auto');
+    document.body.classList.toggle('perf-mobile', this.perfProfile.disableBackdropBlur);
+
     // 1. Video background (mirrored video element)
     this.videoBackground = new VideoBackground(this.container);
     this.cameraManager = new CameraManager(this.videoBackground.videoElement);
 
     // 2. Three.js Scene & Visual Pools
-    this.sceneManager = new SceneManager(this.container);
+    this.sceneManager = new SceneManager(this.container, {
+      maxPixelRatio: this.perfProfile.maxPixelRatio,
+      antialias: this.perfProfile.antialias,
+    });
     this.skeletonView = new SkeletonView(this.sceneManager);
     this.dynamicStringView = new DynamicStringView(this.sceneManager);
     this.anchoredStringsView = new AnchoredStringsView(
       this.sceneManager,
-      this.config.strings.maxStrings
+      this.config.strings.maxStrings,
+      {
+        segmentsPerString: this.perfProfile.stringSegments,
+        renderCenterLine: this.perfProfile.renderWaveCenterLine,
+        renderGhostTrail: this.perfProfile.renderGhostTrail,
+      }
     );
-    this.sparkParticlePool = new SparkParticlePool(this.sceneManager.scene);
+    this.sparkParticlePool = new SparkParticlePool(
+      this.sceneManager.scene,
+      this.perfProfile.maxParticles
+    );
     this.pluckShockwavePool = new PluckShockwavePool(this.sceneManager.scene);
 
     // 3. Audio & Musical Harmony Subsystems
-    this.scaleMapper = new ScaleMapper(this.config.audio.defaultScale);
+    this.scaleMapper = new ScaleMapper(this.config.audio.defaultScale, this.config.audio.pitchMode);
     this.audioEngine = new AudioEngine({
       volume: this.config.audio.volumeDb,
       reverbWet: this.config.audio.reverbWet,
+      reverbDecay: this.perfProfile.reverbDecaySec,
       delayWet: this.config.audio.delayWet,
-      polyphony: this.config.audio.polyphony,
+      polyphony: this.perfProfile.audioPolyphony,
       preset: this.config.audio.defaultPreset,
     });
     this.collisionDetector = new StringCollisionDetector(this.scaleMapper);
@@ -106,6 +139,8 @@ class App {
       maxStrings: this.config.strings.maxStrings,
       minAnchorDistance: this.config.strings.minAnchorDistance,
       minStretchDurationMs: this.config.strings.minStretchDurationMs,
+      chargeDurationMs: this.config.strings.chargeDurationMs,
+      maxChargeMoveDistance: this.config.strings.maxChargeMoveDistance,
       releaseGraceMs: this.config.strings.releaseGraceMs,
       cooldownMs: this.config.strings.cooldownMs,
       grabProximityThreshold: this.config.strings.grabProximityThreshold,
@@ -115,16 +150,38 @@ class App {
       palette: parseHexPalette(this.config.strings.palette),
     });
 
-    // 5. UI NavBar, SoundStudioPanel, HUD & Splash Screen
+    // 5. UI NavBar, SoundStudioPanel, SettingsPanel, HUD & Splash Screen
     this.soundStudioPanel = new SoundStudioPanel(this.container, {
       onPresetChange: (preset) => {
         this.audioEngine.setPreset(preset);
+        const savedFx = getPresetFxOverride(preset);
+        if (savedFx) {
+          this.audioEngine.setFxParams(savedFx);
+        }
+        this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
         saveUserOverride({ defaultPreset: preset });
-        this.hud.updateAudioPreset(preset);
       },
-      onScaleChange: (scale) => {
-        this.scaleMapper.setScaleById(scale);
-        saveUserOverride({ defaultScale: scale });
+      onFxChange: (patch) => {
+        this.audioEngine.setFxParams(patch);
+        savePresetFxOverride(this.audioEngine.currentPreset, this.audioEngine.getFxParams());
+      },
+      onFxReset: () => {
+        clearPresetFxOverride(this.audioEngine.currentPreset);
+        const defaults = this.audioEngine.resetPresetFx();
+        this.soundStudioPanel.setFxParams(defaults);
+      },
+      onClose: () => {
+        this.navBar.setActiveTab('instrument');
+      },
+    });
+
+    this.settingsPanel = new SettingsPanel(this.container, {
+      initialPitchMode: this.config.audio.pitchMode,
+      onPitchModeChange: (pitchMode) => {
+        this.setPitchMode(pitchMode, true);
+      },
+      onOpenAbout: (opener) => {
+        this.aboutModal.open(opener);
       },
       onClose: () => {
         this.navBar.setActiveTab('instrument');
@@ -134,62 +191,61 @@ class App {
     this.tutorialModal = new TutorialModal(this.container, () => {
       this.navBar.setActiveTab('instrument');
     });
+    this.aboutModal = new AboutModal(this.container);
     this.handPrompt = new HandPrompt(this.container);
 
     this.navBar = new NavBar(this.container, {
       onTabChange: (tabId) => {
         if (tabId === 'studio') {
+          this.settingsPanel.close();
           this.soundStudioPanel.open();
+        } else if (tabId === 'settings') {
+          this.soundStudioPanel.close();
+          this.settingsPanel.open();
         } else {
           this.soundStudioPanel.close();
+          this.settingsPanel.close();
         }
       },
       onToggleDiagnostics: () => {
         this.hud.toggleCard();
+      },
+      onOpenGuide: () => {
+        if (this.spatialStringManager.count === 0) {
+          this.spawnStarterStringSafe();
+        }
+        this.handPrompt.activate(true);
+      },
+      onOpenAbout: (opener) => {
+        this.closeOpenDrawers();
+        this.aboutModal.open(opener);
       },
       onClearStrings: () => {
         this.spatialStringManager.clearAll();
       },
     });
 
-    this.hud = new HUD(
-      this.container,
-      () => this.unlockAudio(),
-      (expanded) => {
-        this.navBar.setDiagnosticsActive(expanded);
-      }
-    );
+    this.hud = new HUD(this.container, (expanded) => {
+      this.navBar.setDiagnosticsActive(expanded);
+    });
 
-    // Initial Splash Screen: clicking START explicitly requests camera, unlocks Web Audio & opens tutorial
+    // Initial Splash Screen: clicking START explicitly requests camera & unlocks Web Audio
     this.splashScreen = new SplashScreen(this.container, {
       onStart: async () => {
         await this.startExperience();
       },
     });
 
-    // Persistent sticky bottom-right version badge
-    const versionBadge = document.createElement('div');
+    // Persistent sticky bottom-right About / version trigger button
+    const versionBadge = document.createElement('button');
+    versionBadge.type = 'button';
     versionBadge.id = 'app-version-badge';
-    versionBadge.textContent = `v${__APP_VERSION__}`;
-    Object.assign(versionBadge.style, {
-      position: 'fixed',
-      bottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
-      right: 'max(14px, env(safe-area-inset-right, 14px))',
-      zIndex: '20',
-      fontFamily: 'var(--font-primary)',
-      fontSize: '11px',
-      fontWeight: '600',
-      letterSpacing: '0.8px',
-      color: 'rgba(0, 240, 255, 0.70)',
-      background: 'rgba(8, 12, 22, 0.65)',
-      backdropFilter: 'blur(8px)',
-      WebkitBackdropFilter: 'blur(8px)',
-      border: '1px solid rgba(0, 240, 255, 0.22)',
-      borderRadius: '6px',
-      padding: '3px 8px',
-      pointerEvents: 'none',
-      userSelect: 'none',
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+    versionBadge.title = 'About Spatial Harp';
+    versionBadge.setAttribute('aria-label', `About Spatial Harp, version ${__APP_VERSION__}`);
+    versionBadge.textContent = `About · v${__APP_VERSION__}`;
+    versionBadge.addEventListener('click', () => {
+      this.closeOpenDrawers();
+      this.aboutModal.open(versionBadge);
     });
     this.container.appendChild(versionBadge);
 
@@ -210,8 +266,8 @@ class App {
       const targetStr = this.spatialStringManager.getStrings().find((s) => s.id === event.stringId);
       if (targetStr) {
         const videoAspect = this.cameraManager.aspectRatio;
-        const w1 = this.sceneManager.toWorldCoords(targetStr.point1.x, targetStr.point1.y, targetStr.point1.z, videoAspect);
-        const w2 = this.sceneManager.toWorldCoords(targetStr.point2.x, targetStr.point2.y, targetStr.point2.z, videoAspect);
+        const w1 = this.sceneManager.toWorldCoords(targetStr.point1.x, targetStr.point1.y, targetStr.point1.z, videoAspect, this.sparkW1);
+        const w2 = this.sceneManager.toWorldCoords(targetStr.point2.x, targetStr.point2.y, targetStr.point2.z, videoAspect, this.sparkW2);
 
         this.sparkOrigin.lerpVectors(w1, w2, event.contactRatio);
         this.sparkDir.subVectors(w2, w1).normalize();
@@ -244,6 +300,31 @@ class App {
       }
     });
 
+    // 6b. Hold-to-charge pop burst listener (shockwave + sparks + tactile audio pop)
+    globalBus.on<ChargePopEvent>('string:charge_pop', (event) => {
+      const videoAspect = this.cameraManager.aspectRatio;
+      const emitPopAt = (pt: { x: number; y: number; z: number }) => {
+        this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect, this.sparkOrigin);
+        this.sparkNormal.set(0, 1, 0);
+        this.pluckShockwavePool.emitShockwave(this.sparkOrigin, 0x38ef7d, 0.9);
+        this.sparkParticlePool.emitBurst(this.sparkOrigin, this.sparkNormal, 0x00f0ff, 0.85);
+      };
+
+      emitPopAt(event.point1);
+      this.audioEngine.playAnchorPop();
+    });
+
+    // 6c. Interactive 3-step coach progression listeners
+    globalBus.on('string:anchored', () => {
+      if (!this.isSpawningStarter) {
+        this.handPrompt.markStringCreated();
+      }
+    });
+
+    globalBus.on('string:grabbed', () => {
+      this.handPrompt.markEndpointGrabbed();
+    });
+
     // 7. Hand tracker, gesture detector & loop ticker
     this.handTracker = new HandTracker();
     this.pinchDetector = new PinchDetector({
@@ -260,8 +341,39 @@ class App {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyC' || e.code === 'Space') {
         this.spatialStringManager.clearAll();
+      } else if (e.key === 'Escape') {
+        this.closeOpenDrawers();
       }
     });
+
+    // Light-dismiss any open floating drawer when clicking or tapping outside on desktop & mobile
+    document.addEventListener('pointerdown', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest('#sound-studio-panel') ||
+        target.closest('#settings-panel') ||
+        target.closest('#hud-card') ||
+        target.closest('#app-fps-badge') ||
+        target.closest('#app-navbar') ||
+        target.closest('#tutorial-modal-dialog') ||
+        target.closest('#about-modal-dialog')
+      ) {
+        return;
+      }
+      this.closeOpenDrawers();
+    });
+  }
+
+  private closeOpenDrawers(): void {
+    if (this.soundStudioPanel.getIsOpen() || this.settingsPanel.getIsOpen()) {
+      this.soundStudioPanel.close();
+      this.settingsPanel.close();
+      this.navBar.setActiveTab('instrument');
+    }
+    if (this.hud.getIsExpanded()) {
+      this.hud.setCardExpanded(false);
+    }
   }
 
   private applyConfig(cfg: AppConfig): void {
@@ -282,34 +394,61 @@ class App {
     // 4. Audio engine & scale mapper
     this.scaleMapper.configure({
       defaultScale: cfg.audio.defaultScale,
+      pitchMode: cfg.audio.pitchMode,
+      fretZones: cfg.audio.fretZones,
       minNormLengthForPitch: cfg.audio.minNormLengthForPitch,
       maxNormLengthForPitch: cfg.audio.maxNormLengthForPitch,
     });
     this.audioEngine.configure({
       volumeDb: cfg.audio.volumeDb,
-      reverbWet: cfg.audio.reverbWet,
-      delayWet: cfg.audio.delayWet,
       defaultPreset: cfg.audio.defaultPreset,
     });
+    const savedPresetFx = getPresetFxOverride(cfg.audio.defaultPreset);
+    if (savedPresetFx) {
+      this.audioEngine.setFxParams(savedPresetFx);
+    }
 
     // 5. Visuals, hand skeleton sizing, laser beam widths, ruler transparency, rainbow waves & particles
     this.skeletonView.configure(cfg.visuals);
     this.anchoredStringsView.configure(cfg.visuals);
     this.dynamicStringView.configure(cfg.visuals);
     this.pluckShockwavePool.configure(cfg.visuals);
-    this.sparkParticlePool.configure(cfg.visuals);
+    this.sparkParticlePool.configure(
+      this.perfProfile.tier === 'mobile'
+        ? {
+            ...cfg.visuals,
+            contactSparkBurstCount: Math.min(cfg.visuals.contactSparkBurstCount, this.perfProfile.sparkBurstCount),
+            waveGlitterParticleCount: Math.min(cfg.visuals.waveGlitterParticleCount, this.perfProfile.waveGlitterCount),
+          }
+        : cfg.visuals
+    );
 
-    // 6. Sync Sound Studio dropdowns & UI hints with loaded config
+    // 6. Sync Sound Studio & Settings with loaded config
     this.soundStudioPanel.setSelectedPreset(cfg.audio.defaultPreset);
-    this.soundStudioPanel.setSelectedScale(cfg.audio.defaultScale);
-    this.handPrompt.configure(cfg.ui.showLiveHints);
+    this.soundStudioPanel.setFxParams(this.audioEngine.getFxParams());
+    this.settingsPanel.setPitchMode(cfg.audio.pitchMode);
+  }
+
+  private setPitchMode(mode: PitchMode, persist = true): void {
+    this.config.audio.pitchMode = mode;
+    this.scaleMapper.setPitchMode(mode);
+    this.settingsPanel.setPitchMode(mode);
+    if (persist) {
+      saveUserOverride({ pitchMode: mode });
+    }
+  }
+
+  private spawnStarterStringSafe(): void {
+    this.isSpawningStarter = true;
+    try {
+      this.spatialStringManager.spawnStarterString(this.cameraManager.aspectRatio, performance.now());
+    } finally {
+      this.isSpawningStarter = false;
+    }
   }
 
   private async unlockAudio(): Promise<void> {
-    const success = await this.audioEngine.unlock();
-    if (success) {
-      this.hud.setAudioActive(true);
-    }
+    await this.audioEngine.unlock();
   }
 
   public async start(): Promise<void> {
@@ -357,9 +496,17 @@ class App {
       await this.unlockAudio();
 
       // 2. Request and start camera feed now (upon explicit user click)
+      const camWidth =
+        this.perfProfile.tier === 'mobile'
+          ? Math.min(this.config.vision.cameraWidth, this.perfProfile.cameraWidth)
+          : this.config.vision.cameraWidth;
+      const camHeight =
+        this.perfProfile.tier === 'mobile'
+          ? Math.min(this.config.vision.cameraHeight, this.perfProfile.cameraHeight)
+          : this.config.vision.cameraHeight;
       await this.cameraManager.start({
-        width: this.config.vision.cameraWidth,
-        height: this.config.vision.cameraHeight,
+        width: camWidth,
+        height: camHeight,
       });
 
       // 3. Ensure HandTracker is initialized
@@ -377,7 +524,7 @@ class App {
       }
 
       this.isVisionReady = true;
-      this.hud.setMessage('Pinch thumb & index on both hands to stretch and anchor a string.');
+      this.hud.setMessage('Hold pinch steady to draw a string, or grab string tips with one or both hands.');
 
       // 4. Start main RAF tick loop
       if (!this.isLoopInitialized) {
@@ -385,6 +532,9 @@ class App {
         this.isLoopInitialized = true;
       }
       this.loop.start();
+      if (!this.handPrompt.hasCompletedOnboarding() && this.spatialStringManager.count === 0) {
+        this.spawnStarterStringSafe();
+      }
       this.handPrompt.activate();
 
       // 5. Open the 4-step tutorial popup if enabled in config
@@ -425,17 +575,30 @@ class App {
     const { gestureStates, dualPinch } = this.pinchDetector.detectDualPinch(hands);
 
     // 4. Instruments: Spatial String Anchoring & Endpoint Grab/Repositioning
-    this.spatialStringManager.update(gestureStates, dualPinch, videoAspect, nowMs);
+    this.spatialStringManager.update(gestureStates, videoAspect, nowMs);
     const anchoredStrings = this.spatialStringManager.getStrings();
     const activeGrabs = this.spatialStringManager.getActiveGrabs();
+    const previewState = this.spatialStringManager.getPreviewState();
 
-    // Update live step-by-step hand coaching pill (zero-GC)
-    this.handPrompt.update(hands.length, dualPinch.isDualPinch, anchoredStrings.length, nowMs);
+    // Update interactive 3-step hand coach (zero-GC)
+    this.handPrompt.update(
+      hands.length,
+      this.spatialStringManager.isChargingAnchor,
+      previewState.isActive,
+      anchoredStrings.length,
+      nowMs
+    );
 
     // 5. Collision & Plucking Engine: Detect fingertips crossing anchored strings
     const ignoreHandIds = new Set<number>();
     let grabbedStringNote: string | null = null;
     const postGrabCooldown = this.config.strings.postGrabReleaseCooldownMs;
+
+    const drawingHandId = this.spatialStringManager.getDrawingHandId();
+    if (drawingHandId !== null) {
+      ignoreHandIds.add(drawingHandId);
+      this.handGrabCooldownUntil.set(drawingHandId, nowMs + postGrabCooldown);
+    }
 
     if (activeGrabs.length > 0) {
       activeGrabs.forEach((grab) => {
@@ -461,7 +624,8 @@ class App {
 
     // 6. Update dynamic preview string & pinch anchor reticles (only if not grabbing an endpoint)
     if (!this.spatialStringManager.isAnyEndpointGrabbed) {
-      this.dynamicStringView.update(gestureStates, dualPinch, videoAspect, elapsed);
+      this.dynamicStringView.setVisible(true);
+      this.dynamicStringView.update(gestureStates, previewState, videoAspect, elapsed);
     } else {
       this.dynamicStringView.setVisible(false);
     }
@@ -473,7 +637,8 @@ class App {
     this.sparkParticlePool.update(delta);
     this.pluckShockwavePool.update(delta);
 
-    // 9. Update HUD diagnostics
+    // 9. Update HUD diagnostics & NavBar string count (zero-GC)
+    this.navBar.setStringCount(anchoredStrings.length, this.spatialStringManager.maxCapacity);
     const handDetails = hands.map((h) => `${h.handedness}`);
     const singlePinch = gestureStates.find((g) => g.pinch.isPinching);
     const singlePinchHand = singlePinch ? singlePinch.handedness : null;

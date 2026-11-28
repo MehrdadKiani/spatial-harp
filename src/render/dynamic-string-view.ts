@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { DualPinchState, HandGestureState } from '../types/gestures';
+import { HandGestureState } from '../types/gestures';
+import { StringPreviewState } from '../types/instruments';
 import { SceneManager } from './scene-manager';
 import { VisualsConfigGroup } from '../core/config';
 
@@ -23,6 +24,14 @@ export class DynamicStringView {
   // Fingertip pinch anchor rings (one per hand)
   private anchorRings: THREE.Mesh[] = [];
   private anchorGlowRings: THREE.Mesh[] = [];
+
+  // Hold-to-charge growing orbs & expanding halo rings (up to 2 hands, zero-GC)
+  private chargeCoreOrbs: THREE.Mesh[] = [];
+  private chargeOuterRings: THREE.Mesh[] = [];
+  private chargeCoreMat: THREE.MeshBasicMaterial;
+  private chargeOuterMat: THREE.MeshBasicMaterial;
+  private chargeColorStart = new THREE.Color(0x00f0ff);
+  private chargeColorEnd = new THREE.Color(0x76ff99);
 
   // Materials & configurable dimensions
   private stringMaterial: THREE.LineBasicMaterial;
@@ -64,6 +73,7 @@ export class DynamicStringView {
       side: THREE.DoubleSide,
     });
     this.outerHaloMesh = new THREE.Mesh(outerHaloGeom, outerHaloMat);
+    this.outerHaloMesh.frustumCulled = false;
     this.outerHaloMesh.visible = false;
     this.group.add(this.outerHaloMesh);
 
@@ -80,6 +90,7 @@ export class DynamicStringView {
       side: THREE.DoubleSide,
     });
     this.coreBeamMesh = new THREE.Mesh(coreBeamGeom, coreBeamMat);
+    this.coreBeamMesh.frustumCulled = false;
     this.coreBeamMesh.visible = false;
     this.group.add(this.coreBeamMesh);
 
@@ -96,6 +107,7 @@ export class DynamicStringView {
     const lineGeom = new THREE.BufferGeometry();
     lineGeom.setAttribute('position', new THREE.BufferAttribute(this.linePositions, 3));
     this.lineMesh = new THREE.Line(lineGeom, this.stringMaterial);
+    this.lineMesh.frustumCulled = false;
     this.lineMesh.visible = false;
     this.group.add(this.lineMesh);
 
@@ -113,6 +125,7 @@ export class DynamicStringView {
     const tickGeom = new THREE.BufferGeometry();
     tickGeom.setAttribute('position', new THREE.BufferAttribute(this.tickPositions, 3));
     this.tickLines = new THREE.LineSegments(tickGeom, this.tickMaterial);
+    this.tickLines.frustumCulled = false;
     this.tickLines.visible = false;
     this.group.add(this.tickLines);
 
@@ -144,6 +157,38 @@ export class DynamicStringView {
       this.group.add(ring);
       this.group.add(glowRing);
     }
+
+    // 4. Hold-to-Charge Growing Orbs (visual buildup before pop-lock)
+    this.chargeCoreMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.75,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+    this.chargeOuterMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+
+    const chargeCoreGeom = new THREE.CircleGeometry(0.015, 28);
+    const chargeOuterGeom = new THREE.RingGeometry(0.019, 0.023, 32);
+
+    for (let i = 0; i < 2; i++) {
+      const core = new THREE.Mesh(chargeCoreGeom, this.chargeCoreMat);
+      const outer = new THREE.Mesh(chargeOuterGeom, this.chargeOuterMat);
+      core.visible = false;
+      outer.visible = false;
+      this.chargeCoreOrbs.push(core);
+      this.chargeOuterRings.push(outer);
+      this.group.add(core);
+      this.group.add(outer);
+    }
   }
 
   public configure(cfg: Partial<VisualsConfigGroup>): void {
@@ -156,50 +201,109 @@ export class DynamicStringView {
 
   public update(
     gestureStates: HandGestureState[],
-    dualPinch: DualPinchState,
+    preview: StringPreviewState,
     videoAspect: number,
     elapsed: number
   ): void {
+    this.group.visible = true;
     this.anchorRings.forEach((r) => (r.visible = false));
     this.anchorGlowRings.forEach((r) => (r.visible = false));
+    this.chargeCoreOrbs.forEach((o) => (o.visible = false));
+    this.chargeOuterRings.forEach((r) => (r.visible = false));
 
-    gestureStates.forEach((gesture, idx) => {
-      if (idx >= 2) return;
+    if (preview.isCharging && preview.chargePoint1) {
+      const p = preview.chargeProgress;
+      const coreScale = 0.28 + p * 1.25 + Math.sin(p * Math.PI) * 0.12;
+      const outerScale = 0.55 + p * 1.15;
 
-      if (gesture.pinch.isPinching) {
-        const pt = gesture.pinch.pinchPoint;
-        const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect);
+      this.chargeCoreMat.color.lerpColors(this.chargeColorStart, this.chargeColorEnd, p);
+      this.chargeCoreMat.opacity = 0.35 + p * 0.6;
+      this.chargeOuterMat.color.lerpColors(this.chargeColorStart, this.chargeColorEnd, p);
+      this.chargeOuterMat.opacity = 0.45 + p * 0.55;
 
-        const ring = this.anchorRings[idx];
-        const glow = this.anchorGlowRings[idx];
+      const c1 = this.sceneManager.toWorldCoords(
+        preview.chargePoint1.x,
+        preview.chargePoint1.y,
+        preview.chargePoint1.z,
+        videoAspect,
+        this.scratchP1
+      );
+      this.chargeCoreOrbs[0].position.copy(c1);
+      this.chargeCoreOrbs[0].scale.setScalar(coreScale);
+      this.chargeCoreOrbs[0].visible = true;
 
-        ring.position.copy(worldPos);
-        glow.position.copy(worldPos);
-
-        ring.rotation.z = elapsed * 2.0;
-        glow.rotation.z = -elapsed * 1.5;
-
-        ring.visible = true;
-        glow.visible = true;
-      }
-    });
-
-    if (dualPinch.isDualPinch && dualPinch.point1 && dualPinch.point2) {
+      this.chargeOuterRings[0].position.copy(c1);
+      this.chargeOuterRings[0].scale.setScalar(outerScale);
+      this.chargeOuterRings[0].rotation.z = elapsed * (3.0 + p * 8.0);
+      this.chargeOuterRings[0].visible = true;
+    } else if (preview.isActive && preview.point1 && preview.point2) {
+      // Show fixed start anchor reticle at point1 and moving pinch reticle at point2
       const w1 = this.sceneManager.toWorldCoords(
-        dualPinch.point1.x,
-        dualPinch.point1.y,
-        dualPinch.point1.z,
-        videoAspect
+        preview.point1.x,
+        preview.point1.y,
+        preview.point1.z,
+        videoAspect,
+        this.scratchP1
       );
       const w2 = this.sceneManager.toWorldCoords(
-        dualPinch.point2.x,
-        dualPinch.point2.y,
-        dualPinch.point2.z,
-        videoAspect
+        preview.point2.x,
+        preview.point2.y,
+        preview.point2.z,
+        videoAspect,
+        this.scratchP2
       );
 
-      const p1 = this.scratchP1.copy(w1);
-      const p2 = this.scratchP2.copy(w2);
+      this.anchorRings[0].position.copy(w1);
+      this.anchorGlowRings[0].position.copy(w1);
+      this.anchorRings[0].rotation.z = elapsed * 2.0;
+      this.anchorGlowRings[0].rotation.z = -elapsed * 1.5;
+      this.anchorRings[0].visible = true;
+      this.anchorGlowRings[0].visible = true;
+
+      this.anchorRings[1].position.copy(w2);
+      this.anchorGlowRings[1].position.copy(w2);
+      this.anchorRings[1].rotation.z = elapsed * 2.0;
+      this.anchorGlowRings[1].rotation.z = -elapsed * 1.5;
+      this.anchorRings[1].visible = true;
+      this.anchorGlowRings[1].visible = true;
+    } else {
+      gestureStates.forEach((gesture, idx) => {
+        if (idx >= 2) return;
+
+        if (gesture.pinch.isPinching) {
+          const pt = gesture.pinch.pinchPoint;
+          const worldPos = this.sceneManager.toWorldCoords(pt.x, pt.y, pt.z, videoAspect, this.scratchP1);
+
+          const ring = this.anchorRings[idx];
+          const glow = this.anchorGlowRings[idx];
+
+          ring.position.copy(worldPos);
+          glow.position.copy(worldPos);
+
+          ring.rotation.z = elapsed * 2.0;
+          glow.rotation.z = -elapsed * 1.5;
+
+          ring.visible = true;
+          glow.visible = true;
+        }
+      });
+    }
+
+    if (preview.isActive && preview.point1 && preview.point2) {
+      const p1 = this.sceneManager.toWorldCoords(
+        preview.point1.x,
+        preview.point1.y,
+        preview.point1.z,
+        videoAspect,
+        this.scratchP1
+      );
+      const p2 = this.sceneManager.toWorldCoords(
+        preview.point2.x,
+        preview.point2.y,
+        preview.point2.z,
+        videoAspect,
+        this.scratchP2
+      );
 
       const dir = this.scratchDir.subVectors(p2, p1);
       const length = dir.length();

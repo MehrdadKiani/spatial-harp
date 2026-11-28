@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { AnchoredString } from '../types/instruments';
-import { MusicalScaleId, MusicalScaleInfo } from '../types/audio';
+import { MusicalScaleId, MusicalScaleInfo, PitchMode } from '../types/audio';
 
 export const SCALES: Record<MusicalScaleId, MusicalScaleInfo> = {
   pentatonic: {
@@ -65,6 +65,8 @@ export const PENTATONIC_SCALE = SCALES.pentatonic.notes;
 export class ScaleMapper {
   private scaleId: MusicalScaleId;
   private scale: string[];
+  private pitchMode: PitchMode = 'length';
+  private fretZones = 5;
 
   // Normalized string length bounds for acoustic pitch mapping:
   // Longer strings -> lower bass notes (index 0)
@@ -72,18 +74,27 @@ export class ScaleMapper {
   private minNormLength = 0.10;
   private maxNormLength = 0.82;
 
-  constructor(initialScaleId: MusicalScaleId = 'pentatonic') {
+  constructor(initialScaleId: MusicalScaleId = 'pentatonic', initialPitchMode: PitchMode = 'length') {
     this.scaleId = initialScaleId;
     this.scale = SCALES[initialScaleId].notes;
+    this.pitchMode = initialPitchMode;
   }
 
   public configure(options: {
     defaultScale?: MusicalScaleId;
+    pitchMode?: PitchMode;
+    fretZones?: number;
     minNormLengthForPitch?: number;
     maxNormLengthForPitch?: number;
   }): void {
     if (options.defaultScale && SCALES[options.defaultScale]) {
       this.setScaleById(options.defaultScale);
+    }
+    if (options.pitchMode === 'fretted' || options.pitchMode === 'length') {
+      this.pitchMode = options.pitchMode;
+    }
+    if (options.fretZones !== undefined && options.fretZones >= 2) {
+      this.fretZones = Math.floor(options.fretZones);
     }
     if (options.minNormLengthForPitch !== undefined) {
       this.minNormLength = options.minNormLengthForPitch;
@@ -93,14 +104,27 @@ export class ScaleMapper {
     }
   }
 
+  public setPitchMode(mode: PitchMode): void {
+    this.pitchMode = mode;
+  }
+
+  public getPitchMode(): PitchMode {
+    return this.pitchMode;
+  }
+
+  public getFretZones(): number {
+    return this.fretZones;
+  }
+
   /**
-   * Evaluates the musical pitch of a string based on its physical 3D length
-   * (Mersenne's Law: shorter strings produce higher pitches, longer strings produce deeper bass pitches).
-   * Resizing a string dynamically shifts its note across the active 3-octave musical scale.
+   * Evaluates the musical pitch of a string based on its physical 3D length (Mersenne's Law).
+   * In 'fretted' mode (when contactRatio 0..1 is provided), the string is subdivided into
+   * fretZones sequential scale notes oriented low-to-high (left->right, or bottom->top if vertical).
    */
   public getNoteForString(
     targetString: AnchoredString,
-    _allStrings?: AnchoredString[]
+    _allStrings?: AnchoredString[],
+    contactRatio?: number
   ): { note: string; frequency: number } {
     const dx = targetString.point2.x - targetString.point1.x;
     const dy = targetString.point2.y - targetString.point1.y;
@@ -112,7 +136,26 @@ export class ScaleMapper {
     const pitchRatio = (this.maxNormLength - clamped) / (this.maxNormLength - this.minNormLength);
 
     const maxIndex = this.scale.length - 1;
-    const scaleIndex = Math.max(0, Math.min(maxIndex, Math.round(pitchRatio * maxIndex)));
+    let scaleIndex: number;
+
+    if (this.pitchMode === 'fretted' && contactRatio !== undefined) {
+      const zones = Math.min(this.fretZones, this.scale.length);
+      const maxBaseIndex = Math.max(0, maxIndex - (zones - 1));
+      const baseIndex = Math.max(0, Math.min(maxBaseIndex, Math.round(pitchRatio * maxBaseIndex)));
+
+      // Orient fret direction consistently low->high regardless of which endpoint was drawn first:
+      // horizontal strings go left->right (smaller x -> larger x); vertical strings go bottom->top (larger y -> smaller y)
+      const isMostlyHorizontal = Math.abs(dx) >= Math.abs(dy);
+      const lowToHigh = isMostlyHorizontal ? dx >= 0 : dy <= 0;
+      const clampedRatio = Math.max(0, Math.min(1, contactRatio));
+      const orientedRatio = lowToHigh ? clampedRatio : 1 - clampedRatio;
+
+      const fretOffset = Math.min(zones - 1, Math.floor(orientedRatio * zones));
+      scaleIndex = Math.max(0, Math.min(maxIndex, baseIndex + fretOffset));
+    } else {
+      scaleIndex = Math.max(0, Math.min(maxIndex, Math.round(pitchRatio * maxIndex)));
+    }
+
     const note = this.scale[scaleIndex];
     const frequency = Tone.Frequency(note).toFrequency();
 

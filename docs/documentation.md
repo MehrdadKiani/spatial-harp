@@ -19,6 +19,7 @@ Codebase ↔ Functionality Mindmap: [docs/mindmap.md](./mindmap.md).
 | **Step 6** | **Modular Sound Presets & Instrument Settings** | ✅ **COMPLETED** | Multi-engine sound synthesizer (Harp, Laser Synth, Ambient Chime, Retro 8-Bit) & 5 musical scale modes (Pentatonic, Minor, Hirajōshi, Major, Blues). |
 | **Step 7** | **Advanced Plucking Visual Effects & Wave Envelopes** | ✅ **COMPLETED** | Resonant dual-wave envelope sheath (spindle oscillation), contact shockwaves, streak sparks, crosshair anchor reticles. |
 | **Step 8** | **Glassmorphic UI Suite & Mobile/Tablet Responsiveness** | ✅ **COMPLETED** | Navigation bar, Sound Studio drawer, real progress splash screen, centralized JetBrains Mono typography, safe-area & cross-device responsive layout. |
+| **Step 9** | **Unified Single-Hand Creation, Charge-to-Pop & Fretted Pitch** | ✅ **COMPLETED** | Unified single-hand string creation (Hold-to-Charge → Pop → Drag → Release with stillness guard & tactile pop VFX/SFX), simultaneous 1- or 2-hand endpoint moving/resizing (and live plucking with the free hand), Fretted & Classic Pitch Modes in Settings, automatic device Performance Profile (`auto`), `localStorage` persistence, and unit tests. |
 
 ---
 
@@ -82,9 +83,12 @@ graph TD
 ├── package.json                # Dependencies: three, @mediapipe/tasks-vision, tone
 ├── tsconfig.json               # Strict TypeScript configuration
 ├── vite.config.ts              # Vite dev server (LAN host + basic-ssl HTTPS) & build settings (injects __APP_VERSION__)
-├── vercel.json                 # Vercel SPA rewrites & WASM/model caching headers
+├── vercel.json                 # Vercel immutable asset/WASM/model caching & security headers
 ├── public/
 │   ├── config.json             # External grouped runtime configuration (vision, pinch, strings, plucking, audio, visuals, ui)
+│   ├── robots.txt              # Crawler policy & sitemap reference
+│   ├── sitemap.xml             # Canonical XML sitemap for https://harps.vercel.app/
+│   ├── site.webmanifest        # PWA manifest (icons, start_url, description, #07090d theme)
 │   ├── models/                 # Offline MediaPipe hand_landmarker.task (7.8 MB)
 │   └── wasm/                   # Offline vision_wasm binaries
 ├── files/                  # Local reference media (git-ignored, personal reference)
@@ -96,6 +100,7 @@ graph TD
 ├── tests/
 │   ├── audio/                  # ScaleMapper & Mersenne's Law acoustic pitch tests
 │   ├── gestures/               # PinchDetector hysteresis & string collision tests
+│   ├── instruments/            # SpatialStringManager one-hand & two-hand anchoring tests
 │   └── core/                   # EventBus & AppConfig integrity tests
 └── src/
     ├── main.ts                 # Application bootstrapper & loop wiring
@@ -103,13 +108,14 @@ graph TD
     │   ├── env.d.ts            # Global compile-time environment typings (__APP_VERSION__)
     │   ├── vision.ts           # HandPose, Landmark, Bone connections
     │   ├── gestures.ts         # PinchState, DualPinchState, HandGestureState
-    │   ├── instruments.ts      # AnchoredString, EndpointGrabState, SpatialStringConfig
-    │   ├── audio.ts            # PluckEvent, AudioEngineConfig
+    │   ├── instruments.ts      # AnchoredString, EndpointGrabState, StringPreviewState, ChargePopEvent, SpatialStringConfig
+    │   ├── audio.ts            # PluckEvent, AudioFxParams, DelayTimeDivision, AudioEngineConfig
     │   └── physics.ts          # StringVibrationState, SparkParticle, ShockwaveState
     ├── core/
     │   ├── config.ts           # Typed AppConfig defaults, /config.json loader & localStorage overrides
     │   ├── event-bus.ts        # Typed pub/sub event bus
-    │   └── loop.ts             # High-precision RAF ticker with delta time
+    │   ├── loop.ts             # High-precision RAF ticker with delta time
+    │   └── performance.ts      # Device/iOS performance profile resolver (Auto / Fast Mobile / High Quality)
     ├── vision/
     │   ├── camera-manager.ts   # Webcam capture, mirroring, aspect handling
     │   ├── hand-tracker.ts     # MediaPipe HandLandmarker wrapper
@@ -123,20 +129,24 @@ graph TD
     │   ├── scale-mapper.ts     # Spatial harp string sorting and 5 musical scale definitions
     │   └── audio-engine.ts     # Multi-engine synthesizer (Karplus-Strong, Laser Synth, FM Chime, Retro 8-Bit) & FX chain
     ├── render/
-    │   ├── scene-manager.ts    # WebGLRenderer, Camera, EffectComposer & UnrealBloomPass
+    │   ├── scene-manager.ts    # WebGLRenderer, Camera, lazy EffectComposer/Bloom & zero-GC toWorldCoords
     │   ├── video-background.ts # Mirrored video feed container
     │   ├── skeleton-view.ts    # 21-node hand skeleton visualizer
     │   ├── dynamic-string-view.ts # Elastic string preview, frets & anchor reticles
-    │   ├── anchored-strings-view.ts # Persistent harp strings, dual-wave envelopes & precision crosshairs
+    │   ├── anchored-strings-view.ts # Persistent harp strings, hoisted harmonic waves, idle-string caching & crosshairs
     │   ├── pluck-shockwave-pool.ts # Zero-GC expanding 3D contact shockwave ripple pool
-    │   └── spark-particle-pool.ts # Zero-GC GPU multi-form spark & floating mote pool (256 Points)
+    │   └── spark-particle-pool.ts # Zero-GC GPU multi-form spark & floating mote pool (adaptive 140/420 cap, O(1) idle skip)
     └── ui/
-        ├── hud.ts              # Collapsible diagnostics card (FPS, gestures, active strings) styled with centralized design tokens (JetBrains Mono)
-        ├── nav-bar.ts          # Floating glassmorphic top navigation bar with brand logo, tab routing, diagnostics toggle & clear strings action
-        ├── sound-studio-panel.ts # Dedicated Sound Studio drawer panel (synthesizer presets, musical scales)
-        ├── tutorial-modal.ts   # Optional 4-step interactive gesture tutorial modal (toggled via ui.showTutorialOnStart)
-        ├── hand-prompt.ts      # Live step-by-step hand coach pill (show hands -> pinch -> release -> pluck, toggled via ui.showLiveHints)
-        └── splash-screen.ts    # Atmospheric glassmorphic intro splash screen with integrated button progress/spinner loader, gesture cards & compact privacy notice
+        ├── icons.ts            # Minimalist 1.5px-stroke inline SVG icon library (zero external icon dependencies)
+        ├── styles.css          # Centralized Optical Studio design system (tokens, floating islands, drawers, precision sliders, mobile perf bypass)
+        ├── hud.ts              # Collapsible System Metrics drawer (tabular-nums FPS, gestures, active strings, audio status)
+        ├── nav-bar.ts          # Floating top-left brand/string-count/metrics island & top-right action island (Studio, Settings, Guide ?, Clear)
+        ├── sound-studio-panel.ts # Sound Studio drawer with 2×2 tactile patch grid & custom precision FX rack (Japanese Hirajōshi tuning under the hood)
+        ├── settings-panel.ts   # Settings drawer with Pitch Mode selector (Fretted / Classic) & About link
+        ├── about-modal.ts      # Native <dialog closedby="any"> About modal (app info, tech stack, keyboard shortcuts, privacy & credits)
+        ├── tutorial-modal.ts   # Native <dialog closedby="any"> 4-step interactive gesture tutorial modal
+        ├── hand-prompt.ts      # Interactive 3-step coach card ("Play First, Build Second") with looping SVG gesture animations, Skip & localStorage persistence
+        └── splash-screen.ts    # Editorial Optical Studio intro splash screen with numbered 1-2-3 gesture strip & integrated progress CTA
 ```
 
 ---
@@ -254,11 +264,12 @@ graph TD
 ### Step 6: Modular Presets & Instrument Settings (✅ Completed)
 
 1. **Multi-Engine Synthesizer Architecture** (`audio-engine.ts`, `types/audio.ts`):
-   - **Plucked Harp (Acoustic)**: Polyphonic Karplus-Strong physical modeling (`Tone.PluckSynth`) with dynamic resonance and attack noise. Ambience: $2.6\text{ s}$ reverb ($30\%$ wet), $8\text{n.}$ dotted delay ($12\%$ wet).
-   - **Laser Synth (Sci-Fi)**: Polyphonic sawtooth synthesizer (`Tone.PolySynth(Tone.Synth)`) with fast attack ($5\text{ ms}$) and snappy decay ($320\text{ ms}$), coupled with resonant space delay ($32\%$ wet, $40\%$ feedback).
-   - **Ambient Chime (FM Bell)**: Frequency modulation synthesizer (`Tone.PolySynth(Tone.FMSynth)`) with inharmonic metallic ratio ($3.01$), modulation index $12$, and deep $4.2\text{ s}$ ethereal reverb ($50\%$ wet).
-   - **Retro 8-Bit (Arcade)**: Square wave chiptune synth (`Tone.PolySynth(Tone.Synth)`) with ultra-fast attack ($1\text{ ms}$) and punchy decay for authentic arcade transients.
-   - **Adaptive Dynamic FX Chain**: Switching presets smoothly reconfigures `Tone.FeedbackDelay` and `Tone.Reverb` parameters to match each instrument's acoustic profile.
+   - **Zero-Leak Round-Robin Voice Pools**: `Plucked Harp` uses a pre-allocated `Tone.PluckSynth` pool, while `Laser Synth`, `Ambient Chime` (16 voices), and `Retro 8-Bit` lazily allocate voices on demand after audio unlock and recycle them round-robin, preventing both startup Web Audio bloat and `Tone.PolySynth` voice exhaustion/leaks during rapid multi-finger strumming.
+   - **Plucked Harp (Acoustic)**: Polyphonic Karplus-Strong physical modeling (`Tone.PluckSynth` pool) with dynamic resonance and attack noise. Ambience: $2.8\text{ s}$ reverb ($30\%$ wet), $8\text{n.}$ dotted delay ($12\%$ wet).
+   - **Laser Synth (Sci-Fi)**: Pre-allocated sawtooth synthesizer pool (`Tone.Synth`) with fast attack ($5\text{ ms}$) and snappy decay, coupled with resonant space delay ($32\%$ wet, $38\%$ feedback).
+   - **Ambient Chime (FM Bell)**: Native Web Audio API one-shot FM bell engine (inharmonic ratio $3.01$, velocity-sensitive modulation index $12$, $1.55\text{ s}$ decay tail, 16-voice soft fade-out cap) routed into the Tone.js FX chain, eliminating `Tone.PolySynth` / `OneShotSource.cancelStop()` dropouts during rapid strumming.
+   - **Retro 8-Bit (Arcade)**: Pre-allocated square wave chiptune synth pool (`Tone.Synth`) with ultra-fast attack ($2\text{ ms}$) and punchy decay for authentic arcade transients.
+   - **Adaptive Dynamic FX Chain**: Switching presets smoothly reconfigures `Tone.FeedbackDelay` and `Tone.Reverb` parameters (or restores per-preset user overrides from the Sound Studio FX rack).
 
 2. **Harmonic Scale Library** (`scale-mapper.ts`):
    - **C Major Pentatonic**: Consonant, peaceful harmonic scale (`C4, D4, E4, G4, A4, C5, D5, E5, G5, A5, C6, D6`).
@@ -277,8 +288,8 @@ graph TD
 
 1. **Multi-Layered Glowing Laser Beam & Bi-Directional Propagating Energy Waves** (`anchored-strings-view.ts`, `dynamic-string-view.ts`):
    - **3-Layer Additive Laser Beam Assembly**: Each string renders (1) a blazing white-hot plasma core ribbon ($\alpha = 0.96$), (2) an intense saturated neon inner glow beam ($\alpha = 0.65\text{–}0.78$), and (3) a wide soft outer bloom halo ($\alpha = 0.25\text{–}0.58$), while keeping graduated ruler/fret ticks subtle and highly transparent ($\alpha = 0.16\text{–}0.18$).
-   - On pluck at `contactRatio` ($u_0$), launches two counter-propagating Gaussian wave packets ($u_0 \pm c t$) that travel outward toward both anchors and reflect off the boundaries, coupled with 1st, 2nd, and 3rd guitar string harmonics weighted by $\sin(n\pi u_0)$ and a phase-lagged motion-blur ghost trail line.
-   - Dynamic per-vertex chromatic gradients transition across **Cyan (`#00f0ff`), Electric Blue (`#38bdf8`), Neon Magenta (`#ff007f`), and Vivid Purple (`#a855f7`)**, with a white-hot flash at the contact point and wavefront peaks, smoothly dissipating over $\sim 1.75\text{ s}$ back to the straight idle state.
+   - On pluck at `contactRatio` ($u_0$), launches two counter-propagating Gaussian energy pulses ($u_0 \pm c t$) that travel outward toward both anchors and reflect off the boundaries, coupled with length-aware, $1/n^2$-weighted 1st, 2nd, and 3rd standing string harmonics ($\sin(n\pi u_0)$, faster overtone damping, brief pluck-release transient) and a subtle high-speed motion-blur trail line.
+   - Dynamic per-vertex chromatic gradients transition across **Cyan (`#00f0ff`), Electric Blue (`#38bdf8`), Neon Magenta (`#ff007f`), and Vivid Purple (`#a855f7`)**, with a white-hot flash at the contact point and wavefront peaks, smoothly dissipating over $\sim 1.35\text{ s}$ back to the straight idle state.
 
 2. **Expanding Circular Contact Shockwave Ripples** (`pluck-shockwave-pool.ts`):
    - Pre-allocated pool of 10 subtle, transparent concentric circular ring shockwaves (`THREE.RingGeometry`, `opacity: 0.28`, `maxRadius: 0.036`) that expand delicately from the fingertip contact point on pluck over `240 ms`.
@@ -291,41 +302,29 @@ graph TD
 
 ---
 
-### Step 8: Glassmorphic UI Suite, Centralized Typography & Mobile/Tablet Responsiveness (✅ Completed)
+### Step 8: Optical Studio UI Suite, Typography System & Mobile/Tablet Responsiveness (✅ Completed)
 
-1. **Glassmorphic Top Navigation Bar (`src/ui/nav-bar.ts`)**:
-   - Floating header with geometric SVG spatial harp emblem, `SPATIAL HARP` branding, tab buttons (`Instrument`, `Sound Studio`, `Settings`), `📊 Diagnostics` toggle button, `🗑️ Clear` action button, and pulsing `LIVE AR` status badge.
-   - Zero UI framework — constructed entirely with vanilla DOM elements and TypeScript.
+1. **Floating Top Islands (`src/ui/nav-bar.ts`, `src/ui/styles.css`, `src/ui/icons.ts`)**:
+   - Smoked-obsidian floating top-left island (brand mark, `Spatial Harp`, live `0 / 12` active string counter pill, System Metrics toggle `[D]`) and top-right control island (`Studio`, `Settings`, `Clear [C]`) so the glowing AR strings remain the sole neon focal point.
+   - Zero UI framework — 100% vanilla DOM, TypeScript, inline 1.5px-stroke SVGs, and centralized CSS custom properties in `src/ui/styles.css`.
 
-2. **Dedicated Sound Studio Slide-Out Drawer (`src/ui/sound-studio-panel.ts`)**:
-   - Extracted audio preset and scale selectors out of the HUD into an atmospheric drawer panel accessible via the `Sound Studio` tab in the navigation bar.
-   - Seamlessly integrates with `AudioEngine` preset loading and `ScaleMapper` spatial pitch tuning.
+2. **Dedicated Sound Studio Drawer (`src/ui/sound-studio-panel.ts`)**:
+   - Features a **2×2 tactile instrument patch grid** (`Plucked Harp`, `Laser Synth`, `Ambient Chime`, `Retro 8-Bit`), custom precision `<input type="range">` faders for **Reverb Mix** (`0–100%`), **Delay Mix** (`0–100%`), **Delay Feedback** (`0–85%`), branded `<select>` for tempo-synced **Delay Time**, and a **Reset** button. The instrument uses the Japanese **Hirajōshi** tuning under the hood.
+   - Custom FX tweaks are persisted per preset in `localStorage` (`presetFxOverrides`) and automatically restored when switching between presets (`AudioEngine.setFxParams` / `resetPresetFx`).
 
-3. **User-Intent Permission Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
-   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user intentionally clicks `"START EXPERIENCE"`.
-   - **Compliant with Mobile & Desktop Browsers**: Adheres strictly to browser user-gesture requirements (iOS Safari, Android Chrome, desktop browsers), preventing unprompted camera popups or autoplay audio blocks.
-   - **Integrated Start Button Loader & Graceful Error Recovery**: Preloading progress (`0% -> 100%`) fills directly inside the Start button, and clicking `"START EXPERIENCE"` activates an inline CSS spinner and shimmer animation while negotiating camera access and audio unlock. If camera access is denied, a compact inline error banner appears with an interactive `"GRANT PERMISSION & RETRY"` button.
-   - **Compact Local-Only Privacy Notice**: Concise single-line notice reassuring users that everything is processed locally in-browser with zero recording or server transmission.
+3. **Editorial Splash Screen & Privacy Notice (`src/ui/splash-screen.ts`, `src/main.ts`)**:
+   - **Zero-Surprise Permission Model**: Page load (`DOMContentLoaded`) only preloads configuration and initializes MediaPipe model assets without requesting hardware access. Camera permission and Web Audio unlocking are strictly deferred until the user clicks `"Start playing"`.
+   - **Hairline Gesture Strip**: Clean 3-column gesture strip with custom SVG icons, quiet local-processing privacy note, and a high-contrast alabaster CTA with integrated loading progress bar and error retry recovery.
 
-4. **Centralized JetBrains Mono Typography (`index.html`)**:
-   - Global design tokens `--font-primary` and `--font-display` pointing to `JetBrains Mono, monospace`.
-   - All HUD labels, navbar buttons, modals, and metric readouts inherit the centralized font family.
+4. **Typography Pairing (`index.html`, `src/ui/styles.css`)**:
+   - **Plus Jakarta Sans** for clean sentence-case UI chrome, headings, and controls; **JetBrains Mono** (`tabular-nums`) reserved for live numeric telemetry (`FPS`, `%`, `0 / 12`, note names, version badge).
 
-5. **Cross-Device Mobile & Tablet Responsiveness (`index.html`, `src/ui/nav-bar.ts`)**:
-   - **Safe-Area Insets & Dynamic Viewport (`100dvh`)**: Full support for iPhone notch / Dynamic Island and mobile browser toolbars using `100dvh` and `env(safe-area-inset-*)`, with `#app-splash-screen` acting as a full-screen `pan-y` touch scroll container and `.splash-card` centered via `margin: auto 0` so it never clips or locks scrolling on short screens.
-   - **Compact Breakpoints ($\le 768\text{px}$ & $\le 420\text{px}$)**: Collapses button text labels into streamlined icon touch targets with `min-width: 32px-34px`, compresses header padding, condenses status badges to glowing live indicators, and automatically collapses splash guide cards into vertical rows.
-   - **Full-Width Drawers**: Sound Studio and Diagnostics panels automatically adapt to full viewport width (`calc(100vw - 16px)`) with smooth touch scrolling (`-webkit-overflow-scrolling: touch`).
-   - **Landscape Adaptation**: Short vertical viewports ($\le 500\text{px}$) automatically compress header height to $42\text{px}$ and enable vertical scroll containers so controls remain 100% accessible.
+5. **Cross-Device Mobile & Tablet Responsiveness & High-FPS Compositor Bypass (`src/ui/styles.css`)**:
+   - **Safe-Area Insets & Dynamic Viewport (`100dvh`)**: Full support for iPhone notch / Dynamic Island and mobile toolbars using `100dvh` and `env(safe-area-inset-*)`, plus `body.perf-mobile` disabling `backdrop-filter` across all glass overlays on mobile devices for steady 60 FPS.
+   - **Compact Breakpoints ($\le 768\text{px}$ & $\le 440\text{px}$)**: Keeps button text in the accessibility tree while collapsing to crisp icon targets, adapts drawers to full viewport width, and adjusts splash layout for short landscape viewports ($\le 500\text{px}$).
 
 6. **Interactive 4-Step Visual Tutorial Modal (`src/ui/tutorial-modal.ts`, `public/assets/tutorial/`)**:
-   - **Post-Splash Auto-Trigger**: Immediately after the user clicks "Start Experience" on the splash screen and enters the app, a glassmorphic tutorial window automatically opens.
-   - **Slide Carousel with Previous/Next Controls**: Includes interactive step indicator dots, a `← Previous` button, a `Next →` button, and keyboard navigation (`ArrowLeft`, `ArrowRight`, `Escape`).
-   - **4 Concise Step Visual Demonstrations (`public/assets/tutorial/`)**:
-     1. `step01.gif`: **Calibrate Hands** — Show open palms to camera to initialize 3D tracking.
-     2. `step02.gif`: **Pinch & Anchor String** — Pinch thumb and index on both hands, stretch apart, release to lock in air.
-     3. `step03.gif`: **Pluck to Play** — Swipe index finger across any string to play notes. Speed controls volume.
-     4. `step04.gif`: **Re-Grab & Modulate** — Pinch string tip [⌖] to resize/bend pitch while plucking with other hand.
-   - **On-Demand Access**: Re-open anytime via the `📖 Tutorial` tab in the top navigation bar.
+   - Native `<dialog closedby="any">` with `@starting-style` entry/exit transitions, keyboard navigation (`ArrowLeft`, `ArrowRight`, `Escape`), hairline media viewport, and step indicator dots.
 
 7. **Unified Brand Identity & Cross-Browser Favicon Suite**:
    - **Unified Brand Icon (`public/icon-128.png`)**: Both the Splash Screen (`src/ui/splash-screen.ts`) and Top Navigation Bar (`src/ui/nav-bar.ts`) consistently reference the official brand emblem from the `public/` directory with transparent background and neon glow styling.
@@ -335,6 +334,11 @@ graph TD
 8. **Automated Continuous Delivery Pipeline (`.github/workflows/`)**:
    - **`ci.yml`**: Triggers on pushes to `main`, validating unit tests and production build. Feature branches remain silent.
    - **`release.yml`**: Triggers on pushes to `release`, verifying tests/builds, automatically creating the `v*` Git tag from `package.json`, and publishing the official GitHub Release with auto-compiled changelogs.
+
+9. **SEO, Structured Data & PWA Metadata (`index.html`, `public/robots.txt`, `public/sitemap.xml`, `public/site.webmanifest`, `vercel.json`)**:
+   - **Player-Focused Metadata & Static Shell (`index.html`)**: Targets `"virtual harp online"` and `"AR webcam musical instrument"` (no download or VR headset required) across `<title>`, `<meta name="description">`, Open Graph/Twitter cards, and the pre-rendered `#app-static-shell` (`<h1>` + `<h2>` hierarchy, removed when `SplashScreen` mounts).
+   - **Enriched `WebApplication` JSON-LD (`index.html`)**: Declares `isAccessibleForFree: true`, `offers` (`$0`), `softwareVersion`, and `featureList` covering hand-tracking modes, standing-wave physics, sound presets, musical scales, and local camera privacy.
+   - **Crawlability & PWA Alignment**: Canonical URL (`https://harps.vercel.app/`), `public/robots.txt`, `public/sitemap.xml`, `vercel.json` caching/security headers, and `public/site.webmanifest` aligned to `#07090d` with `start_url` and `description`.
 
 ---
 

@@ -20,6 +20,8 @@ export interface SoundPresetInfo {
 
 export type MusicalScaleId = 'pentatonic' | 'minor' | 'hirajoshi' | 'major' | 'blues';
 
+export type PitchMode = 'fretted' | 'length';
+
 export interface MusicalScaleInfo {
   id: MusicalScaleId;
   label: string;
@@ -27,10 +29,20 @@ export interface MusicalScaleInfo {
   description: string;
 }
 
+export type DelayTimeDivision = '16n' | '16n.' | '8n' | '8n.' | '4n' | '4n.';
+
+export interface AudioFxParams {
+  reverbWet: number;         // Reverb mix 0..1
+  delayWet: number;          // Delay mix 0..1
+  delayFeedback: number;     // Delay feedback 0..0.85
+  delayTime: DelayTimeDivision;
+}
+
 export interface AudioEngineConfig {
   volume?: number;       // Master volume in dB (default: -4 dB)
   reverbWet?: number;    // Reverb mix 0..1 (default: 0.3)
+  reverbDecay?: number;  // Reverb tail decay in seconds (default: 2.8; lighter on mobile)
   delayWet?: number;     // Delay mix 0..1 (default: 0.12)
-  polyphony?: number;    // Simultaneous voices (default: 8)
+  polyphony?: number;    // Simultaneous voices (default: 12; lighter on mobile)
   preset?: SoundPresetId;
 }

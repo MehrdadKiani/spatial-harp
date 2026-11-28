@@ -21,10 +21,12 @@
   },
 
   "strings": {
-    "_comment": "Mid-air string creation rules, 3-layer anti-snag endpoint tip grabbing (hitbox radius, firm pinch distance, hold dwell time, max hand speed), and laser color palette.",
+    "_comment": "Mid-air string creation rules (pinch-charge-drag), 3-layer anti-snag endpoint tip grabbing (1 or 2 hands), and laser color palette.",
     "maxStrings": 8,
     "minAnchorDistance": 0.10,
     "minStretchDurationMs": 150,
+    "chargeDurationMs": 450,
+    "maxChargeMoveDistance": 0.065,
     "releaseGraceMs": 120,
     "cooldownMs": 350,
     "grabProximityThreshold": 0.045,
@@ -58,9 +60,11 @@
   },
 
   "audio": {
-    "_comment": "Default synthesizer preset ('harp' | 'laser' | 'chime' | 'retro8bit'), musical scale ('pentatonic' | 'minor' | 'hirajoshi' | 'major' | 'blues'), master volume/FX, and 3D length-to-pitch bounds.",
+    "_comment": "Default synthesizer preset ('harp' | 'laser' | 'chime' | 'retro8bit'), Japanese Hirajoshi tuning ('hirajoshi'), pitchMode ('fretted' | 'length'), fretZones (notes per string in fretted mode), master volume/FX, and 3D length-to-pitch bounds.",
     "defaultPreset": "harp",
-    "defaultScale": "pentatonic",
+    "defaultScale": "hirajoshi",
+    "pitchMode": "fretted",
+    "fretZones": 5,
     "volumeDb": -4,
     "reverbWet": 0.30,
     "delayWet": 0.12,
@@ -87,11 +91,11 @@
     "previewRulerTickOpacity": 0.18,
     "majorTickHeight": 0.010,
     "minorTickHeight": 0.005,
-    "waveAmplitude": 0.042,
-    "waveFrequency": 26.0,
-    "waveSpeed": 1.65,
-    "waveDamping": 2.05,
-    "waveDurationSec": 1.75,
+    "waveAmplitude": 0.016,
+    "waveFrequency": 58.0,
+    "waveSpeed": 2.6,
+    "waveDamping": 2.85,
+    "waveDurationSec": 1.35,
     "waveCycles": 3.5,
     "numEchoContours": 5,
     "contactStarburstRays": 18,
@@ -104,8 +108,7 @@
   },
 
   "ui": {
-    "_comment": "UI behavior toggles (tutorial popup on start & live step-by-step hand coaching hints).",
-    "showTutorialOnStart": false,
-    "showLiveHints": true
+    "_comment": "UI behavior toggles (tutorial popup on start).",
+    "showTutorialOnStart": false
   }
 }

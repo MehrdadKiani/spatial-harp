@@ -18,6 +18,7 @@ export class HandTracker {
   private isInitializing = false;
   private lastVideoTime = -1;
   private lastPoses: HandPose[] = [];
+  private currentNumHands = 2;
 
   public async init(config: HandTrackerConfig = {}): Promise<void> {
     if (this.landmarker || this.isInitializing) return;
@@ -33,6 +34,9 @@ export class HandTracker {
     const minHandPresenceConfidence = config.minHandPresenceConfidence ?? 0.55;
     const minTrackingConfidence = config.minTrackingConfidence ?? 0.55;
 
+    const numHands = config.numHands || 2;
+    this.currentNumHands = numHands;
+
     try {
       // Initialize FilesetResolver using local wasm files
       const vision = await FilesetResolver.forVisionTasks(wasmPath);
@@ -43,13 +47,13 @@ export class HandTracker {
           delegate: 'GPU',
         },
         runningMode: 'VIDEO',
-        numHands: config.numHands || 2,
+        numHands,
         minHandDetectionConfidence,
         minHandPresenceConfidence,
         minTrackingConfidence,
       });
 
-      console.log('MediaPipe HandLandmarker initialized successfully (GPU accelerated).');
+      console.log(`MediaPipe HandLandmarker initialized successfully (GPU accelerated, numHands=${numHands}).`);
     } catch (err) {
       console.warn('GPU delegate failed or unavailable, falling back to CPU delegate:', err);
       try {
@@ -61,12 +65,12 @@ export class HandTracker {
             delegate: 'CPU',
           },
           runningMode: 'VIDEO',
-          numHands: config.numHands || 2,
+          numHands,
           minHandDetectionConfidence,
           minHandPresenceConfidence,
           minTrackingConfidence,
         });
-        console.log('MediaPipe HandLandmarker initialized on CPU.');
+        console.log(`MediaPipe HandLandmarker initialized on CPU (numHands=${numHands}).`);
       } catch (cpuErr) {
         console.error('Failed to initialize HandLandmarker:', cpuErr);
         throw cpuErr;
@@ -131,5 +135,17 @@ export class HandTracker {
 
   public setSmoothing(alpha: number): void {
     this.smoother.setAlpha(alpha);
+  }
+
+  public async setNumHands(numHands: number): Promise<void> {
+    const clamped = Math.max(1, Math.min(2, numHands));
+    if (this.currentNumHands === clamped) return;
+    this.currentNumHands = clamped;
+    if (!this.landmarker) return;
+    try {
+      await this.landmarker.setOptions({ numHands: clamped });
+    } catch (err) {
+      console.warn('Failed to dynamically update MediaPipe numHands:', err);
+    }
   }
 }

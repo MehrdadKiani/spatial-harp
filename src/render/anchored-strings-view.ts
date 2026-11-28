@@ -4,15 +4,37 @@ import { StringVibrationState } from '../types/physics';
 import { SceneManager } from './scene-manager';
 import { VisualsConfigGroup } from '../core/config';
 
+export interface AnchoredStringsViewOptions {
+  segmentsPerString?: number;
+  renderCenterLine?: boolean;
+  renderGhostTrail?: boolean;
+}
+
+interface StringSlotCache {
+  stringId: string;
+  p1x: number;
+  p1y: number;
+  p1z: number;
+  p2x: number;
+  p2y: number;
+  p2z: number;
+  color: number;
+  videoAspect: number;
+  wasVibrating: boolean;
+}
+
 export class AnchoredStringsView {
   private group: THREE.Group;
   private sceneManager: SceneManager;
   private maxStrings: number;
   private maxTicksPerString = 30;
 
-  // High-resolution 96-segment tessellation for silky-smooth multi-crest sinusoidal waves (97 vertices)
-  private segmentsPerString = 96;
-  private verticesPerString = 97;
+  // Configurable tessellation (64 desktop, 32 mobile) for smooth waves with minimal GPU uploads
+  private segmentsPerString: number;
+  private verticesPerString: number;
+  private renderCenterLine: boolean;
+  private renderGhostTrail: boolean;
+  private slotCaches: StringSlotCache[] = [];
 
   // Configurable visual & wave physics parameters (from public/config.json)
   private waveCoreHalfWidth = 0.0014;
@@ -20,11 +42,11 @@ export class AnchoredStringsView {
   private rulerTickOpacity = 0.14;
   private majorTickHeight = 0.010;
   private minorTickHeight = 0.005;
-  private waveAmplitude = 0.042;
-  private waveFrequency = 26.0;
-  private waveSpeed = 1.65;
-  private waveDamping = 2.05;
-  private waveDurationSec = 1.75;
+  private waveAmplitude = 0.016;
+  private waveFrequency = 58.0;
+  private waveSpeed = 2.6;
+  private waveDamping = 2.85;
+  private waveDurationSec = 1.35;
 
   // 1. Oscillating Main Laser Beam Lines & Ribbons (Core Line + Core Ribbon + Soft Neon Glow Ribbon)
   private waveLines: THREE.Line[] = [];
@@ -72,11 +94,30 @@ export class AnchoredStringsView {
   private scratchLower = new THREE.Vector3();
   private baseColor = new THREE.Color();
 
-  constructor(sceneManager: SceneManager, maxStrings = 12) {
+  constructor(sceneManager: SceneManager, maxStrings = 12, options: AnchoredStringsViewOptions = {}) {
     this.sceneManager = sceneManager;
     this.maxStrings = maxStrings;
+    this.segmentsPerString = Math.max(16, options.segmentsPerString ?? 64);
+    this.verticesPerString = this.segmentsPerString + 1;
+    this.renderCenterLine = options.renderCenterLine ?? true;
+    this.renderGhostTrail = options.renderGhostTrail ?? true;
     this.group = new THREE.Group();
     this.sceneManager.scene.add(this.group);
+
+    for (let i = 0; i < this.maxStrings; i++) {
+      this.slotCaches.push({
+        stringId: '',
+        p1x: NaN,
+        p1y: NaN,
+        p1z: NaN,
+        p2x: NaN,
+        p2y: NaN,
+        p2z: NaN,
+        color: -1,
+        videoAspect: -1,
+        wasVibrating: false,
+      });
+    }
 
     // Shared index buffer for 96-segment ribbon triangle strips (96 * 6 = 576 indices)
     const ribbonIndices = new Uint16Array(this.segmentsPerString * 6);
@@ -224,21 +265,39 @@ export class AnchoredStringsView {
   }
 
   public configure(cfg: Partial<VisualsConfigGroup>): void {
-    if (cfg.waveCoreHalfWidth !== undefined) this.waveCoreHalfWidth = cfg.waveCoreHalfWidth;
-    if (cfg.waveGlowHalfWidth !== undefined) this.waveGlowHalfWidth = cfg.waveGlowHalfWidth;
+    let invalidateGeometry = false;
+    if (cfg.waveCoreHalfWidth !== undefined) {
+      this.waveCoreHalfWidth = cfg.waveCoreHalfWidth;
+      invalidateGeometry = true;
+    }
+    if (cfg.waveGlowHalfWidth !== undefined) {
+      this.waveGlowHalfWidth = cfg.waveGlowHalfWidth;
+      invalidateGeometry = true;
+    }
     if (cfg.rulerTickOpacity !== undefined) {
       this.rulerTickOpacity = cfg.rulerTickOpacity;
       this.tickLines.forEach((line) => {
         (line.material as THREE.LineBasicMaterial).opacity = this.rulerTickOpacity;
       });
     }
-    if (cfg.majorTickHeight !== undefined) this.majorTickHeight = cfg.majorTickHeight;
-    if (cfg.minorTickHeight !== undefined) this.minorTickHeight = cfg.minorTickHeight;
+    if (cfg.majorTickHeight !== undefined) {
+      this.majorTickHeight = cfg.majorTickHeight;
+      invalidateGeometry = true;
+    }
+    if (cfg.minorTickHeight !== undefined) {
+      this.minorTickHeight = cfg.minorTickHeight;
+      invalidateGeometry = true;
+    }
     if (cfg.waveAmplitude !== undefined) this.waveAmplitude = cfg.waveAmplitude;
     if (cfg.waveFrequency !== undefined) this.waveFrequency = cfg.waveFrequency;
     if (cfg.waveSpeed !== undefined) this.waveSpeed = cfg.waveSpeed;
     if (cfg.waveDamping !== undefined) this.waveDamping = cfg.waveDamping;
     if (cfg.waveDurationSec !== undefined) this.waveDurationSec = cfg.waveDurationSec;
+    if (invalidateGeometry) {
+      for (let i = 0; i < this.slotCaches.length; i++) {
+        this.slotCaches[i].stringId = '';
+      }
+    }
   }
 
   /**
@@ -288,13 +347,13 @@ export class AnchoredStringsView {
    * Triggers natural bi-directional traveling wave & multi-harmonic string oscillation from the exact hit point (contactRatio)
    */
   public triggerPluck(stringId: string, velocity: number, contactRatio: number, elapsed: number): void {
-    const clampedVel = Math.min(1.0, Math.max(0.35, velocity));
+    const clampedVel = Math.min(1.0, Math.max(0.22, velocity));
     const initialAmplitude = this.waveAmplitude * clampedVel;
     this.vibrations.set(stringId, {
       stringId,
       initialAmplitude,
       amplitude: initialAmplitude,
-      frequency: this.waveFrequency + (Math.random() - 0.5) * 4.0,
+      frequency: this.waveFrequency + (Math.random() - 0.5) * 3.0,
       waveSpeed: this.waveSpeed,
       damping: this.waveDamping,
       startTime: elapsed,
@@ -323,12 +382,8 @@ export class AnchoredStringsView {
     strings.forEach((str, idx) => {
       if (idx >= this.maxStrings) return;
 
-      const p1 = this.scratchP1;
-      const p2 = this.scratchP2;
-      const w1 = this.sceneManager.toWorldCoords(str.point1.x, str.point1.y, str.point1.z, videoAspect);
-      const w2 = this.sceneManager.toWorldCoords(str.point2.x, str.point2.y, str.point2.z, videoAspect);
-      p1.copy(w1);
-      p2.copy(w2);
+      const p1 = this.sceneManager.toWorldCoords(str.point1.x, str.point1.y, str.point1.z, videoAspect, this.scratchP1);
+      const p2 = this.sceneManager.toWorldCoords(str.point2.x, str.point2.y, str.point2.z, videoAspect, this.scratchP2);
 
       const dir = this.scratchDir.subVectors(p2, p1);
       const length = dir.length();
@@ -353,249 +408,287 @@ export class AnchoredStringsView {
         }
       }
 
+      const cache = this.slotCaches[idx];
+      const geometryChanged =
+        cache.stringId !== str.id ||
+        cache.p1x !== p1.x ||
+        cache.p1y !== p1.y ||
+        cache.p1z !== p1.z ||
+        cache.p2x !== p2.x ||
+        cache.p2y !== p2.y ||
+        cache.p2z !== p2.z ||
+        cache.color !== str.color ||
+        cache.videoAspect !== videoAspect;
+
+      const needsVertexUpdate = isVibrating || cache.wasVibrating || geometryChanged;
+
       const waveLine = this.waveLines[idx];
-      const wavePos = this.wavePositions[idx];
-      const waveCol = this.waveColors[idx];
-
       const waveCoreMesh = this.waveCoreMeshes[idx];
-      const waveCorePos = this.waveCorePositions[idx];
-      const waveCoreCol = this.waveCoreColors[idx];
       const waveCoreMat = this.waveCoreMaterials[idx];
-
       const waveGlowMesh = this.waveGlowMeshes[idx];
-      const waveGlowPos = this.waveGlowPositions[idx];
-      const waveGlowCol = this.waveGlowColors[idx];
       const waveGlowMat = this.waveGlowMaterials[idx];
-
       const trailMesh = this.trailLines[idx];
-      const trailPos = this.trailPositions[idx];
-      const trailCol = this.trailColors[idx];
 
-      const pulse = 1.0 + 0.08 * Math.sin(elapsed * 4.5 + idx * 1.3);
-      const coreBeamHalfWidth = this.waveCoreHalfWidth * 0.65 * pulse;
-      const innerGlowHalfWidth = this.waveGlowHalfWidth * 0.65 * pulse;
+      const idleBreath = 0.96 + 0.04 * Math.sin(elapsed * 3.8 + idx * 1.3);
 
-      let linePtr = 0;
-      let ribbonPtr = 0;
+      if (needsVertexUpdate) {
+        const wavePos = this.wavePositions[idx];
+        const waveCol = this.waveColors[idx];
+        const waveCorePos = this.waveCorePositions[idx];
+        const waveCoreCol = this.waveCoreColors[idx];
+        const waveGlowPos = this.waveGlowPositions[idx];
+        const waveGlowCol = this.waveGlowColors[idx];
+        const trailPos = this.trailPositions[idx];
+        const trailCol = this.trailColors[idx];
 
-      for (let v = 0; v < this.verticesPerString; v++) {
-        const u = v / this.segmentsPerString;
-        const base = this.scratchVert.lerpVectors(p1, p2, u);
-        const boundaryPin = Math.sin(Math.PI * u);
+        const coreBeamHalfWidth = this.waveCoreHalfWidth * 0.65;
+        const innerGlowHalfWidth = this.waveGlowHalfWidth * 0.65;
+
+        // Hoist per-string wave invariants outside the vertex loop (~70% less trig/exp math per frame)
+        let u0 = 0.5;
+        let travelDist = 0;
+        let waveDecay = 0;
+        const invSigmaSq = 1.0 / (2.0 * 0.075 * 0.075);
+        let contactFlashAmp = 0;
+        let effectiveAmp = 0;
+        let w1Cos = 0;
+        let w2Cos = 0;
+        let w3Cos = 0;
+        let w1TrailCos = 0;
+        let w2TrailCos = 0;
+        let transientCos = 0;
 
         if (isVibrating && vib) {
-          // 1. Bi-Directional Traveling Wave Packets originating from the exact hit point (contactRatio = u0)
-          const u0 = vib.contactRatio;
-          const travelDist = vib.waveSpeed * timeSincePluck;
-          const waveDecay = Math.exp(-1.9 * timeSincePluck);
+          const lengthFactor = Math.min(1.35, Math.max(0.55, length / 0.6));
+          effectiveAmp = vib.initialAmplitude * lengthFactor;
+          const effectiveFreq = vib.frequency / Math.sqrt(lengthFactor);
 
-          // Direct wavefronts moving left (u0 - c*t) and right (u0 + c*t) from the hit point
-          const dLeft = u - (u0 - travelDist);
-          const dRight = u - (u0 + travelDist);
-          // Reflected wavefronts bouncing off the two fixed endpoints
-          const dReflectLeft = u - (-(u0 - travelDist));
-          const dReflectRight = u - (2.0 - (u0 + travelDist));
+          u0 = vib.contactRatio;
+          travelDist = vib.waveSpeed * timeSincePluck;
+          waveDecay = Math.exp(-2.8 * timeSincePluck);
+          contactFlashAmp = timeSincePluck < 0.14 ? 1.0 - timeSincePluck / 0.14 : 0;
 
-          const sigma = 0.075;
-          const invSigmaSq = 1.0 / (2.0 * sigma * sigma);
-          const pulseLeft = Math.exp(-dLeft * dLeft * invSigmaSq);
-          const pulseRight = Math.exp(-dRight * dRight * invSigmaSq);
-          const pulseRefL = 0.6 * Math.exp(-dReflectLeft * dReflectLeft * invSigmaSq);
-          const pulseRefR = 0.6 * Math.exp(-dReflectRight * dReflectRight * invSigmaSq);
+          const phase1 = effectiveFreq * timeSincePluck;
+          const phase2 = 2.005 * phase1;
+          const phase3 = 3.012 * phase1;
 
-          const waveEnergy = Math.min(1.4, (pulseLeft + pulseRight + pulseRefL + pulseRefR) * waveDecay);
+          const w1Weight = Math.max(0.35, Math.sin(Math.PI * u0)) * envelopeAlpha;
+          const w2Weight = 0.22 * Math.sin(2.0 * Math.PI * u0) * Math.exp(-2.2 * vib.damping * timeSincePluck);
+          const w3Weight = 0.09 * Math.sin(3.0 * Math.PI * u0) * Math.exp(-3.4 * vib.damping * timeSincePluck);
 
-          const distFromContact = u - u0;
-          const contactFlash =
-            timeSincePluck < 0.16
-              ? Math.exp(-distFromContact * distFromContact * 140.0) * (1.0 - timeSincePluck / 0.16)
-              : 0;
+          const cosP1 = Math.cos(phase1);
+          w1Cos = w1Weight * cosP1;
+          w2Cos = w2Weight * Math.cos(phase2);
+          w3Cos = w3Weight * Math.cos(phase3);
+          transientCos = 0.14 * Math.exp(-18.0 * timeSincePluck) * cosP1;
 
-          // 2. Multi-Harmonic Standing Guitar String Oscillation (harmonics 1, 2, 3 weighted by hit point u0)
-          const w1Weight = Math.max(0.35, Math.sin(Math.PI * u0));
-          const w2Weight = 0.45 * Math.sin(2.0 * Math.PI * u0);
-          const w3Weight = 0.25 * Math.sin(3.0 * Math.PI * u0);
-
-          const phase1 = vib.frequency * timeSincePluck;
-          const phase2 = 2.02 * vib.frequency * timeSincePluck;
-          const phase3 = 3.05 * vib.frequency * timeSincePluck;
-
-          const mode1 = w1Weight * boundaryPin * envelopeAlpha;
-          const mode2 = w2Weight * Math.sin(2.0 * Math.PI * u) * Math.exp(-1.45 * vib.damping * timeSincePluck);
-          const mode3 = w3Weight * Math.sin(3.0 * Math.PI * u) * Math.exp(-2.1 * vib.damping * timeSincePluck);
-
-          // Traveling wave ripples originating at u0 and propagating outward
-          const travelingWaveOsc =
-            0.55 * waveEnergy * Math.sin(14.0 * Math.PI * (u - u0) - 24.0 * timeSincePluck) * boundaryPin;
-
-          // Instantaneous oscillating string position
-          const instDisp =
-            vib.initialAmplitude *
-            (mode1 * Math.cos(phase1) +
-              mode2 * Math.cos(phase2) +
-              mode3 * Math.cos(phase3) +
-              travelingWaveOsc);
-
-          // Phase-lagged motion-blur ghost trail position
-          const trailDisp =
-            vib.initialAmplitude *
-            0.82 *
-            (mode1 * Math.cos(phase1 - 0.65) +
-              mode2 * Math.cos(phase2 - 0.85) +
-              travelingWaveOsc * 0.75);
-
-          const oscPt = this.scratchOsc.copy(base).addScaledVector(normal, instDisp);
-          const trailPt = this.scratchTrail.copy(base).addScaledVector(normal, trailDisp);
-
-          wavePos[linePtr] = oscPt.x;
-          wavePos[linePtr + 1] = oscPt.y;
-          wavePos[linePtr + 2] = oscPt.z;
-
-          trailPos[linePtr] = trailPt.x;
-          trailPos[linePtr + 1] = trailPt.y;
-          trailPos[linePtr + 2] = trailPt.z;
-
-          // 3. Dynamic Neon Chromatic Gradient along traveling wave (Cyan -> Electric Blue -> Magenta -> Purple)
-          const chromaPhase = u * 3.5 - timeSincePluck * 5.5;
-          const cyanFactor = 0.5 + 0.5 * Math.cos(chromaPhase);
-          const magentaFactor = 0.5 + 0.5 * Math.sin(chromaPhase);
-          const energyBoost = Math.min(1.0, waveEnergy * 0.85 + contactFlash * 0.5);
-
-          const r = Math.min(
-            1.0,
-            this.baseColor.r * (1.0 - energyBoost * 0.45) +
-              (0.95 * magentaFactor + 0.20 * (1.0 - cyanFactor)) * energyBoost
-          );
-          const g = Math.min(
-            1.0,
-            this.baseColor.g * (1.0 - energyBoost * 0.45) +
-              (0.95 * cyanFactor + 0.10 * magentaFactor) * energyBoost
-          );
-          const b = Math.min(
-            1.0,
-            this.baseColor.b * (1.0 - energyBoost * 0.35) + 0.90 * energyBoost
-          );
-
-          waveCol[linePtr] = r;
-          waveCol[linePtr + 1] = g;
-          waveCol[linePtr + 2] = b;
-
-          trailCol[linePtr] = Math.min(1.0, r * 0.85 + 0.25) * envelopeAlpha;
-          trailCol[linePtr + 1] = g * 0.55 * envelopeAlpha;
-          trailCol[linePtr + 2] = Math.min(1.0, b * 0.95) * envelopeAlpha;
-
-          // Core & Inner Glow Ribbons (tightly follow oscillating string oscPt — no shadow fill)
-          const activeCoreW = coreBeamHalfWidth * (1.0 + 0.55 * energyBoost);
-          const coreTop = this.scratchUpper.copy(oscPt).addScaledVector(normal, activeCoreW);
-          const coreBtm = this.scratchLower.copy(oscPt).addScaledVector(normal, -activeCoreW);
-
-          waveCorePos[ribbonPtr] = coreTop.x;
-          waveCorePos[ribbonPtr + 1] = coreTop.y;
-          waveCorePos[ribbonPtr + 2] = coreTop.z;
-          waveCoreCol[ribbonPtr] = r;
-          waveCoreCol[ribbonPtr + 1] = g;
-          waveCoreCol[ribbonPtr + 2] = b;
-
-          waveCorePos[ribbonPtr + 3] = coreBtm.x;
-          waveCorePos[ribbonPtr + 4] = coreBtm.y;
-          waveCorePos[ribbonPtr + 5] = coreBtm.z;
-          waveCoreCol[ribbonPtr + 3] = r;
-          waveCoreCol[ribbonPtr + 4] = g;
-          waveCoreCol[ribbonPtr + 5] = b;
-
-          const activeGlowW = innerGlowHalfWidth * (1.0 + 0.85 * energyBoost);
-          const glowTop = this.scratchUpper.copy(oscPt).addScaledVector(normal, activeGlowW);
-          const glowBtm = this.scratchLower.copy(oscPt).addScaledVector(normal, -activeGlowW);
-
-          waveGlowPos[ribbonPtr] = glowTop.x;
-          waveGlowPos[ribbonPtr + 1] = glowTop.y;
-          waveGlowPos[ribbonPtr + 2] = glowTop.z;
-          waveGlowCol[ribbonPtr] = r;
-          waveGlowCol[ribbonPtr + 1] = g;
-          waveGlowCol[ribbonPtr + 2] = b;
-
-          waveGlowPos[ribbonPtr + 3] = glowBtm.x;
-          waveGlowPos[ribbonPtr + 4] = glowBtm.y;
-          waveGlowPos[ribbonPtr + 5] = glowBtm.z;
-          waveGlowCol[ribbonPtr + 3] = r;
-          waveGlowCol[ribbonPtr + 4] = g;
-          waveGlowCol[ribbonPtr + 5] = b;
-        } else {
-          // Idle State: Straight Glowing Laser Beam
-          wavePos[linePtr] = base.x;
-          wavePos[linePtr + 1] = base.y;
-          wavePos[linePtr + 2] = base.z;
-
-          const idleShimmer = 0.92 + 0.08 * Math.sin(u * Math.PI * 4.0 + elapsed * 3.5 + idx);
-          const coreR = this.baseColor.r * idleShimmer;
-          const coreG = this.baseColor.g * idleShimmer;
-          const coreB = this.baseColor.b * idleShimmer;
-
-          waveCol[linePtr] = coreR;
-          waveCol[linePtr + 1] = coreG;
-          waveCol[linePtr + 2] = coreB;
-
-          const coreTop = this.scratchUpper.copy(base).addScaledVector(normal, coreBeamHalfWidth);
-          const coreBtm = this.scratchLower.copy(base).addScaledVector(normal, -coreBeamHalfWidth);
-
-          waveCorePos[ribbonPtr] = coreTop.x;
-          waveCorePos[ribbonPtr + 1] = coreTop.y;
-          waveCorePos[ribbonPtr + 2] = coreTop.z;
-          waveCoreCol[ribbonPtr] = coreR;
-          waveCoreCol[ribbonPtr + 1] = coreG;
-          waveCoreCol[ribbonPtr + 2] = coreB;
-
-          waveCorePos[ribbonPtr + 3] = coreBtm.x;
-          waveCorePos[ribbonPtr + 4] = coreBtm.y;
-          waveCorePos[ribbonPtr + 5] = coreBtm.z;
-          waveCoreCol[ribbonPtr + 3] = coreR;
-          waveCoreCol[ribbonPtr + 4] = coreG;
-          waveCoreCol[ribbonPtr + 5] = coreB;
-
-          const innerR = Math.min(1.0, this.baseColor.r * 1.15);
-          const innerG = Math.min(1.0, this.baseColor.g * 1.15);
-          const innerB = Math.min(1.0, this.baseColor.b * 1.15);
-
-          const glowTop = this.scratchUpper.copy(base).addScaledVector(normal, innerGlowHalfWidth);
-          const glowBtm = this.scratchLower.copy(base).addScaledVector(normal, -innerGlowHalfWidth);
-
-          waveGlowPos[ribbonPtr] = glowTop.x;
-          waveGlowPos[ribbonPtr + 1] = glowTop.y;
-          waveGlowPos[ribbonPtr + 2] = glowTop.z;
-          waveGlowCol[ribbonPtr] = innerR;
-          waveGlowCol[ribbonPtr + 1] = innerG;
-          waveGlowCol[ribbonPtr + 2] = innerB;
-
-          waveGlowPos[ribbonPtr + 3] = glowBtm.x;
-          waveGlowPos[ribbonPtr + 4] = glowBtm.y;
-          waveGlowPos[ribbonPtr + 5] = glowBtm.z;
-          waveGlowCol[ribbonPtr + 3] = innerR;
-          waveGlowCol[ribbonPtr + 4] = innerG;
-          waveGlowCol[ribbonPtr + 5] = innerB;
+          if (this.renderGhostTrail) {
+            w1TrailCos = w1Weight * Math.cos(phase1 - 0.35);
+            w2TrailCos = w2Weight * Math.cos(phase2 - 0.50);
+          }
         }
 
-        linePtr += 3;
-        ribbonPtr += 6;
+        const baseR = this.baseColor.r;
+        const baseG = this.baseColor.g;
+        const baseB = this.baseColor.b;
+        const innerR = Math.min(1.0, baseR * 1.15);
+        const innerG = Math.min(1.0, baseG * 1.15);
+        const innerB = Math.min(1.0, baseB * 1.15);
+
+        let linePtr = 0;
+        let ribbonPtr = 0;
+
+        for (let v = 0; v < this.verticesPerString; v++) {
+          const u = v / this.segmentsPerString;
+          const base = this.scratchVert.lerpVectors(p1, p2, u);
+
+          if (isVibrating && vib) {
+            const boundaryPin = Math.sin(Math.PI * u);
+
+            // 1. Bi-Directional Traveling Energy Pulse originating from the exact hit point (u0)
+            const dLeft = u - (u0 - travelDist);
+            const dRight = u - (u0 + travelDist);
+            const dReflectLeft = u - (-(u0 - travelDist));
+            const dReflectRight = u - (2.0 - (u0 + travelDist));
+
+            const pulseLeft = Math.exp(-dLeft * dLeft * invSigmaSq);
+            const pulseRight = Math.exp(-dRight * dRight * invSigmaSq);
+            const pulseRefL = 0.55 * Math.exp(-dReflectLeft * dReflectLeft * invSigmaSq);
+            const pulseRefR = 0.55 * Math.exp(-dReflectRight * dReflectRight * invSigmaSq);
+
+            const waveEnergy = Math.min(1.2, (pulseLeft + pulseRight + pulseRefL + pulseRefR) * waveDecay);
+
+            const distFromContact = u - u0;
+            const contactFlash =
+              contactFlashAmp > 0
+                ? Math.exp(-distFromContact * distFromContact * 140.0) * contactFlashAmp
+                : 0;
+
+            // 2. Physical 1/n^2 Plucked-String Standing Harmonics + brief localized release transient
+            const sin2 = Math.sin(2.0 * Math.PI * u);
+            const sin3 = Math.sin(3.0 * Math.PI * u);
+            const instDisp =
+              effectiveAmp *
+              (w1Cos * boundaryPin +
+                w2Cos * sin2 +
+                w3Cos * sin3 +
+                transientCos * waveEnergy * boundaryPin);
+
+            const oscPt = this.scratchOsc.copy(base).addScaledVector(normal, instDisp);
+
+            // 3. Dynamic Neon Chromatic Gradient along traveling wave
+            const chromaPhase = u * 3.5 - timeSincePluck * 5.5;
+            const cyanFactor = 0.5 + 0.5 * Math.cos(chromaPhase);
+            const magentaFactor = 0.5 + 0.5 * Math.sin(chromaPhase);
+            const energyBoost = Math.min(1.0, waveEnergy * 0.85 + contactFlash * 0.5);
+
+            const r = Math.min(
+              1.0,
+              baseR * (1.0 - energyBoost * 0.45) +
+                (0.95 * magentaFactor + 0.20 * (1.0 - cyanFactor)) * energyBoost
+            );
+            const g = Math.min(
+              1.0,
+              baseG * (1.0 - energyBoost * 0.45) +
+                (0.95 * cyanFactor + 0.10 * magentaFactor) * energyBoost
+            );
+            const b = Math.min(
+              1.0,
+              baseB * (1.0 - energyBoost * 0.35) + 0.90 * energyBoost
+            );
+
+            if (this.renderCenterLine) {
+              wavePos[linePtr] = oscPt.x;
+              wavePos[linePtr + 1] = oscPt.y;
+              wavePos[linePtr + 2] = oscPt.z;
+              waveCol[linePtr] = r;
+              waveCol[linePtr + 1] = g;
+              waveCol[linePtr + 2] = b;
+            }
+
+            if (this.renderGhostTrail) {
+              const trailDisp = effectiveAmp * 0.78 * (w1TrailCos * boundaryPin + w2TrailCos * sin2);
+              const trailPt = this.scratchTrail.copy(base).addScaledVector(normal, trailDisp);
+              trailPos[linePtr] = trailPt.x;
+              trailPos[linePtr + 1] = trailPt.y;
+              trailPos[linePtr + 2] = trailPt.z;
+              trailCol[linePtr] = Math.min(1.0, r * 0.85 + 0.25) * envelopeAlpha;
+              trailCol[linePtr + 1] = g * 0.55 * envelopeAlpha;
+              trailCol[linePtr + 2] = Math.min(1.0, b * 0.95) * envelopeAlpha;
+            }
+
+            const activeCoreW = coreBeamHalfWidth * (1.0 + 0.55 * energyBoost);
+            const coreTop = this.scratchUpper.copy(oscPt).addScaledVector(normal, activeCoreW);
+            const coreBtm = this.scratchLower.copy(oscPt).addScaledVector(normal, -activeCoreW);
+
+            waveCorePos[ribbonPtr] = coreTop.x;
+            waveCorePos[ribbonPtr + 1] = coreTop.y;
+            waveCorePos[ribbonPtr + 2] = coreTop.z;
+            waveCoreCol[ribbonPtr] = r;
+            waveCoreCol[ribbonPtr + 1] = g;
+            waveCoreCol[ribbonPtr + 2] = b;
+
+            waveCorePos[ribbonPtr + 3] = coreBtm.x;
+            waveCorePos[ribbonPtr + 4] = coreBtm.y;
+            waveCorePos[ribbonPtr + 5] = coreBtm.z;
+            waveCoreCol[ribbonPtr + 3] = r;
+            waveCoreCol[ribbonPtr + 4] = g;
+            waveCoreCol[ribbonPtr + 5] = b;
+
+            const activeGlowW = innerGlowHalfWidth * (1.0 + 0.85 * energyBoost);
+            const glowTop = this.scratchUpper.copy(oscPt).addScaledVector(normal, activeGlowW);
+            const glowBtm = this.scratchLower.copy(oscPt).addScaledVector(normal, -activeGlowW);
+
+            waveGlowPos[ribbonPtr] = glowTop.x;
+            waveGlowPos[ribbonPtr + 1] = glowTop.y;
+            waveGlowPos[ribbonPtr + 2] = glowTop.z;
+            waveGlowCol[ribbonPtr] = r;
+            waveGlowCol[ribbonPtr + 1] = g;
+            waveGlowCol[ribbonPtr + 2] = b;
+
+            waveGlowPos[ribbonPtr + 3] = glowBtm.x;
+            waveGlowPos[ribbonPtr + 4] = glowBtm.y;
+            waveGlowPos[ribbonPtr + 5] = glowBtm.z;
+            waveGlowCol[ribbonPtr + 3] = r;
+            waveGlowCol[ribbonPtr + 4] = g;
+            waveGlowCol[ribbonPtr + 5] = b;
+          } else {
+            // Idle State: Straight Glowing Laser Beam (cached until endpoints change or plucked)
+            if (this.renderCenterLine) {
+              wavePos[linePtr] = base.x;
+              wavePos[linePtr + 1] = base.y;
+              wavePos[linePtr + 2] = base.z;
+              waveCol[linePtr] = baseR;
+              waveCol[linePtr + 1] = baseG;
+              waveCol[linePtr + 2] = baseB;
+            }
+
+            const coreTop = this.scratchUpper.copy(base).addScaledVector(normal, coreBeamHalfWidth);
+            const coreBtm = this.scratchLower.copy(base).addScaledVector(normal, -coreBeamHalfWidth);
+
+            waveCorePos[ribbonPtr] = coreTop.x;
+            waveCorePos[ribbonPtr + 1] = coreTop.y;
+            waveCorePos[ribbonPtr + 2] = coreTop.z;
+            waveCoreCol[ribbonPtr] = baseR;
+            waveCoreCol[ribbonPtr + 1] = baseG;
+            waveCoreCol[ribbonPtr + 2] = baseB;
+
+            waveCorePos[ribbonPtr + 3] = coreBtm.x;
+            waveCorePos[ribbonPtr + 4] = coreBtm.y;
+            waveCorePos[ribbonPtr + 5] = coreBtm.z;
+            waveCoreCol[ribbonPtr + 3] = baseR;
+            waveCoreCol[ribbonPtr + 4] = baseG;
+            waveCoreCol[ribbonPtr + 5] = baseB;
+
+            const glowTop = this.scratchUpper.copy(base).addScaledVector(normal, innerGlowHalfWidth);
+            const glowBtm = this.scratchLower.copy(base).addScaledVector(normal, -innerGlowHalfWidth);
+
+            waveGlowPos[ribbonPtr] = glowTop.x;
+            waveGlowPos[ribbonPtr + 1] = glowTop.y;
+            waveGlowPos[ribbonPtr + 2] = glowTop.z;
+            waveGlowCol[ribbonPtr] = innerR;
+            waveGlowCol[ribbonPtr + 1] = innerG;
+            waveGlowCol[ribbonPtr + 2] = innerB;
+
+            waveGlowPos[ribbonPtr + 3] = glowBtm.x;
+            waveGlowPos[ribbonPtr + 4] = glowBtm.y;
+            waveGlowPos[ribbonPtr + 5] = glowBtm.z;
+            waveGlowCol[ribbonPtr + 3] = innerR;
+            waveGlowCol[ribbonPtr + 4] = innerG;
+            waveGlowCol[ribbonPtr + 5] = innerB;
+          }
+
+          linePtr += 3;
+          ribbonPtr += 6;
+        }
+
+        if (this.renderCenterLine) {
+          (waveLine.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+          (waveLine.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+        }
+        (waveCoreMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+        (waveCoreMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+        (waveGlowMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+        (waveGlowMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+
+        if (isVibrating && this.renderGhostTrail) {
+          (trailMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+          (trailMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+        }
       }
 
-      (waveLine.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-      (waveLine.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
-      waveLine.visible = true;
+      if (this.renderCenterLine) {
+        waveLine.visible = true;
+      }
 
-      waveCoreMat.opacity = isVibrating ? 0.98 : 0.92;
-      (waveCoreMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-      (waveCoreMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      waveCoreMat.opacity = isVibrating ? 0.98 : 0.92 * idleBreath;
       waveCoreMesh.visible = true;
 
-      waveGlowMat.opacity = isVibrating ? 0.78 : 0.62;
-      (waveGlowMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-      (waveGlowMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      waveGlowMat.opacity = isVibrating ? 0.78 : 0.62 * idleBreath;
       waveGlowMesh.visible = true;
 
-      if (isVibrating) {
-        (trailMesh.material as THREE.LineBasicMaterial).opacity = 0.75 * envelopeAlpha;
-        (trailMesh.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-        (trailMesh.geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      if (isVibrating && this.renderGhostTrail) {
+        (trailMesh.material as THREE.LineBasicMaterial).opacity = 0.42 * envelopeAlpha;
         trailMesh.visible = true;
       }
 
@@ -641,35 +734,48 @@ export class AnchoredStringsView {
       reticle1.visible = true;
       reticle2.visible = true;
 
-      const numTicks = Math.min(this.maxTicksPerString, Math.max(8, Math.floor(length * 35)));
       const tickLine = this.tickLines[idx];
-      const tickPos = this.tickPositions[idx];
-      let ptr = 0;
+      if (geometryChanged) {
+        const numTicks = Math.min(this.maxTicksPerString, Math.max(8, Math.floor(length * 35)));
+        const tickPos = this.tickPositions[idx];
+        let ptr = 0;
 
-      for (let t = 0; t < numTicks; t++) {
-        const factor = (t + 1) / (numTicks + 1);
-        const center = this.scratchCenter.lerpVectors(p1, p2, factor);
+        for (let t = 0; t < numTicks; t++) {
+          const factor = (t + 1) / (numTicks + 1);
+          const center = this.scratchCenter.lerpVectors(p1, p2, factor);
 
-        const isMajor = t === Math.floor(numTicks / 2) || t % 4 === 0;
-        const tickHeight = isMajor ? this.majorTickHeight : this.minorTickHeight;
+          const isMajor = t === Math.floor(numTicks / 2) || t % 4 === 0;
+          const tickHeight = isMajor ? this.majorTickHeight : this.minorTickHeight;
 
-        const top = this.scratchTop.copy(center).addScaledVector(normal, tickHeight);
-        const btm = this.scratchBtm.copy(center).addScaledVector(normal, -tickHeight);
+          const top = this.scratchTop.copy(center).addScaledVector(normal, tickHeight);
+          const btm = this.scratchBtm.copy(center).addScaledVector(normal, -tickHeight);
 
-        tickPos[ptr++] = top.x;
-        tickPos[ptr++] = top.y;
-        tickPos[ptr++] = top.z;
-        tickPos[ptr++] = btm.x;
-        tickPos[ptr++] = btm.y;
-        tickPos[ptr++] = btm.z;
+          tickPos[ptr++] = top.x;
+          tickPos[ptr++] = top.y;
+          tickPos[ptr++] = top.z;
+          tickPos[ptr++] = btm.x;
+          tickPos[ptr++] = btm.y;
+          tickPos[ptr++] = btm.z;
+        }
+
+        while (ptr < tickPos.length) {
+          tickPos[ptr++] = 0;
+        }
+
+        (tickLine.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       }
-
-      while (ptr < tickPos.length) {
-        tickPos[ptr++] = 0;
-      }
-
-      (tickLine.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       tickLine.visible = true;
+
+      cache.stringId = str.id;
+      cache.p1x = p1.x;
+      cache.p1y = p1.y;
+      cache.p1z = p1.z;
+      cache.p2x = p2.x;
+      cache.p2y = p2.y;
+      cache.p2z = p2.z;
+      cache.color = str.color;
+      cache.videoAspect = videoAspect;
+      cache.wasVibrating = isVibrating;
     });
   }
 
